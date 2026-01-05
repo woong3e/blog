@@ -70,13 +70,13 @@ const MobileNav = () => {
             <DialogPanel className="fixed top-0 left-0 z-70 h-full w-full bg-white/95 duration-300 dark:bg-gray-950/98">
               <nav
                 ref={navRef}
-                className="mt-8 flex h-full basis-0 flex-col items-start overflow-y-auto pt-2 pl-12 text-left"
+                className="mt-8 flex h-full basis-0 flex-col items-start overflow-y-auto pt-2 text-left"
               >
                 {headerNavLinks.map((link) => (
                   <Link
                     key={link.title}
                     href={link.href}
-                    className="hover:text-primary-500 dark:hover:text-primary-400 mb-4 py-2 pr-4 text-2xl font-bold tracking-widest text-gray-900 outline outline-0 dark:text-gray-100"
+                    className="hover:bg-primary-600 focus:bg-primary-600 active:bg-primary-600 dark:hover:bg-primary-600 dark:focus:bg-primary-600 dark:active:bg-primary-600 mb-4 w-full py-2 pr-4 pl-12 text-2xl font-bold tracking-widest text-gray-900 outline outline-0 hover:text-white focus:text-white focus:outline-none active:text-white dark:text-gray-100 dark:hover:text-white dark:focus:text-white dark:active:text-white"
                     onClick={onToggleNav}
                   >
                     {link.title}
@@ -85,7 +85,7 @@ const MobileNav = () => {
               </nav>
 
               <button
-                className="hover:text-primary-500 dark:hover:text-primary-400 fixed top-7 right-4 z-80 h-16 w-16 p-4 text-gray-900 dark:text-gray-100"
+                className="hover:bg-primary-600 focus:bg-primary-600 active:bg-primary-600 dark:hover:bg-primary-600 dark:focus:bg-primary-600 dark:active:bg-primary-600 fixed top-7 right-4 z-80 h-16 w-16 rounded-full p-4 text-gray-900 outline outline-0 hover:text-white focus:text-white focus:outline-none active:text-white dark:text-gray-100 dark:hover:text-white dark:focus:text-white dark:active:text-white"
                 aria-label="Toggle Menu"
                 onClick={onToggleNav}
               >
