@@ -158,22 +158,23 @@ const TextType = ({
     }
 
     return () => clearTimeout(timeout)
-  }, [
-    currentCharIndex,
-    displayedText,
-    isDeleting,
-    typingSpeed,
-    deletingSpeed,
-    pauseDuration,
-    textArray,
-    currentTextIndex,
-    loop,
-    initialDelay,
-    isVisible,
-    reverseMode,
-    variableSpeed,
-    onSentenceComplete,
-  ])
+  })
+  // [
+  //   currentCharIndex,
+  //   displayedText,
+  //   isDeleting,
+  //   typingSpeed,
+  //   deletingSpeed,
+  //   pauseDuration,
+  //   textArray,
+  //   currentTextIndex,
+  //   loop,
+  //   initialDelay,
+  //   isVisible,
+  //   reverseMode,
+  //   variableSpeed,
+  //   onSentenceComplete,
+  // ])
 
   const shouldHideCursor =
     hideCursorWhileTyping && (currentCharIndex < textArray[currentTextIndex].length || isDeleting)
