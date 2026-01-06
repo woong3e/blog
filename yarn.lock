@@ -1842,6 +1842,22 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@emotion/is-prop-valid@npm:^1.4.0":
+  version: 1.4.0
+  resolution: "@emotion/is-prop-valid@npm:1.4.0"
+  dependencies:
+    "@emotion/memoize": "npm:^0.9.0"
+  checksum: 10c0/5f857814ec7d8c7e727727346dfb001af6b1fb31d621a3ce9c3edf944a484d8b0d619546c30899ae3ade2f317c76390ba4394449728e9bf628312defc2c41ac3
+  languageName: node
+  linkType: hard
+
+"@emotion/memoize@npm:^0.9.0":
+  version: 0.9.0
+  resolution: "@emotion/memoize@npm:0.9.0"
+  checksum: 10c0/13f474a9201c7f88b543e6ea42f55c04fb2fdc05e6c5a3108aced2f7e7aa7eda7794c56bba02985a46d8aaa914fcdde238727a98341a96e2aec750d372dadd15
+  languageName: node
+  linkType: hard
+
 "@esbuild-plugins/node-resolve@npm:^0.2.2":
   version: 0.2.2
   resolution: "@esbuild-plugins/node-resolve@npm:0.2.2"
@@ -2877,10 +2893,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@next/env@npm:15.2.8":
-  version: 15.2.8
-  resolution: "@next/env@npm:15.2.8"
-  checksum: 10c0/3327d93b89c6a5f276be6890d497ddb58ede589817cc4bb6ea05e19e1b91de54c6f80b54d5d92352a72a0bf3b10d31dd85b1d2b5d148562ba1d150d79f6be5c4
+"@next/env@npm:15.2.6":
+  version: 15.2.6
+  resolution: "@next/env@npm:15.2.6"
+  checksum: 10c0/2a59014d613b207a86e3425392460606bdc1b4d9d3a4718ea2d1628d1689801f3c9a7660451a373e360486bc187ff5dec29bb84e7da8774b037919c869f43ed5
   languageName: node
   linkType: hard
 
@@ -9639,11 +9655,11 @@ __metadata:
   languageName: node
   linkType: hard
 
-"next@npm:15.2.8":
-  version: 15.2.8
-  resolution: "next@npm:15.2.8"
+"next@npm:15.2.6":
+  version: 15.2.6
+  resolution: "next@npm:15.2.6"
   dependencies:
-    "@next/env": "npm:15.2.8"
+    "@next/env": "npm:15.2.6"
     "@next/swc-darwin-arm64": "npm:15.2.5"
     "@next/swc-darwin-x64": "npm:15.2.5"
     "@next/swc-linux-arm64-gnu": "npm:15.2.5"
@@ -9696,7 +9712,7 @@ __metadata:
       optional: true
   bin:
     next: dist/bin/next
-  checksum: 10c0/93fd226e6c8b56271b3e35fb53042424a5f174833d4b0a89e1f9305dabba87b427147fd04de98882c29520daf60f0afcb8358687decb17483d051294bca61344
+  checksum: 10c0/b7f20016c81d310e44c02e433103bea894438bee72d2692cb489a84f29ce6a2e285e101037659e21279b7b65a539e74c50024f553bd4f53dbecf828447f39f81
   languageName: node
   linkType: hard
 
@@ -11990,6 +12006,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "tailwind-nextjs-starter-blog@workspace:."
   dependencies:
+    "@emotion/is-prop-valid": "npm:^1.4.0"
     "@eslint/eslintrc": "npm:^3.2.0"
     "@eslint/js": "npm:^9.16.0"
     "@headlessui/react": "npm:2.2.0"
@@ -12019,7 +12036,7 @@ __metadata:
     image-size: "npm:2.0.1"
     lint-staged: "npm:^13.0.0"
     motion: "npm:^12.23.27"
-    next: "npm:15.2.8"
+    next: "npm:15.2.6"
     next-contentlayer2: "npm:0.5.5"
     next-themes: "npm:^0.4.6"
     pliny: "npm:0.4.1"
