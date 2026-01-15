@@ -56,8 +56,8 @@ export default function PostLayout({ content, authorDetails, next, prev, childre
               </div>
             </div>
           </header>
-          <div className="grid-rows-[auto_1fr] divide-y divide-gray-200 pb-8 xl:grid xl:grid-cols-4 xl:gap-x-6 xl:divide-y-0 dark:divide-gray-700">
-            <dl className="pt-6 pb-10 xl:border-b xl:border-gray-200 xl:pt-11 xl:dark:border-gray-700">
+          <div className="grid-rows-[auto_1fr] divide-y divide-gray-200 pb-8 xl:grid xl:grid-cols-12 xl:gap-x-6 xl:divide-y-0 dark:divide-gray-700">
+            <dl className="pt-6 pb-10 xl:col-span-2 xl:border-b xl:border-gray-200 xl:pt-11 xl:dark:border-gray-700">
               <dt className="sr-only">Authors</dt>
               <dd>
                 <ul className="flex flex-wrap justify-center gap-4 sm:space-x-12 xl:block xl:space-y-8 xl:space-x-0">
@@ -94,7 +94,7 @@ export default function PostLayout({ content, authorDetails, next, prev, childre
                 </ul>
               </dd>
             </dl>
-            <div className="divide-y divide-gray-200 xl:col-span-2 xl:row-span-2 xl:pb-0 dark:divide-gray-700">
+            <div className="divide-y divide-gray-200 xl:col-span-8 xl:row-span-2 xl:pb-0 dark:divide-gray-700">
               <div className="prose dark:prose-invert max-w-none pt-10 pb-8">{children}</div>
               {siteMetadata.comments && (
                 <div
@@ -105,13 +105,13 @@ export default function PostLayout({ content, authorDetails, next, prev, childre
                 </div>
               )}
             </div>
-            <div className="hidden xl:col-span-1 xl:row-span-2 xl:block">
-              <div className="sticky top-8 ml-6 border-l-2 border-gray-200 px-3 py-1 dark:border-gray-700">
+            <div className="hidden xl:col-span-2 xl:row-span-2 xl:block">
+              <div className="sticky top-8 border-l-3 border-gray-200 px-3 py-1 dark:border-gray-700">
                 <TOCInline toc={toc} asDisclosure={false} />
               </div>
             </div>
-            <footer>
-              <div className="divide-gray-200 text-sm leading-5 font-medium xl:col-start-1 xl:row-start-2 xl:divide-y dark:divide-gray-700">
+            <footer className="xl:col-span-2">
+              <div className="divide-gray-200 text-sm leading-5 font-medium xl:col-span-2 xl:col-start-1 xl:row-start-2 xl:divide-y dark:divide-gray-700">
                 {tags && (
                   <div className="py-4 xl:py-8">
                     <h2 className="text-xs tracking-wide text-gray-500 uppercase dark:text-gray-400">
