@@ -31,7 +31,7 @@ const Header = () => {
             siteMetadata.headerTitle
           )}
           <TextType
-            text={`∼${pathname}`}
+            text={`~${pathname}`}
             key={pathname}
             deletingSpeed={0}
             loop={false}
@@ -46,7 +46,7 @@ const Header = () => {
               <Link
                 key={link.title}
                 href={link.href}
-                className="hover:text-primary-500 dark:hover:text-primary-400 text-xl font-medium text-gray-900 dark:text-gray-100"
+                className="hover:text-primary-500 focus:text-primary-500 active:text-primary-500 dark:hover:text-primary-400 text-xl font-medium text-gray-900 dark:text-gray-100"
               >
                 {link.title}
               </Link>

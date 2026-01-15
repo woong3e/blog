@@ -127,28 +127,28 @@ const TrueFocus: React.FC<TrueFocusProps> = ({
         style={{ '--border-color': borderColor, '--glow-color': glowColor } as React.CSSProperties}
       >
         <span
-          className="absolute top-[2px] left-[-2px] h-4 w-4 rounded-[3px] border-[3px] border-r-0 border-b-0"
+          className="top-4px absolute left-[-2px] h-3 w-3 border-2 border-r-0 border-b-0"
           style={{
             borderColor: 'var(--border-color)',
             filter: 'drop-shadow(0 0 4px var(--border-color))',
           }}
         ></span>
         <span
-          className="absolute top-[2px] right-[-2px] h-4 w-4 rounded-[3px] border-[3px] border-b-0 border-l-0"
+          className="top-4px absolute right-[-2px] h-3 w-3 border-2 border-b-0 border-l-0"
           style={{
             borderColor: 'var(--border-color)',
             filter: 'drop-shadow(0 0 4px var(--border-color))',
           }}
         ></span>
         <span
-          className="absolute bottom-[-4px] left-[-2px] h-4 w-4 rounded-[3px] border-[3px] border-t-0 border-r-0"
+          className="absolute bottom-0 left-[-2px] h-3 w-3 border-2 border-t-0 border-r-0"
           style={{
             borderColor: 'var(--border-color)',
             filter: 'drop-shadow(0 0 4px var(--border-color))',
           }}
         ></span>
         <span
-          className="absolute right-[-2px] bottom-[-4px] h-4 w-4 rounded-[3px] border-[3px] border-t-0 border-l-0"
+          className="absolute right-[-2px] bottom-0 h-3 w-3 border-2 border-t-0 border-l-0"
           style={{
             borderColor: 'var(--border-color)',
             filter: 'drop-shadow(0 0 4px var(--border-color))',
