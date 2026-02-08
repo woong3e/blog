@@ -9,8 +9,8 @@
   /* Font families */
   --font-bmdohyeon: var(--font-bmdohyeon);
   --font-sans:
-    var(--font-bmdohyeon), ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
-    'Segoe UI Symbol', 'Noto Color Emoji';
+    var(--font-bmdohyeon), ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji',
+    'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
 
   /* Colors */
   /* Copied from https://tailwindcss.com/docs/theme#default-theme-variable-reference */
@@ -84,8 +84,10 @@
   .prose {
     & a {
       color: var(--color-primary-500);
+      text-decoration: none;
       &:hover {
         color: var(--color-primary-600);
+        text-decoration: none;
       }
       & code {
         color: var(--color-primary-400);
@@ -106,8 +108,10 @@
   .prose-invert {
     & a {
       color: var(--color-primary-500);
+      text-decoration: none;
       &:hover {
         color: var(--color-primary-400);
+        text-decoration: none;
       }
       & code {
         color: var(--color-primary-400);
