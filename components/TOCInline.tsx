@@ -1,3 +1,7 @@
+'use client'
+
+import { useEffect, useState, useRef } from 'react'
+
 export type Toc = {
   value: string
   depth: number
@@ -39,6 +43,9 @@ const TOCInline = ({
   collapse = false,
   rightAlign = false,
 }: TOCInlineProps) => {
+  const [activeId, setActiveId] = useState<string>('')
+  const tocListRef = useRef<HTMLUListElement>(null)
+
   const re = Array.isArray(exclude)
     ? new RegExp('^(' + exclude.join('|') + ')$', 'i')
     : new RegExp('^(' + exclude + ')$', 'i')
@@ -48,11 +55,41 @@ const TOCInline = ({
       heading.depth >= fromHeading && heading.depth <= toHeading && !re.test(heading.value)
   )
 
+  useEffect(() => {
+    const handleScroll = () => {
+      const headingElements = filteredToc
+        .map((heading) => document.getElementById(heading.url.substring(1)))
+        .filter((el): el is HTMLElement => el !== null)
+
+      let currentActiveId = ''
+      for (const element of headingElements) {
+        if (element.getBoundingClientRect().top <= 120) {
+          currentActiveId = element.id
+        }
+      }
+      setActiveId(currentActiveId)
+    }
+
+    handleScroll()
+    window.addEventListener('scroll', handleScroll)
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [filteredToc])
+
+  useEffect(() => {
+    if (activeId && tocListRef.current) {
+      const activeElement = tocListRef.current.querySelector(`#toc-${activeId}`)
+      if (activeElement) {
+        activeElement.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+      }
+    }
+  }, [activeId])
+
   const tocList = (
-    <ul className="space-y-2">
+    <ul ref={tocListRef} className="max-h-[calc(100vh-5rem)] space-y-2 overflow-y-auto">
       {filteredToc.map((heading) => (
         <li
           key={heading.value}
+          id={`toc-${heading.url.substring(1)}`}
           className={`${
             heading.depth === 2
               ? 'ml-3'
@@ -67,6 +104,8 @@ const TOCInline = ({
             href={heading.url}
             className={`hover:text-primary-500 dark:hover:text-primary-400 block ${
               heading.depth === 2 ? 'font-medium' : ''
+            } ${
+              activeId === heading.url.substring(1) ? 'text-primary-500 dark:text-primary-400' : ''
             }`}
           >
             {heading.value}

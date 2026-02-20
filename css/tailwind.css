@@ -93,6 +93,9 @@
         color: var(--color-primary-400);
       }
     }
+    & :where(h1, h2, h3, h4, h5, h6) {
+      scroll-margin-top: 1rem;
+    }
     & :where(h1, h2) {
       font-weight: 700;
       letter-spacing: var(--tracking-tight);
@@ -119,6 +122,7 @@
     }
     & :where(h1, h2, h3, h4, h5, h6) {
       color: var(--color-gray-100);
+      scroll-margin-top: 7rem;
     }
   }
 }
