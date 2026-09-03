@@ -1,0 +1,24 @@
+---
+title: 260903 TIL
+date: '2026-09-03' # 포스팅된 글들은 날짜순으로 기본 정렬됩니다.
+tags: ['TIL', 'html']
+draft: false # true일 때 글을 노출하지 않습니다.
+summary: TIL 260903
+---
+
+# 🍀 label 과 input
+
+```
+<label for="user_id">라벨 클릭</label> <input id="user_id" />
+```
+
+<label htmlFor="user_id">라벨 클릭</label>
+<input id="user_id" />
+
+label의 for 속성과 input의 id 속성의 값을 같도록 하면 label을 클릭해도 input으로 포커싱된다. 접근성 향상돼서 좋음.
+
+# 🍀 input의 name 속성
+
+form 태그에서 서버로 데이터를 보낼 때, input 태그의 name 속성값은 key가 되고 사용자가 input에 입력한 값은 value가 되어 서버로 전송된다.
+
+

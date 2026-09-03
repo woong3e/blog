@@ -6,7 +6,7 @@ const siteMetadata = {
   description: 'A blog created with Next.js and Tailwind.css',
   language: 'ko-kr',
   theme: 'system', // system, dark or light
-  siteUrl: 'https://woong3e.github.io',
+  siteUrl: 'https://woong3e.vercel.app/',
   siteRepo: 'https://github.com/woong3e/blog',
   siteLogo: `${process.env.BASE_PATH || ''}/static/images/logo.png`,
   socialBanner: `${process.env.BASE_PATH || ''}/static/images/twitter-card.png`,
