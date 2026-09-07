@@ -1,0 +1,26 @@
+---
+title: 260907 TIL
+date: '2026-09-07' # 포스팅된 글들은 날짜순으로 기본 정렬됩니다.
+tags: ['TIL']
+draft: false # true일 때 글을 노출하지 않습니다.(로컬에는 뜸)
+summary: TIL 260907
+---
+
+## 🍀 단락평가 short circuit
+
+논리 연산자를 사용할때 첫 번째 피연산자의 값만으로 전체 식의 결과를 알 수 있을때 두 번째 피연산자의 평가를 생략하는 동작방식이다.
+
+```javascript  
+// OR 연산자
+console.log("apple" || "banana");   // 첫번째 값이 truthy한 값이기 때문에 첫번째 값인 apple을 반환한다.
+console.log(false || "banana");     // 첫번째 값이 false기때문에 두번째 피연산자의 값을 평가하여 반환한다.
+
+//AND 연산자
+console.log("apple" && "banana");   // 첫번째 값이 truthy이고 두번째값에 의해 평가되어 반영된다. 반환값 banana
+console.log(false && "banana");     // 첫번째 값이 false기때문에 평가하지않고 첫번째 피연산자 값을 그대로 반환한다. 반환값:false
+
+
+```
+
+## 🍀 객체 표기
+
