@@ -1,0 +1,60 @@
+---
+title: 260908 TIL
+date: '2026-09-08' # 포스팅된 글들은 날짜순으로 기본 정렬됩니다.
+tags: ['TIL','javascript']
+draft: false # true일 때 글을 노출하지 않습니다.(로컬에는 뜸)
+summary: TIL 260908
+---
+
+# 🍀 JS 과제
+
+```javascript
+// 1. `title: '자바스크립트 입문'`, `price: 15000`을 가진 book 객체를 만듭니다.
+const book = {
+  title: "자바스크립트 입문",
+  price: 15000,
+};
+// 2. `calculateTotal(book, quantity)` 함수를 선언합니다.
+// 3. 함수에서 book의 가격과 수량을 곱해 반환합니다. 함수 안에서는 출력하지 않습니다.
+// 4. 두 권의 총액을 변수에 저장하고 출력합니다.
+function calculateTotal(book, quantity) {
+  const total = book.price * quantity;
+  return total;
+}
+console.log(calculateTotal(book, 2));
+
+// 5. book의 가격을 18000으로 변경하고 두 권의 총액을 다시 호출해 출력합니다.
+// book.price = 18000;
+book["price"] = 18000;
+// 6. 수량 0도 호출해 확인합니다.
+console.log(calculateTotal(book, 2));
+console.log(calculateTotal(book, 0));
+// 7. `const regularPrice = function(total) { ... };` 형태의 함수 표현식으로 총액을 그대로 반환하는 함수를 만듭니다.
+const regularPrice = function (total) {
+  return total;
+};
+
+// 8. 같은 방식으로 총액에서 3000원을 빼서 반환하는 `discountPrice`를 만듭니다. 총액이 3000원 미만이면 조기 반환으로 0을 반환합니다.
+const discountPrice = function (total) {
+  if (total < 3000) return 0;
+  return total - 3000;
+};
+// 9. `checkout(book, quantity, pricePolicy)`를 선언합니다. 내부에서 `calculateTotal`로 총액을 구하고, `pricePolicy` 콜백에 총액을 전달한 결과를 반환합니다.
+function checkout(book, quantity, pricePolicy) {
+  const result = calculateTotal(book, quantity);
+  return pricePolicy(result);
+}
+
+// 10. 가격이 18000원인 현재 book으로 두 권의 일반 결제와 할인 결제를 호출해 결과를 바깥에서 출력합니다. 수량 0의 할인 결제도 확인합니다. 콜백은 `regularPrice`, `discountPrice`처럼 함수 자체를 전달합니다.
+console.log(checkout(book, 2, regularPrice));
+console.log(checkout(book, 2, discountPrice));
+console.log(checkout(book, 0, discountPrice));
+
+```
+
+# 🍀 JavaScript 이벤트 루프와 비동기 처리 
+
+스터디 조를 짜서 javascript 관련 주제에 대해 하나씩 발표하기로 함.
+
+내가
+
