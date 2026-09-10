@@ -1,0 +1,104 @@
+---
+title: 260910 TIL
+date: '2026-09-10' # 포스팅된 글들은 날짜순으로 기본 정렬됩니다.
+tags: ['TIL', 'javascript', 'class']
+draft: true # true일 때 글을 노출하지 않습니다.(로컬에는 뜸)
+summary: TIL 260910
+---
+
+# 🍀 생성자 함수와 클래스
+
+생성자 함수와 클래스는 모두 인스턴스 객체를 생성하기 위한 수단이다.
+
+자바스크립트는 프로토타입 기반의 객체지향 언어이다.
+
+프로토타입 기반의 객체지향 언어는 클래스 없이도 객체지향 프로그래밍이 가능하다.
+
+생성자 함수와 프로토타입을 통해서 객체지향 언어의 상속을 구현할 수 있다.
+
+클래스없이도 구현이 가능했지만 클래스에 익숙한 프로그래머들에게는 접근이 쉽지 않았다고 한다.
+
+그래서 ES6 에서 클래스가 추가되었다.
+
+생성자 함수로 인스턴스 객체를 만들어보면
+
+```
+function Person(name, age) {
+  this.name = name;
+  this.age = age;
+  this.getInfo = function () {
+    return `${this.name}은 ${this.age}세 입니다.`;
+  }; // 인스턴스 메서드
+}
+
+Person.prototype.sayHi = function () {
+  console.log(`hi ${this.name}은 ${this.age}`);
+}; // 프로토타입 메서드
+
+Person.sayBye = function () {
+  console.log('bye');
+}; //정적 메서드
+
+const person1 = new Person('박지성', 30);
+const person2 = new Person('손흥민', 20);
+
+console.log('같은 객체인가?', person1 === person2); // false : 객체는 참조를 비교하기 때문에 false가 나온다.
+console.log('같을까요?', person1.sayHi === person2.sayHi); // true : sayHi 라는 프로토타입 메서드는 하나뿐임.
+console.log('같을까요?', person1.getInfo === person2.getInfo); // false : 인스턴스 메서드는 인스턴스를 생성할때마다 생긴다.
+Person.sayBye(); // 정적 메서드로,클래스로 호출하고,인스턴스를 생성하지 않고도 호출할 수 있다.
+
+```
+
+// 클래스로 인스턴스 객체 만들어보면
+
+```
+class Person {
+  constructor(name, age) {
+    this.name = name;
+    this.age = age;
+    this.getInfo = function () {
+      return `${this.name}은 ${this.age}세 입니다.`;
+    }; // 인스턴스 메서드
+  }
+
+  sayHi() {
+    return `hi ${this.name}은 ${this.age}세 입니다.`;
+  } // 프로토타입 메서드
+
+  static sayBye() {
+    console.log('bye');
+  } // 정적 메서드[=static 메서드]
+}
+
+const person1 = new Person('박지성', 30);
+const person2 = new Person('손흥민', 20);
+
+person1.sayHi();
+person2.sayHi();
+
+console.log('같은 객체인가?', person1 === person2); // false : 객체는 참조를 비교하기 때문에 false가 나온다.
+console.log('같을까요?', person1.sayHi === person2.sayHi); // true : sayHi라는 프로토타입 메서드는 하나뿐임.
+console.log('같을까요?', person1.getInfo === person2.getInfo); // false : 인스턴스 메서드는 인스턴스를 생성할때마다 생긴다.
+Person.sayBye(); // 정적 메서드로,클래스로 호출하고, 인스턴스를 생성하지 않고도 호출할 수 있다.
+
+```
+
+# 🍀 결론
+
+자바스크립트에서 클래스는 생성자 함수와 역할이 같다 -> 인스턴스 객체 생성
+
+다만 class, constructor, extends, super, static 같은 키워드들을 사용함으로써
+
+객체 생성, 상속, 정적 메서드 등의 의도를 코드에서 더 명확하게 표현할 수 있다는 장점이 있다.
+
+# 🍀 용어 정리
+
+생성자 함수 -> 인스턴스 객체를 생성하는 수단임
+프로퍼티 -> 객체 내부의 [key:value] 로 된 쌍
+인스턴스 객체 -> 생성자함수나 클래스로 만드는 객체임 new 키워드를 사용함
+클래스 -> 인스턴스 객체를 생성하는 수단임
+클래스의 생성자 메서드 -> constructor()를 가리킴
+인스턴스 메서드 -> 인스턴스를 만들때마다 새로 만들어지니까 같을 수가 없음
+프로토타입 메서드 -> 프로토타입 메서드는 인스턴스를 만든다고 달라지는게 아니므로 항상 같다.
+정적 메서드 -> 얘는 인스턴스가 없어도 불러낼수있음. class를 사용하거나 생성자함수를 사용해서 접근할 수 있다.
+[[prototype]] -> 프로토타입 내부슬롯, 연결고리 역할을 한다.
