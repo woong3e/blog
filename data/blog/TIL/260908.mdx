@@ -1,60 +1,286 @@
 ---
 title: 260908 TIL
 date: '2026-09-08' # 포스팅된 글들은 날짜순으로 기본 정렬됩니다.
-tags: ['TIL','javascript']
+tags: ['TIL', 'javascript']
 draft: false # true일 때 글을 노출하지 않습니다.(로컬에는 뜸)
 summary: TIL 260908
 ---
-
-# 🍀 JS 과제
-
-```javascript
-// 1. `title: '자바스크립트 입문'`, `price: 15000`을 가진 book 객체를 만듭니다.
-const book = {
-  title: "자바스크립트 입문",
-  price: 15000,
-};
-// 2. `calculateTotal(book, quantity)` 함수를 선언합니다.
-// 3. 함수에서 book의 가격과 수량을 곱해 반환합니다. 함수 안에서는 출력하지 않습니다.
-// 4. 두 권의 총액을 변수에 저장하고 출력합니다.
-function calculateTotal(book, quantity) {
-  const total = book.price * quantity;
-  return total;
-}
-console.log(calculateTotal(book, 2));
-
-// 5. book의 가격을 18000으로 변경하고 두 권의 총액을 다시 호출해 출력합니다.
-// book.price = 18000;
-book["price"] = 18000;
-// 6. 수량 0도 호출해 확인합니다.
-console.log(calculateTotal(book, 2));
-console.log(calculateTotal(book, 0));
-// 7. `const regularPrice = function(total) { ... };` 형태의 함수 표현식으로 총액을 그대로 반환하는 함수를 만듭니다.
-const regularPrice = function (total) {
-  return total;
-};
-
-// 8. 같은 방식으로 총액에서 3000원을 빼서 반환하는 `discountPrice`를 만듭니다. 총액이 3000원 미만이면 조기 반환으로 0을 반환합니다.
-const discountPrice = function (total) {
-  if (total < 3000) return 0;
-  return total - 3000;
-};
-// 9. `checkout(book, quantity, pricePolicy)`를 선언합니다. 내부에서 `calculateTotal`로 총액을 구하고, `pricePolicy` 콜백에 총액을 전달한 결과를 반환합니다.
-function checkout(book, quantity, pricePolicy) {
-  const result = calculateTotal(book, quantity);
-  return pricePolicy(result);
-}
-
-// 10. 가격이 18000원인 현재 book으로 두 권의 일반 결제와 할인 결제를 호출해 결과를 바깥에서 출력합니다. 수량 0의 할인 결제도 확인합니다. 콜백은 `regularPrice`, `discountPrice`처럼 함수 자체를 전달합니다.
-console.log(checkout(book, 2, regularPrice));
-console.log(checkout(book, 2, discountPrice));
-console.log(checkout(book, 0, discountPrice));
+# 🍀 오늘의 과제
 
 ```
+/*
+======================================================================
+문제 1. 변수와 자료형 — 상품 정보 출력
+======================================================================
 
-# 🍀 JavaScript 이벤트 루프와 비동기 처리 
+상품 하나의 정보를 변수에 저장하고 출력하세요.
 
-스터디 조를 짜서 javascript 관련 주제에 대해 하나씩 발표하기로 함.
+조건
+- 상품명 productName: '노트'
+- 가격 price: 3000
+- 판매 가능 여부 isAvailable: true
+- 위 값을 각각 변수에 저장합니다.
+- typeof로 각 값의 자료형도 출력합니다.
+- 객체나 함수는 만들지 않습니다.
 
-내가
+예상 출력
+상품명: 노트
+가격: 3000
+판매 가능: true
+상품명 타입: string
+가격 타입: number
+판매 가능 타입: boolean
+*/
 
+// 문제 1 풀이
+
+const productName = '노트';
+const price = 3000;
+const isAvailable = true;
+console.log(typeof productName, typeof price, typeof isAvailable);
+
+/*
+======================================================================
+문제 2. 타입 변환 — 문자열로 받은 금액 계산
+======================================================================
+
+가격과 배송비가 문자열로 전달되었습니다. 숫자로 변환한 뒤 합계를 구하세요.
+
+입력
+const inputPrice = '12000';
+const inputDeliveryFee = '3000';
+
+조건
+- 입력 두 줄은 그대로 사용합니다.
+- Number로 각각 변환한 결과를 별도 변수에 저장합니다.
+- 변환한 값으로 합계를 계산합니다.
+- 합계와 합계의 자료형을 출력합니다.
+- 숫자 15000을 직접 출력하지 않습니다.
+
+예상 출력
+총 결제 금액: 15000
+합계 타입: number
+
+*/
+
+// 문제 2 풀이
+const inputPrice = '12000';
+const inputDeliveryFee = '3000';
+const result1 = Number(inputPrice);
+const result2 = Number(inputDeliveryFee);
+const total = result1 + result2;
+console.log(total, typeof total);
+
+/*
+======================================================================
+문제 3. 연산자 — 무료 배송 대상 확인
+======================================================================
+
+회원이면서 주문 금액이 20000원 이상인 경우에만 무료 배송 대상입니다.
+
+입력
+const isMember = true;
+const orderAmount = 18000;
+
+조건
+- 비교 연산자와 논리 AND 연산자(&&)로 결과를 계산합니다.
+- 결과를 canGetFreeDelivery 변수에 저장해 출력합니다.
+- if문이나 삼항 연산자는 사용하지 않습니다.
+- 입력을 아래 세 경우로 하나씩 바꿔 확인합니다.
+
+확인할 입력 → 예상 출력
+true, 18000 → false
+true, 20000 → true
+false, 30000 → false
+
+주의
+같은 이름의 const를 아래에 반복 선언하지 말고,
+처음 작성한 입력값을 바꾼 뒤 파일을 다시 실행하세요.
+*/
+
+// 문제 3 풀이
+const isMember = false;
+const orderAmount = 30000;
+const canGetFreeDelivery = isMember && orderAmount >= 20000;
+console.log(canGetFreeDelivery);
+
+/*
+======================================================================
+문제 4. 조건문 — 점수에 따른 결과 안내
+======================================================================
+
+점수에 따라 안내 문구 하나만 출력하세요.
+
+입력
+let score = 85;
+
+조건
+- score는 숫자로 주어진다고 가정합니다.
+- 0 미만 또는 100 초과: '점수를 확인하세요.'
+- 유효한 점수 중 90 이상: '우수'
+- 유효한 점수 중 70 이상 90 미만: '통과'
+- 나머지 유효한 점수: '재학습'
+- if / else if / else를 사용합니다.
+- 출력은 입력 하나당 한 줄이어야 합니다.
+
+확인할 입력 → 예상 출력
+85 → 통과
+90 → 우수
+70 → 통과
+69 → 재학습
+0 → 재학습
+101 → 점수를 확인하세요.
+-1 → 점수를 확인하세요.
+
+입력값만 바꾸어 각각 실행하세요.
+*/
+
+// 문제 4 풀이
+
+let score = -1;
+
+if (score < 0 || score > 100) {
+  console.log('점수를 확인하세요.');
+} else if (score >= 90) {
+  console.log('우수');
+} else if (score >= 70) {
+  console.log('통과');
+} else {
+  console.log('재학습');
+}
+
+/*
+======================================================================
+문제 5. 반복문 — 조건에 맞는 수의 개수와 합계
+======================================================================
+
+1부터 20까지의 정수 중 3의 배수인 수를 찾고 개수와 합계를 구하세요.
+
+조건
+- for문으로 1부터 20까지 확인합니다.
+- 나머지 연산자(%)와 조건문으로 3의 배수를 판별합니다.
+- 해당 숫자를 찾을 때마다 출력합니다.
+- 개수와 합계는 변수로 누적합니다.
+- 반복문 종료 후 개수와 합계를 출력합니다.
+- 배열이나 함수를 사용하지 않습니다.
+
+예상 출력
+3
+6
+9
+12
+15
+18
+개수: 6
+합계: 63
+*/
+
+// 문제 5 풀이
+
+let count = 0;
+let sum = 0;
+
+for (let i = 1; i <= 20; i++) {
+  if (i % 3 === 0) {
+    console.log(i);
+
+    count++;
+    sum += i;
+  }
+}
+
+console.log(`개수: ${count}`);
+console.log(`합계: ${sum}`);
+
+/*
+======================================================================
+문제 6. 객체 — 상품 정보 수정하기
+======================================================================
+
+다음 상품 객체를 만들고 정보를 조회·수정·추가·삭제하세요.
+
+초기 정보
+- name: '노트'
+- price: 3000
+- stock: 10
+- category: '문구'
+
+조건
+1. product라는 const 변수에 객체 리터럴로 저장합니다.
+2. key라는 변수에 'price'를 저장하고, 대괄호 표기법으로 가격을 읽습니다.
+3. 재고를 현재 값에서 2개 줄입니다.
+4. isAvailable 프로퍼티를 추가하고 재고가 0보다 큰지 비교한 값을 저장합니다.
+5. category 프로퍼티를 delete로 삭제합니다.
+6. 아래 순서대로 결과를 출력합니다.
+- 객체를 통째로 다른 객체로 재할당하지 않습니다.
+
+예상 출력
+가격: 3000
+남은 재고: 8
+판매 가능: true
+삭제 후 카테고리: undefined
+
+*/
+
+// 문제 6 풀이
+
+const product = {
+  name: '노트',
+  price: 3000,
+  stock: 10,
+  category: '문구',
+};
+const key = 'price';
+product.stock -= 2;
+product.isAvailable = product.stock > 0;
+delete product.category;
+
+console.log(`가격: ${product[key]}`);
+console.log(`남은 재고: ${product.stock}`);
+console.log(`판매 가능: ${product.isAvailable}`);
+console.log(`삭제 후 카테고리: ${product.category}`);
+
+/*
+======================================================================
+문제 7. 함수 — 주문 금액 반환하기
+======================================================================
+
+단가와 수량을 받아 주문 금액을 반환하는 함수를 작성하세요.
+
+조건
+- 함수 선언문으로 getOrderTotal(price, quantity)을 정의합니다.
+- price는 양의 정수, quantity는 정수로 들어온다고 가정합니다.
+- quantity가 0 이하이면 0을 즉시 반환합니다.
+- 나머지 경우에는 단가 × 수량을 반환합니다.
+- 함수 안에서 console.log를 사용하지 않습니다.
+- 호출한 쪽에서 반환값을 출력합니다.
+- 외부 변수에 계산 결과를 저장하는 방식은 사용하지 않습니다.
+
+호출 → 예상 반환값
+getOrderTotal(3000, 2) → 6000
+getOrderTotal(5000, 1) → 5000
+getOrderTotal(3000, 0) → 0
+getOrderTotal(3000, -2) → 0
+
+추가 확인
+getOrderTotal(3000, 2)의 반환값에 배송비 2500을 더해 출력하세요.
+예상 출력: 배송비 포함: 8500
+*/
+
+// 문제 7 풀이
+
+function getOrderTotal(price, quantity) {
+  if (quantity <= 0) {
+    return 0;
+  }
+
+  return price * quantity;
+}
+
+console.log(getOrderTotal(3000, 2));
+console.log(getOrderTotal(5000, 1));
+console.log(getOrderTotal(3000, 0));
+console.log(getOrderTotal(3000, -2));
+
+console.log(`배송비 포함: ${getOrderTotal(3000, 2) + 2500}`);
+```
