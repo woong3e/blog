@@ -1,0 +1,205 @@
+---
+title: 260916 TIL
+date: '2026-09-16' # 포스팅된 글들은 날짜순으로 기본 정렬됩니다.
+tags: ['TIL']
+draft: false # true일 때 글을 노출하지 않습니다.(로컬에는 뜸)
+summary: TIL 260916
+---
+
+# 🍀 금일 과제
+
+```html
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>React 컴포넌트와 Props 실습</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 40px 20px 80px;
+        color: #222;
+        font-family: Arial, 'Noto Sans KR', sans-serif;
+        background: #f4f6fa;
+      }
+      h1 {
+        margin-bottom: 8px;
+      }
+      .description {
+        margin-top: 0;
+        color: #596275;
+      }
+      .requirements {
+        padding: 18px 18px 18px 38px;
+        border: 1px solid #dfe4ea;
+        border-radius: 10px;
+        line-height: 1.7;
+        background: white;
+      }
+      .app {
+        display: grid;
+        gap: 24px;
+        margin-top: 30px;
+      }
+      .course-header {
+        padding: 24px;
+        border-radius: 14px;
+        color: white;
+        background: #315efb;
+      }
+      .course-header h2 {
+        margin: 0 0 8px;
+      }
+      .card-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+      }
+      .student-card {
+        flex: 1;
+        min-width: 220px;
+        padding: 20px;
+        border: 1px solid #dfe4ea;
+        border-radius: 12px;
+        background: white;
+      }
+      .student-card h3 {
+        margin-top: 0;
+        color: #315efb;
+      }
+      .panel {
+        padding: 20px;
+        border-left: 6px solid #ffa502;
+        border-radius: 8px;
+        background: #fff8e8;
+      }
+      .panel h3 {
+        margin-top: 0;
+      }
+      .placeholder {
+        padding: 20px;
+        border: 2px dashed #a4b0be;
+        border-radius: 8px;
+        color: #747d8c;
+        background: white;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>React 컴포넌트와 Props 실습</h1>
+    <p class="description">아래 요구사항에 맞게 script 영역의 세 컴포넌트를 완성하세요.</p>
+
+    <ol class="requirements">
+      <li>
+        <strong>CourseHeader:</strong> <code>title</code>과 <code>teacher</code>를 props로 받아
+        제목과 강사명을 출력합니다.
+      </li>
+      <li>
+        <strong>StudentCard:</strong> <code>name</code>, <code>age</code>, <code>track</code>을
+        구조분해 할당으로 받고 학생 정보를 출력합니다. <code>track</code>이 없으면
+        <code>미정</code>을 기본값으로 사용합니다.
+      </li>
+      <li>
+        <strong>InfoPanel:</strong> <code>title</code>과 <code>children</code>을 받아 제목과 내부
+        내용을 출력합니다. <code>title</code>이 없으면 <code>안내</code>를 기본값으로 사용합니다.
+      </li>
+      <li>
+        <strong>App:</strong> 완성한 컴포넌트를 조립합니다. <code>StudentCard</code>는 서로 다른
+        값으로 두 번 사용하고, 두 번째 카드에는 <code>track</code>을 전달하지 않습니다.
+      </li>
+      <li>
+        <strong>App:</strong> <code>InfoPanel</code>의 여는 태그와 닫는 태그 사이에 두 개 이상의 JSX
+        요소를 넣어 <code>children</code>으로 전달합니다.
+      </li>
+    </ol>
+
+    <div id="root"></div>
+
+    <script type="text/babel">
+      // 문제 1. 과정 제목 컴포넌트
+      function CourseHeader(props) {
+        // title과 teacher를 props로 받아 사용하도록 수정하세요.
+        return (
+          <div className="placeholder">
+            안녕하세요 {props.title} 저자 {props.teacher} 입니다.
+          </div>
+        )
+      }
+
+      // 문제 2. 재사용 가능한 학생 카드 컴포넌트
+      function StudentCard({ name, age, track = '미정' }) {
+        // name, age, track을 구조분해 할당으로 받으세요.
+        // track의 기본값은 '미정'입니다.
+        return (
+          <div className="placeholder">
+            안녕하세요 {name} {age} {track}
+          </div>
+        )
+      }
+
+      // 문제 3. children을 사용하는 안내 패널
+      function InfoPanel({ title = '안내', children }) {
+        // title과 children을 구조분해 할당으로 받으세요.
+        // title의 기본값은 '안내'입니다.
+        return (
+          <div className="placeholder">
+            안녕하세요 {title} {children}
+          </div>
+        )
+      }
+
+      function App() {
+        return (
+          <main className="app">
+            {/* CourseHeader를 한 번 사용하세요. */}
+            <CourseHeader title="박지성 자서전" teacher="박지성" />
+
+            <section className="card-list">
+              {/* 서로 다른 값을 가진 StudentCard 두 개를 작성하세요. */}
+              {/* 두 번째 StudentCard에는 track을 전달하지 마세요. */}
+              <StudentCard name="박지성" age={30} track={5}></StudentCard>
+              <StudentCard name="손흥민" age={20}></StudentCard>
+            </section>
+
+            {/* InfoPanel을 사용하고 태그 사이에 두 개 이상의 JSX 요소를 작성하세요. */}
+            <InfoPanel title="손흥민 자서전">
+              children입니다.
+              <div>여러 줄도 가능</div>
+              <div>여러 줄도 가능</div>
+            </InfoPanel>
+          </main>
+        )
+      }
+
+      ReactDOM.createRoot(document.getElementById('root')).render(<App />)
+    </script>
+  </body>
+</html>
+```
+
+JS로 작성할 때는 하나하나 명령형으로 코드를 작성하게 되지만 React는 상태를 바꿔주면 알아서 화면을 알맞게 고쳐준다.
+
+props는 부모에서 자식으로 데이터 값을 props라는 객체로 전달하는 것.
+
+부모에서 자식으로 단방향으로만 전달 가능하다.
+
+# 🍀 브라우저 렌더링 과정
+
+브라우저는 hmtl을 파싱하여 HTML DOM 트리를 만들고 css 파일을 파싱하여 CSSOM 트리를 만들고 DOM 트리와 CSSOM 트리를 결합하여 render 트리를 만듭니다.
+그 다음에는 레이아웃을 계산하는데 각 노드의 위치와 크기를 계산합니다. 브라우저 화면의 어느 위치에 어느 크기로 출력될지 계산하는 단계입니다.
+레이아웃 계산이 끝나면 레이아웃에 따라 노드를 화면에 그립니다.
+여기까지가 브라우저 렌더링 과정이다.
+근데 어떠한 액션이나 이벤트가 발생하면 레이아웃을 다시 계산해주고 다시 그려주어야하는데 이 과정을 reflow, repaint 라고 한다.
+
+React 이전에도 DOM을 직접 조작해서 화면을 만들 수 있었지만, UI가 복잡해질수록 상태 변화에 따라 어떤 DOM을 수정해야 하는지 개발자가 직접 관리해야 했다.
+React는 선언적으로 UI를 작성하고, 상태가 바뀌면 새로운 UI 트리를 만든 뒤 기존 트리와 비교하는 reconciliation 과정을 사용한다.
+일반적인 트리 비교 알고리즘은 O(n³)의 비용이 들 수 있지만, React는 몇 가지 가정을 기반으로 한 diffing 알고리즘을 사용해 O(n) 수준으로 비교한다.
+이후 실제로 변경이 필요한 DOM만 갱신한다.
