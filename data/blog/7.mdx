@@ -1,0 +1,119 @@
+---
+title: useReducer
+date: '2026-09-21' # 포스팅된 글들은 날짜순으로 기본 정렬됩니다.
+tags: ['react', 'hooks', 'useReducer']
+draft: false # true일 때 글을 노출하지 않습니다.
+summary: useReducer 훅에 대해 알아보자.
+---
+
+# 🍀 useReducer는 언제 사용하나?
+
+일반적으로는 useState로 상태관리를 한다.
+
+useReducer 는 하나의 상태를 여러 종류의 행동이 변경하고
+그 변경 규칙을 한곳에서 관리하고 싶을 때 useReducer 가 적합하다.
+
+장바구니 기능이 좋은 예가 된다.
+장바구니에 담은 물건의 상태에 추가,삭제,수량 증가,수량 감소, 초기화 등의 기능이 담길 수 있기 때문이다.
+
+| useState                   | useReducer                               |
+| -------------------------- | ---------------------------------------- |
+| 상태 구조가 단순할 때      | 상태 구조가 복잡할 때                    |
+| 변경 방법이 적을 때        | 변경 방법이 많을 때                      |
+| 상태 변경 로직이 간단할 때 | 상태 변경 규칙이 복잡할 때               |
+| 각각의 상태가 독립적일 때  | 여러 변경 로직이 하나의 상태와 관련될 때 |
+| 작은 컴포넌트              | 장바구니, 복잡한 폼 등에 적합            |
+
+# 🍀 기본 구조
+
+```
+const [state, dispatch] = useReducer(reducer, initialState);
+state: 현재 상태
+dispatch: reducer에 action을 전달하는 함수
+reducer: 현재 상태와 action을 받아 새로운 상태를 반환하는 함수
+initialState: 상태의 초기값
+reducer의 기본 형태
+function reducer(state, action) {
+  switch (action.type) {
+    case 'ACTION_1':
+      return 새로운상태;
+
+    case 'ACTION_2':
+      return 새로운상태;
+
+    default:
+      return state;
+  }
+}
+
+reducer는 현재 상태와 action을 전달받아, action의 type에 따라 새로운 상태를 반환한다.
+
+reducer(현재 상태, action) → 새로운 상태
+dispatch의 기본 형태
+dispatch({
+  type: 'ACTION_1',
+  payload: 데이터,
+});
+type: 어떤 상태 변경을 수행할지 구분하는 값
+payload: 상태 변경에 필요한 데이터
+
+payload라는 이름은 필수는 아니지만 일반적으로 많이 사용하는 이름이다.
+
+```
+
+# 🍀 사용 예시
+
+```
+const [cart, dispatch] = useReducer(cartReducer, initialState);
+// 하나의 상태가 있을때
+
+dispatch({ type: 'ADD_ITEM' });       // 추가
+dispatch({ type: 'REMOVE_ITEM' });    // 삭제
+dispatch({ type: 'INCREASE' });       // 수량 증가
+dispatch({ type: 'DECREASE' });       // 수량 감소
+dispatch({ type: 'CLEAR' });          // 초기화
+
+// 여러개의 행동이 붙을 수 있다.
+
+function cartReducer(state, action) {
+  switch (action.type) {
+    case 'ADD_ITEM':
+      // 추가
+
+    case 'REMOVE_ITEM':
+      // 삭제
+
+    case 'INCREASE':
+      // 증가
+
+    case 'DECREASE':
+      // 감소
+
+    case 'CLEAR':
+      // 초기화
+
+    default:
+      return state;
+  }
+}
+
+// 그리고 그 행동들을 reducer 에서 처리한다.
+// 일반적으로 switch 문을 사용하고 action.type에 따라 실행할 로직을 결정한다.
+```
+
+```javascript
+const reducer = (state, action) => {
+  switch (action.type) {
+    case 'ACT_1':
+      return 새로운상태1
+
+    case 'ACT_2':
+      return 새로운상태2
+
+    default:
+      return state
+  }
+}
+
+const [state, dispatch] = useReducer(reducer, initialState)
+```
