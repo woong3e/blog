@@ -1,0 +1,438 @@
+---
+title: 260922 TIL
+date: '2026-09-22' # 포스팅된 글들은 날짜순으로 기본 정렬됩니다.
+tags: ['TIL']
+draft: false # true일 때 글을 노출하지 않습니다.(로컬에는 뜸)
+summary: TIL 260922
+---
+
+# 🍀 오늘의 과제 1
+
+![260922_1](/static/images/TIL/260922_1.png)
+
+```html
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>github-emoji</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="text/babel">
+      const { useState, useEffect } = React
+
+      // 사용자의 입력을 받아, '검색' 이벤트가 발생했음을 부모에게 알린다.
+      // 자신이 무엇을 검색하는지 모른다. (오직 부모에게 전달만 할 뿐)
+      function SearchBox({ handleClick }) {
+        const [inputValue, setInputValue] = useState('')
+
+        return (
+          <>
+            <input type="text" value={inputValue} onChange={(e) => setInputValue(e.target.value)} />
+            <button onClick={() => handleClick(inputValue)}>검색하기</button>
+          </>
+        )
+      }
+
+      // 부모가 주는 상태(loading, imgUrl)에 따라 화면을 다르게 보여준다.
+      // 로딩 중인지, 이미지가 잇는지 없는지 스스로 판단하지 않는다.
+      function ImageBox({ keyword, isLoading, imgURL }) {
+        if (isLoading) {
+          return <div>로딩 중...</div>
+        }
+
+        if (!imgURL) {
+          return <div>이모지를 검색해주세요(결과없음)</div>
+        }
+
+        return <img src={imgURL} alt={`${keyword} 이모지`} />
+      }
+      // 모든 데이터와 상태(로딩, 전체 이모지 목록, 검색 결과 URL)를 관리한다.
+      // API 통신을 책임지고, 자식들의 행동에 따라 상태를 업데이트 한다.
+      function App() {
+        const [keyword, setKeyword] = useState('')
+        const [isLoading, setIsLoading] = useState(false)
+        const [emojiList, setEmojiList] = useState([])
+        const emojiURL = 'https://api.github.com/emojis'
+
+        useEffect(() => {
+          const requestEmoji = async () => {
+            const response = await axios.get(emojiURL)
+            const data = response.data
+            setEmojiList(data)
+          }
+          requestEmoji()
+        }, [])
+
+        const imgURL = emojiList?.[keyword]
+
+        const handleClick = (inputValue) => {
+          setKeyword(inputValue)
+        }
+
+        return (
+          <>
+            <h1>이모지 검색기</h1>
+            {/* '무엇을 할지'가 아닌 어떻게 '해야하는지(함수)'를 알려준다. */}
+            <SearchBox handleClick={handleClick} />
+            <br />
+            {/* 자식에게는 현재 '상태(로딩중,에러, imgURL)'만 알려준다 */}
+            <ImageBox keyword={keyword} isLoading={isLoading} imgURL={imgURL} />
+          </>
+        )
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(<App />)
+    </script>
+  </body>
+</html>
+```
+
+## 🍀 과제 1에서 리마인드할 부분
+
+이번 과제에서 중요했던 부분은 **컴포넌트의 역할을 분리하고 상태를 어디에서 관리할지 결정하는 것**이었다.
+
+`SearchBox`는 사용자의 입력값만 관리하고 검색이 발생하면 부모에게 값을 전달한다.
+실제 검색 결과가 무엇인지는 알 필요가 없다.
+
+반대로 `ImageBox`는 API 요청이나 검색 로직을 직접 처리하지 않고, 부모로부터 전달받은 `imgURL`에 따라 화면만 렌더링한다.
+
+실제 데이터와 검색 상태는 부모인 `App`에서 관리한다.
+
+```js
+<SearchBox handleClick={handleClick} />
+<ImageBox keyword={keyword} isLoading={isLoading} imgURL={imgURL} />
+```
+
+즉,
+
+**부모는 상태와 로직을 관리하고, 자식은 필요한 값을 props로 전달받아 자신의 역할에 집중하도록 컴포넌트를 분리했다.**
+
+또 하나 기억할 부분은 객체의 **동적 프로퍼티 접근**이다.
+
+GitHub Emoji API의 응답은 다음과 같이 이모지 이름이 key인 객체 형태이다.
+
+```js
+{
+  "+1": "https://...",
+  "100": "https://...",
+  "smile": "https://..."
+}
+```
+
+검색어가 변수 `keyword`에 들어 있기 때문에 점 표기법이 아니라 대괄호 표기법을 사용해야 한다.
+
+```js
+const imgURL = emojiList?.[keyword]
+```
+
+`?.`를 사용하면 `emojiList`가 `null` 또는 `undefined`인 경우에도 오류를 발생시키지 않고 `undefined`를 반환한다.
+
+리마인드
+
+- `useEffect(..., [])`는 컴포넌트가 처음 렌더링될 때 API 데이터를 가져오는 용도로 사용할 수 있다.
+- 입력값처럼 컴포넌트 내부에서 사용하는 값은 `useState`로 관리할 수 있다.
+- 여러 컴포넌트가 함께 사용해야 하는 상태는 공통 부모에서 관리하는 것이 자연스럽다.
+- 부모 → 자식으로 데이터나 함수를 전달할 때 `props`를 사용한다.
+- 객체의 key가 변수라면 `obj[key]` 형태로 접근한다.
+- 컴포넌트가 모든 로직을 직접 처리하기보다 역할을 나누는 것이 중요하다.
+
+> **핵심:** 상태를 어느 컴포넌트가 소유해야 하는지 판단하고, 필요한 데이터와 함수를 props를 통해 전달하는 흐름을 이해하는 과제였다.
+
+# 🍀 오늘의 과제 2
+
+![260922_2](/static/images/TIL/260922_2.png)
+
+```html
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>포켓몬 API 실습</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        line-height: 1.6;
+      }
+      .instructions {
+        max-width: 900px;
+        margin: 20px 10px;
+        padding: 12px 18px;
+        background: #f5f7fb;
+      }
+      .instructions h1 {
+        font-size: 22px;
+        margin: 0 0 8px;
+      }
+      .instructions ol {
+        margin: 8px 0;
+        padding-left: 22px;
+      }
+      .instructions details {
+        margin-top: 10px;
+      }
+      .card {
+        border: 1px solid black;
+        width: 300px;
+        margin: 10px;
+        padding: 20px;
+        display: inline-block;
+      }
+      .card > * {
+        display: inline-block;
+      }
+      .card img {
+        width: 100px;
+        height: 100px;
+      }
+    </style>
+  </head>
+  <body>
+    <section class="instructions">
+      <h1>실습: 포켓몬 목록과 상세 정보 연결하기</h1>
+      <p>
+        목록 API에는 포켓몬의 이름과 상세 URL만 있습니다. 상세 URL들을 다시 요청하여 번호와 이미지가
+        있는 카드를 표시해 보세요. 아래
+        <code>TODO</code> 부분만 작성하면 됩니다.
+      </p>
+      <ol>
+        <li>
+          <code>https://pokeapi.co/api/v2/pokemon</code>을 요청하고, 응답이 성공했는지 확인한 뒤
+          JSON으로 변환하세요.
+        </li>
+        <li>
+          <code>listData.results</code>의 각 <code>pokemon.url</code>을 요청하는 Promise 배열을
+          만드세요. 상세 응답도 성공 여부를 확인하고 JSON으로 변환하세요.
+        </li>
+        <li>
+          <code>Promise.all</code>로 모든 상세 정보가 준비되면 <code>pokemons</code> 상태에
+          저장하세요.
+        </li>
+        <li>
+          실패하면 <code>error</code> 상태에 오류를 저장하고, 성공·실패와 관계없이
+          <code>loading</code>을 <code>false</code>로 바꾸세요.
+        </li>
+        <li>저장된 포켓몬을 <code>Card</code> 목록으로 렌더링하세요.</li>
+      </ol>
+      <details>
+        <summary>막혔을 때 보는 힌트</summary>
+        <p>
+          <code>fetch(...).then(...).then(...).then(...).catch(...).finally(...)</code>
+          순서로 연결해 보세요. 첫 번째 <code>then</code>에서는 <code>response.json()</code>을
+          <code>return</code>하고, 다음 <code>then</code>에서는
+          <code>listData.results.map(...)</code>으로 상세 요청 배열을 만듭니다. 이때
+          <code>Promise.all(detailPromises)</code>을 <code>return</code>해야 다음
+          <code>then</code>에서 상세 데이터 배열을 받을 수 있습니다. <code>fetch</code>는 HTTP 오류
+          상태만으로 자동 실패하지 않으므로 <code>response.ok</code>도 확인하세요.
+        </p>
+        <p>
+          렌더링에는
+          <code>pokemons.map(pokemon =&gt; &lt;Card key={pokemon.id} pokemon={pokemon} /&gt;)</code>
+          형태를 참고하세요.
+        </p>
+      </details>
+    </section>
+
+    <div id="root"></div>
+
+    <script type="text/babel">
+      const { useState, useEffect } = React
+      const API_URL = 'https://pokeapi.co/api/v2/pokemon'
+      const API_URL_Detail = 'https://pokeapi.co/api/v2/pokemon/1/'
+
+      function Title() {
+        return <h1>포켓몬 목록</h1>
+      }
+
+      function PokemonList() {
+        // TODO 1. 목록 API를 fetch로 요청하고 응답의 ok 여부를 확인하세요.
+        // TODO 2. 목록 응답을 JSON으로 변환하세요.
+        // TODO 3. listData.results의 각 상세 URL을 요청하는 Promise 배열을 만드세요.
+        //         각 상세 응답의 ok 여부도 확인하고 JSON으로 변환하세요.
+        // TODO 4. Promise.all(detailPromises)을 반환해 다음 then에 연결하세요.
+        // TODO 5. 상세 정보 배열을 setPokemons로 저장하세요.
+        // TODO 6. catch에서 setError, finally에서 setLoading을 호출하세요.
+        const [pokemons, setPokemons] = useState([])
+        const [loading, setLoading] = useState(true)
+        const [error, setError] = useState(null)
+
+        useEffect(() => {
+          const getListData = async () => {
+            try {
+              const response = await fetch(API_URL)
+              const listData = await response.json()
+
+              if (!response.ok) {
+                throw new Error('에러')
+              }
+
+              const urlArr = listData.results.map((el) => {
+                return fetch(el.url).then((response) => {
+                  if (!response.ok) {
+                    throw new Error('')
+                  }
+
+                  return response.json()
+                })
+              })
+              const responses = await Promise.all(urlArr)
+              setPokemons(responses)
+            } catch (error) {
+              setError(error)
+            } finally {
+              setLoading(false)
+            }
+          }
+          getListData()
+        }, [])
+
+        if (loading) return <p>모든 포켓몬을 불러오는 중...</p>
+        if (error) return <p>오류가 발생했습니다: {error.message}</p>
+
+        return (
+          <div>
+            {/* TODO 7. pokemons.map으로 Card를 여러 개 렌더링하세요. key와 pokemon props를 전달하세요. */}
+            {pokemons.map((pokemon) => {
+              return <Card key={pokemon.id} pokemon={pokemon} />
+            })}
+          </div>
+        )
+      }
+
+      // 프롭스로 pokemon을 전달받아 화면을 구성해보세요
+      function Card({ pokemon }) {
+        const imageUrl =
+          pokemon.sprites.other?.dream_world?.front_default || pokemon.sprites.front_default
+
+        return (
+          <div className="card">
+            <img src={imageUrl} />
+            <p>{pokemon.name}</p>
+          </div>
+        )
+      }
+
+      function App() {
+        return (
+          <>
+            <Title />
+            <PokemonList />
+          </>
+        )
+      }
+
+      ReactDOM.createRoot(document.getElementById('root')).render(<App />)
+    </script>
+  </body>
+</html>
+```
+
+## 🍀 과제 2에서 리마인드할 부분
+
+이번 과제에서 가장 중요했던 부분은 **여러 비동기 요청을 동시에 처리하고 그 결과를 하나로 모으는 과정**이었다.
+
+목록 API를 요청하면 바로 이미지 정보가 오는 것이 아니라 각 포켓몬의 상세 정보를 가져올 수 있는 URL이 전달된다.
+
+```js
+listData.results
+```
+
+따라서 목록을 가져온 뒤 다시 각각의 상세 URL에 요청을 보내야 했다.
+
+```js
+const detailPromises = listData.results.map((pokemon) => {
+  return fetch(pokemon.url).then((response) => {
+    if (!response.ok) {
+      throw new Error('포켓몬 상세 정보를 불러오지 못했습니다.')
+    }
+
+    return response.json()
+  })
+})
+```
+
+여기서 `map()`의 반환값이 중요한데, `fetch()`의 반환값은 Promise이므로 결과적으로 다음과 같은 배열이 만들어진다.
+
+```js
+[Promise, Promise, Promise, ...]
+```
+
+즉 아직 포켓몬 데이터가 들어 있는 것이 아니라 **각 API 요청의 완료를 기다리고 있는 Promise들이 들어 있는 배열**이다.
+
+이 Promise들을 실제 데이터 배열로 바꾸기 위해 `Promise.all()`을 사용한다.
+
+```js
+const pokemons = await Promise.all(detailPromises)
+```
+
+`Promise.all()`은 전달받은 모든 Promise가 resolve될 때까지 기다린 뒤 각각의 결과를 같은 순서의 배열로 반환한다.
+
+```js
+[Promise, Promise, Promise]
+        ↓ Promise.all()
+[pokemon1, pokemon2, pokemon3]
+```
+
+그 이후에야 React 상태에 실제 데이터를 저장할 수 있다.
+
+```js
+setPokemons(pokemons)
+```
+
+Promise.all에서 기억할 점
+
+`Promise.all()`은 여러 비동기 작업을 함께 처리할 때 유용하지만 **하나라도 reject되면 전체 `Promise.all()`도 reject된다.**
+
+따라서 모든 요청이 성공해야 정상적으로 화면을 구성할 수 있는 상황에 적합하다.
+
+```js
+try {
+  const pokemons = await Promise.all(detailPromises)
+  setPokemons(pokemons)
+} catch (error) {
+  setError(error)
+}
+```
+
+또한 `fetch()`는 404나 500 같은 HTTP 오류가 발생했다고 해서 자동으로 reject되지 않는다.
+
+따라서 직접 `response.ok`를 확인해야 한다.
+
+```js
+if (!response.ok) {
+  throw new Error('에러')
+}
+```
+
+`throw`로 발생시킨 에러는 `catch`에서 처리할 수 있고, 성공 여부와 관계없이 실행되어야 하는 로딩 상태 변경은 `finally`에서 처리할 수 있다.
+
+```js
+try {
+  // API 요청
+} catch (error) {
+  setError(error)
+} finally {
+  setLoading(false)
+}
+```
+
+리마인드
+
+- `fetch()`의 반환값은 Promise이다.
+- `map()`에서 `fetch()`를 반환하면 Promise 배열이 만들어진다.
+- `Promise.all()`은 Promise 배열을 받아 모든 요청의 완료를 기다린다.
+- `Promise.all()`은 하나라도 reject되면 전체가 reject된다.
+- `fetch()`는 HTTP 오류를 자동으로 reject하지 않기 때문에 `response.ok` 확인이 필요하다.
+- 비동기 작업의 성공/실패는 `try-catch`, 항상 실행할 처리는 `finally`로 관리할 수 있다.
+- API 목록 데이터에 필요한 정보가 없다면 상세 API를 추가로 요청해야 할 수 있다.
+
+> **핵심:** `목록 API 요청 → 상세 URL 추출 → Promise 배열 생성 → Promise.all() → 실제 데이터 배열 → 상태 저장`이라는 비동기 데이터 처리 흐름을 이해하는 과제였다.
