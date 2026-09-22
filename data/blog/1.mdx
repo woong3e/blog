@@ -1,0 +1,256 @@
+---
+title: 한 입 크기로 잘라먹는 타입스크립트
+date: '2026-02-24'
+tags: ['typescript']
+draft: true
+summary: 인프런 강의 / 한 입 크기로 잘라먹는 타입스크립트 / 이정환
+---
+
+> 강의 내용을 기록한 포스팅입니다.
+
+# 🍀 1. 강의 소개
+
+> 강의 링크 -> [인프런/한 입 크기로 잘라먹는 타입스크립트/이정환](https://www.inflearn.com/course/%ED%95%9C%EC%9E%85-%ED%81%AC%EA%B8%B0-%ED%83%80%EC%9E%85%EC%8A%A4%ED%81%AC%EB%A6%BD%ED%8A%B8/dashboard?cid=330452)
+>
+> 핸드북 링크 -> [핸드북](https://ts.winterlood.com)
+
+# 🍀 2. 개발 환경 준비하기
+
+# 🍀 3. 수강생 커뮤니티 참여하기
+
+# 🍀 4. 타입스크립트를 소개합니다
+
+![screenshot1](/static/images/blog03/screenshot1.png)
+
+# 🍀 5. 자바스크립트의 한계점과 타입스크립트
+
+자바스크립트는 원래 아주 간단한 상호작용 정도를 처리하기 위해 개발되었는데, 그래서 자바스크립트는 엄격한 문법을 가질 필요는 없었다.
+아주 유연하게 설계되었기 때문에 버그로부터의 안정성이나 견고함을 포기하는 대신에 프로그래머가 아주 간결하고 빠르게 코드를 작성하도록 만들어졌다.
+자바스크립트는 동적 타입 시스템으로 컴파일 될 때가 아니라 코드를 실행하면서 유동적으로 변수의 타입을 결정합니다.
+코드 타입 오류를 미리 검사할 수 없고 예기치 못한 오류가 발생할 수 있습니다.
+자바나 C언어는 정적 타입 시스템으로 코드를 실행하기 전에 정적으로 변수의 타입을 결정합니다.
+모든 변수에 일일이 타입을 지정해주어야 하며 유연하지 못하다는 단점이 있습니다.
+
+이러한 동적 타입 시스템의 단점을 보완한 것이 타입스크립트(점진적 타입 시스템)입니다.
+실행 전 검사를 통한 타입 안정성을 확보하고 자동으로 변수의 타입을 추론할 수 있습니다.
+
+![screenshot2](/static/images/blog03/screenshot2.png)
+
+# 🍀 6. 타입스크립트의 동작 원리
+
+![screenshot4](/static/images/blog03/screenshot4.png)
+
+컴파일 : 컴퓨터가 이해하기 쉬운 형태로 변환하는 것
+
+![screenshot5](/static/images/blog03/screenshot5.png)
+
+아래 이미지처럼 타입스크립트는 타입 검사를 통해 타입 검사를 통과한 경우에만 자바스크립트 코드로 변환한다.
+변환된 자바스크립트 코드에서는 타입과 관련된 코드가 모두 제거된다.
+
+![screenshot6](/static/images/blog03/screenshot6.png)
+
+# 🍀 7. Hello TS World!
+
+# 🍀 8. ts-node가 동작하지 않는다면 😮
+
+ts-node 대신 tsx를 사용한다.
+
+# 🍀 9. 타입스크립트 컴파일러 옵션 설정하기
+
+✅ 컴파일러 옵션(tsconfig.json)
+tsconfig.json 파일은 프로젝트를 컴파일하는 데 필요한 루트 파일과 컴파일러 옵션을 지정합니다.
+
+✅ "include" : ["src"]
+src 폴더안에 있는 모든 파일을 컴파일한다. (컴파일의 범위를 지정해준다.)
+터미널에 tsc를 입력하면 src 폴더안의 모든 ts파일을 컴파일하여 js파일이 생성된다.
+
+✅ "compilerOptions"
+"target" : "ESNext" 생성되는 자바스크립트의 버전을 설정해준다. ESNext는자바스크립트 최신문법을 뜻한다.
+"module" : 컴파일을 마친 자바스크립트 모듈이 어떤 모듈 시스템을 사용할 지를 설정하는 옵션이다. ECMAScript에서 지정한 공식 모듈 시스템은 import, export 키워드를 사용하는 ESM(ESNext) 방식이기는 하지만, 이러한 모듈 시스템을 지원하는 브라우저가 아직 많지 않다. 이러한 이유들로 우리의 모듈이 무조건 ESM 시스템을 사용하도록 컴파일하기는 현실적으로 어렵기 때문에, 적절히 상황에 맞는 모듈 시스템을 선택할 수 있어야 하는 것이다.
+"outDir" : "dist" ts파일을 컴파일한 결과로 생성된 js파일들이 어디에 위치하면 좋을지를 써주면 된다. 여기서는 dist(배포) 폴더에 js파일이생성된다.
+"strict": true 코드의 타입을 엄격하게 검사한다. false인 경우에는 코드의 타입을 유연하게 검사한다. 오류 가능성을 줄이기 위해서는 true로 해둡니다. JS->TS로 마이그레이션을 할 경우 strict모드를 끄기도 한다.
+"moduleDetection": "force" 타입스크립트의 모든 파일은 기본적으로 전역 파일로 취급된다. 따라서 a.ts와 b.ts 두 타입스크립트의 파일을 만들고 동일한 이름의 변수를 선언하면 오류가 발생하게 된다. 이럴 때에는 각 파일에 모듈 시스템 키워드(import, export)를 최소 하나 이상 사용하면 독립 모듈로 취급되도록 할 수 있는데 이를 자동화 하는 옵션이 바로 moduleDetection 옵션이다. moduleDetection옵션을 force로 설정할 경우 자동으로 모든 타입스크립트 파일이 독립모듈로 취급된다.
+
+✅ "ts-node"
+moduleDetection 옵션을 활성화 하고 타입스크립트 파일에서 모듈 시스템을 사용하게 되면 ts-node로 실행시 오류가 발생하게 됩니다.
+-> module 옵션을 CommonJS가 아니라 ESNext로 설정하고 ts-node를 실행하면 오류가 발생한다.
+(Warning: To load an ES module, set "type":module" in the package.json) node.js에서 ESmodule 시스템을 사용하려면 package.json에 "type":"module"을 설정해야함.
+다시 ts-node를 실행하면 또 오류가 발생하는데 이번에는 (Unknown **file** extension ".ts") 타입스크립트 파일 자체를 이해하지못하는 오류가 발생함.
+이유는 ts-node가 ESmodule시스템을 해석하지 못해서 그렇다.
+nodejs가 해석하도록 package.json에 "type":"module"을 설정해주긴 했지만 ts-node는 기본적으로 CommonJS를 사용하기 때문에 ES module시스템을 해석하지 못합니다.
+그렇기 때문에 이런 경우에는 tsconfig.json 옵션에 `ts-node: { esm: true }` 옵션을 추가해주고 ts-node를 실행하면 잘 실행되는 것을 확인할 수 있다.
+**참고** ts-node는 이름에서 알 수 있듯이 ts컴파일러와 nodejs가 함께 있는 것이다.
+ts-node를 실행하면 컴파일과 실행까지 가능하다.
+
+✅ "strictNullChecks"
+Null 타입이 아닌 변수에 Null 값을 허용할지(true) 안할지(false) 설정한다. default 값은 true. strict의 하위 개념이다.
+
+[실습코드](https://github.com/woong3e/onebite-typescript/commit/188218888793b9de93a7c451cb0ba7908d0f8de9)
+
+# 🍀 11. 기본타입
+
+![screenshot3](static/images/blog03/screenshot3.png)
+
+# 🍀 12. 원시타입과 리터럴타입
+
+원시 타입 : number, string, boolean, null, undefined, symbol, bigint
+
+- symbol : 유일하고 변경 불가능한 값을 만드는 타입, 주로 객체의 고유한 키 값을 만들 때 쓰인다.
+- bigint : number가 표현할 수 있는 수보다 더 큰 수를 표현할 때 쓰인다. (n을 붙여서 표현한다.)
+
+```typescript
+// number
+let num1: number = 123
+let num2: number = -123
+let num3: number = 0.123
+let num4: number = -0.123
+let num5: number = Infinity
+let num6: number = -Infinity
+let num7: number = NaN
+
+// string
+let str1: string = 'hello'
+let str2: string = 'hello'
+let str3: string = `hello`
+let str4: string = `hello ${num1}`
+
+// boolean
+let bool1: boolean = true
+let bool2: boolean = false
+
+// null
+let null1: null = null
+
+// undefined
+let unde1: undefined = undefined
+
+// 리터럴 타입
+// 리터럴 -> 값
+let numA: 10 = 10
+
+let strA: 'hello' = 'hello'
+
+// symbol 타입
+const myId = Symbol('id')
+const user = {
+  name: '장건웅',
+  [myId]: 12345, // 심볼을 키로 사용
+}
+console.log(user[myId]) // 12345
+console.log(Object.keys(user)) // ['name'], 심볼 키는 일반적인 방법으로 열거되지 않음
+
+// bigint
+let huge: bigint = 100n
+```
+
+리터럴 타입: 특정 값만 허용하는 타입, 리터럴은 값 그 자체를 의미한다.
+
+# 🍀 13. 배열과 튜플
+
+튜플 : 길이와 타입이 고정된 배열
+
+```typescript
+let tuple: [number, string] = [1, 'hello']
+```
+
+# 🍀 14. 객체
+
+# 🍀 15. 타입 별칭과 인덱스 시그니처
+
+# 🍀 16. Enum 타입
+
+# 🍀 17. Any와 Unknown 타입
+
+# 🍀 18. Void와 Never 타입
+
+# 🍀 19. 섹션3 타입스크립트 이해하기
+
+# 🍀 20. 타입은 집합이다
+
+# 🍀 21. 타입 계층도와 함께 기본타입 살펴보기
+
+# 🍀 22. 객체 타입의 호환성
+
+# 🍀 23. 대수 타입
+
+# 🍀 24. 타입 추론
+
+# 🍀 25. 타입 단언
+
+# 🍀 26. 타입 좁히기
+
+# 🍀 27. 서로소 유니온 타입
+
+# 🍀 28. 함수 타입
+
+# 🍀 29. 함수 타입 표현식과 호출 시그니쳐
+
+# 🍀 30. 함수 타입의 호환성
+
+# 🍀 31. 함수 오버로딩
+
+# 🍀 32. 사용자 정의 타입 가드
+
+# 🍀 33. 인터페이스
+
+# 🍀 34. 인터페이스 확장하기
+
+# 🍀 35. 인터페이스 합치기
+
+# 🍀 36. 자바스크립트의 클래스 소개
+
+# 🍀 37. 타입스크립트의 클래스
+
+# 🍀 38. 접근 제어자
+
+# 🍀 39. 인터페이스와 클래스
+
+# 🍀 40. 제네릭 소개
+
+# 🍀 41. 타입 변수 응용하기
+
+# 🍀 42. map, forEach 메서드 타입 정의하기
+
+# 🍀 43. 제네릭 인터페이스 & 제네릭 타입 별칭
+
+# 🍀 44. 제네릭 클래스
+
+# 🍀 45. 프로미스와 제네릭
+
+# 🍀 46. 타입 조작하기
+
+# 🍀 47. 인덱스드 엑세스 타입
+
+# 🍀 48. keyof 연산자
+
+# 🍀 49. 맵드 타입
+
+# 🍀 50. 템플릿 리터럴 타입
+
+# 🍀 51. 조건부 타입 소개
+
+# 🍀 52. 분산적인 조건부 타입
+
+# 🍀 53. infer - 조건부 타입 내에서 타입 추론하기
+
+# 🍀 54. 유틸리티 타입 소개
+
+# 🍀 55. 맵드 타입 기반의 유틸리티 타입 1 - Partial, Required, Readonly
+
+# 🍀 56. 맵드 타입 기반의 유틸리티 타입 2 - Pick, Omit, Record
+
+# 🍀 57. 조건부 타입 기반의 유틸리티 타입 - Exclude, Extract, ReturnType
+
+# 🍀 58. 타입스크립트 리액트 시작하기
+
+# 🍀 59. 상태관리와 Props 1
+
+# 🍀 60. 상태관리와 Props 2
+
+# 🍀 61. Context API
+
+# 🍀 62. 외부 라이브러리 사용하기
+
+# 🍀 63. 타입스크립트 템플릿 소개
+
+# 🍀 64. 26년도 한입 시리즈 연강 할인 이벤트 🎁
