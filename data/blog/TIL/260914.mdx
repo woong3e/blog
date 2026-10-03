@@ -1,0 +1,177 @@
+---
+title: 260914 TIL
+date: '2026-09-14'
+tags: ['TIL']
+draft: false
+summary: DOM의 부모·자식·형제 관계를 탐색하고 텍스트, 노드, 속성, CSS를 변경하는 방법을 실습했다.
+---
+
+# 🍀 DOM을 탐색하고 화면 바꾸기
+
+요소를 선택한 뒤에는 그 요소를 기준으로 주변을 찾고 내용을 바꿀 수 있다. 오늘은 DOM의 관계를 탐색하고, 요소를 생성·이동·교체·삭제하는 방법과 입력값·스타일을 다루는 방법을 공부했다.
+
+## 노드 관계와 텍스트 다루기
+
+**노드와 요소는 범위가 다르다**
+
+DOM에는 HTML 요소뿐 아니라 텍스트와 주석도 노드로 들어간다. HTML 파일의 들여쓰기와 줄바꿈도 텍스트 노드가 될 수 있다. 그래서 목록의 첫 번째 자식이 항상 첫 번째 항목 요소인 것은 아니다.
+
+| 탐색 목적    | 모든 노드 기준    | 요소 기준                |
+| ------------ | ----------------- | ------------------------ |
+| 자식 목록    | `childNodes`      | `children`               |
+| 첫 번째 자식 | `firstChild`      | `firstElementChild`      |
+| 마지막 자식  | `lastChild`       | `lastElementChild`       |
+| 부모         | `parentNode`      | `parentElement`          |
+| 다음 형제    | `nextSibling`     | `nextElementSibling`     |
+| 이전 형제    | `previousSibling` | `previousElementSibling` |
+
+`childNodes`는 텍스트·주석을 포함하는 `NodeList`, `children`은 요소만 모은 `HTMLCollection`이다. 화면의 항목 요소를 다루는 경우에는 요소 기준 프로퍼티를 쓰면 공백 노드 때문에 헷갈리지 않는다.
+
+```javascript
+const me = document.getElementById('me')
+const family = me.parentElement
+
+family.style.border = '1px solid black'
+family.firstElementChild.style.color = 'red'
+family.lastElementChild.style.color = 'blue'
+
+const next = me.nextElementSibling
+if (next) {
+  next.style.color = 'green'
+}
+```
+
+부모나 형제가 없으면 `null`이 반환될 수 있다. 요소가 항상 존재하는 실습 구조와 달리, 항목이 동적으로 달라지는 화면에서는 존재 여부를 확인하고 접근해야 한다.
+
+**textContent는 요소 내부의 텍스트를 다룬다**
+
+요소 노드의 `nodeValue`는 `null`이다. 텍스트 노드의 값을 직접 바꾸려면 그 텍스트 노드를 찾아 `nodeValue`를 변경해야 한다. 요소 전체의 텍스트를 읽거나 바꿀 때는 `textContent`가 더 간단하다.
+
+```javascript
+const area = document.getElementById('content-area')
+
+console.log(area.textContent)
+area.textContent = '<span>텍스트로 표시됩니다</span>'
+```
+
+위 문자열의 태그는 HTML 요소가 되지 않고 글자로 표시된다. `textContent`에 값을 할당하면 기존 자식 노드는 모두 지워지고 새 텍스트로 바뀐다. 내부에 버튼이나 강조 요소가 있었다면 함께 제거되므로, 바꿀 범위에 맞는 요소를 선택해야 한다. `innerText`는 화면 표시와 CSS의 영향을 받고, `textContent`는 DOM의 텍스트 내용을 기준으로 한다.
+
+## 요소를 생성하고 삽입·이동·삭제하기
+
+**문자열을 넣는 방법과 노드를 만드는 방법**
+
+`innerHTML`은 문자열을 HTML로 해석해 내부 내용을 교체한다. `insertAdjacentHTML()`은 기존 내용을 유지하며 정한 위치에 HTML을 삽입한다.
+
+| 위치          | 삽입되는 곳               |
+| ------------- | ------------------------- |
+| `beforebegin` | 대상 요소 바로 앞, 바깥쪽 |
+| `afterbegin`  | 대상 요소 내부의 맨 앞    |
+| `beforeend`   | 대상 요소 내부의 맨 뒤    |
+| `afterend`    | 대상 요소 바로 뒤, 바깥쪽 |
+
+사용자가 입력한 문자열을 그대로 출력할 때는 `textContent`를 사용한다. `innerHTML`로 넣으면 그 문자열이 마크업으로 해석될 수 있기 때문이다.
+
+요소를 직접 만들 때는 `createElement()`로 생성하고 `appendChild()`로 부모에 붙인다. 생성만 한 요소는 아직 화면에 들어간 것이 아니다.
+
+```javascript
+const drinkList = document.getElementById('drink-list')
+const fragment = document.createDocumentFragment()
+
+for (const name of ['사이다', '우유']) {
+  const item = document.createElement('li')
+  item.textContent = name
+  fragment.appendChild(item)
+}
+
+drinkList.appendChild(fragment)
+```
+
+`DocumentFragment`는 여러 노드를 임시로 모으는 공간이다. 부모에 붙일 때는 fragment 자체가 아니라 그 안의 자식들이 이동하며 fragment는 비워진다.
+
+**이미 있는 노드를 붙이면 이동한다**
+
+`appendChild()`는 노드를 복사하지 않는다. 기존 노드를 다른 부모에 붙이면 원래 위치에서 새 위치로 이동하고, 같은 부모에 다시 붙이면 마지막 자식 위치로 옮겨진다.
+
+- `insertBefore(새 노드, 기준 노드)`: 기준 자식 앞에 삽입한다.
+- `replaceChild(새 노드, 기존 노드)`: 기존 자식을 새 노드로 교체한다.
+- `removeChild(자식 노드)`: 부모에서 해당 자식을 제거한다.
+- `remove()`: 해당 노드 자체를 제거한다.
+
+**할 일 목록 실습에서 확인할 부분**
+
+오늘 작성한 할 일 목록 코드는 `li`를 함수 밖에서 한 번만 만들고 계속 사용했다. 이 구조에서는 새 항목이 쌓이는 대신 기존 노드의 텍스트와 위치만 바뀐다. 항목마다 별도 노드가 필요하므로 생성 코드는 추가 함수 안에 있어야 한다.
+
+아래는 빈 입력과 빈 목록도 확인하도록 정리한 예시다.
+
+```javascript
+const todoList = document.getElementById('todo-list')
+const todoInput = document.getElementById('todo-input')
+
+function addTodo() {
+  const text = todoInput.value.trim()
+  if (text === '') return
+
+  const item = document.createElement('li')
+  item.textContent = text
+  todoList.appendChild(item)
+  todoInput.value = ''
+}
+
+function removeLastTodo() {
+  const last = todoList.lastElementChild
+  if (last) last.remove()
+}
+```
+
+## 속성과 입력값, CSS 상태 다루기
+
+**HTML 어트리뷰트와 DOM 프로퍼티**
+
+어트리뷰트는 HTML에 설정한 속성이고, 프로퍼티는 DOM 객체의 값이다. 둘의 관계는 항목마다 다르다. 어트리뷰트는 `getAttribute()`, `setAttribute()`, `hasAttribute()`, `removeAttribute()`로 읽고 변경한다.
+
+텍스트 입력에서 `value` 어트리뷰트는 기본값을 나타내고, `value` 프로퍼티는 현재 입력값을 나타낸다. 사용자가 바꾼 값을 읽을 때는 `.value`를 사용해야 한다.
+
+```html
+<input id="nickname" value="JSBeginner" />
+```
+
+```javascript
+const nickname = document.getElementById('nickname')
+nickname.value = '새로운 닉네임'
+
+console.log(nickname.getAttribute('value')) // JSBeginner
+console.log(nickname.value) // 새로운 닉네임
+```
+
+체크박스도 현재 체크 상태는 `.checked`의 불리언 값으로 읽는다. `checked` 어트리뷰트는 존재 여부로 기본 체크 상태를 나타내는 불리언 어트리뷰트다. 문자열 `'false'`를 적는 것으로 체크를 해제할 수는 없다.
+
+`data-*`는 상품 번호나 카테고리처럼 화면 동작에 필요한 데이터를 요소에 저장하는 방법이다. `data-board-id`는 자바스크립트에서 `dataset.boardId`로 접근한다. 이날은 이 구조를 확인하고 상품 카드 선택 실습의 요구 사항도 살펴봤다.
+
+**style과 classList**
+
+`element.style`은 인라인 스타일을 변경한다. `background-color`처럼 하이픈이 있는 속성은 `backgroundColor`처럼 작성한다. 여러 스타일을 상태에 따라 묶어서 적용하려면 CSS 클래스를 정의하고 `classList`로 관리할 수 있다.
+
+```javascript
+const card = document.getElementById('profile-card')
+
+card.style.borderColor = '#315efb'
+card.classList.add('compact')
+card.classList.remove('compact')
+
+const isDark = card.classList.toggle('dark')
+console.log(isDark)
+console.log(card.classList.contains('dark'))
+```
+
+`className`에 문자열을 새로 대입하면 기존 클래스 전체가 교체된다. `classList.add()`와 `remove()`는 지정한 클래스만 바꾼다. `toggle()`은 없으면 추가하고 있으면 제거하며, 호출 뒤 클래스가 존재하는지를 반환한다.
+
+프로필 실습을 정리할 때는 `classList.toggle('.dark')`가 아니라 `classList.toggle('dark')`를 써야 한다. 점은 CSS 선택자에 붙이는 기호다. 다크 모드 스타일도 버튼이 아니라 실제로 꾸밀 카드에 적용해야 한다.
+
+**기억할 점**
+
+- 요소 탐색에서는 공백·주석 노드가 섞이는지 먼저 확인한다.
+- 반복해서 항목을 추가하려면 매번 새 노드를 만든다.
+- 현재 입력값은 `.value`, 현재 체크 상태는 `.checked`로 읽는다.
+- `classList`에는 선택자가 아닌 클래스 이름을 전달한다.
+
+참고로 텍스트 교체와 노드 이동 규칙은 [MDN textContent](https://developer.mozilla.org/en-US/docs/Web/API/Node/textContent), [MDN appendChild](https://developer.mozilla.org/en-US/docs/Web/API/Node/appendChild)에서 확인했다. 입력 기본값과 클래스 조작은 [MDN defaultValue](https://developer.mozilla.org/en-US/docs/Web/API/HTMLInputElement/defaultValue), [MDN classList](https://developer.mozilla.org/en-US/docs/Web/API/Element/classList)을 참고했다. 불리언 어트리뷰트의 존재 여부 규칙은 [MDN Boolean attribute](https://developer.mozilla.org/en-US/docs/Glossary/Boolean/HTML)에서 확인했다.
