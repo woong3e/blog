@@ -3,7 +3,7 @@ title: useReducer
 date: '2026-09-21' # 포스팅된 글들은 날짜순으로 기본 정렬됩니다.
 tags: ['react', 'hooks', 'useReducer']
 draft: false # true일 때 글을 노출하지 않습니다.
-summary: useReducer 훅에 대해 알아보자.
+summary: useState와 useReducer의 선택 기준, reducer·dispatch·action의 역할을 살펴보고 장바구니 예시로 상태 변경 규칙을 한곳에 모으는 방식을 정리했다.
 ---
 
 # 🍀 useReducer는 언제 사용하나?
@@ -28,10 +28,12 @@ useReducer 는 하나의 상태를 여러 종류의 행동이 변경하고
 
 ```
 const [state, dispatch] = useReducer(reducer, initialState);
+
 state: 현재 상태
 dispatch: reducer에 action을 전달하는 함수
 reducer: 현재 상태와 action을 받아 새로운 상태를 반환하는 함수
 initialState: 상태의 초기값
+
 reducer의 기본 형태
 function reducer(state, action) {
   switch (action.type) {
