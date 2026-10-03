@@ -1,0 +1,178 @@
+---
+title: 260915 TIL
+date: '2026-09-15'
+tags: ['TIL']
+draft: false
+summary: DOM 실습을 보완하고 이벤트 등록·제거, 이벤트 위임, 기본 동작 제어와 폼 검증을 정리했다.
+---
+
+# 🍀 이벤트로 사용자 동작 처리하기
+
+상품 검색과 선택, 할 일 추가, 프로필 변경 같은 DOM 실습을 보완했다. 이어서 클릭과 키보드 입력, 폼 제출에 반응하는 이벤트를 공부하고 카운터·메뉴 선택·모달·회원가입 폼에 적용했다.
+
+## 이벤트 등록과 이벤트 객체
+
+**등록한 함수를 제거하려면 참조를 보관한다**
+
+HTML의 `onclick` 어트리뷰트, DOM 객체의 `onclick` 프로퍼티, `addEventListener()` 세 가지 등록 방식을 비교했다. `onclick` 프로퍼티에 새 함수를 대입하면 이전 함수를 덮어쓴다. `addEventListener()`는 서로 다른 핸들러를 같은 이벤트에 여러 개 등록할 수 있다.
+
+카운터 실습에서는 클릭할 때마다 횟수를 증가시키고, 중지 버튼으로 핸들러를 제거했다.
+
+```javascript
+const countButton = document.getElementById('count-button')
+const stopButton = document.getElementById('stop-count-button')
+const result = document.getElementById('count-result')
+let count = 0
+
+const increaseCount = () => {
+  count += 1
+  result.textContent = `클릭 횟수: ${count}`
+}
+
+countButton.addEventListener('click', increaseCount)
+stopButton.addEventListener('click', () => {
+  countButton.removeEventListener('click', increaseCount)
+})
+```
+
+제거할 때 중요한 것은 함수 이름의 유무가 아니라 **등록할 때와 동일한 함수 참조**를 전달하는 것이다. 똑같이 생긴 화살표 함수를 다시 작성해도 별개의 함수이므로 제거되지 않는다. 이벤트 종류와 `capture` 설정도 등록할 때와 맞아야 한다.
+
+**target과 currentTarget 구분하기**
+
+핸들러의 첫 번째 매개변수로 이벤트 객체가 전달된다. `clientX`, `clientY`로 클릭 위치를 확인하고, 어떤 요소에서 이벤트가 시작됐는지도 읽을 수 있다.
+
+- `event.target`: 이벤트가 발생한 대상이다.
+- `event.currentTarget`: 지금 실행 중인 핸들러가 등록된 대상이다.
+
+버튼 안의 글자 요소를 클릭하면 `target`은 그 자식 요소일 수 있지만, 버튼에 등록한 핸들러의 `currentTarget`은 버튼이다.
+
+`addEventListener()`에 일반 함수를 전달하면 핸들러 내부 `this`는 `currentTarget`과 같다. 화살표 함수는 바깥 범위의 `this`를 사용한다. 등록한 요소를 다루려면 함수 형태와 관계없이 `currentTarget`을 쓰면 의도가 명확하다.
+
+```javascript
+const button = document.getElementById('best-practice-btn')
+
+button.addEventListener('click', (event) => {
+  const clickedButton = event.currentTarget
+  clickedButton.textContent = '클릭됐다.'
+
+  setTimeout(() => {
+    clickedButton.textContent = 'Best Practice'
+  }, 2000)
+})
+```
+
+시간이 지난 뒤에는 `event.currentTarget`이 `null`이 될 수 있다. 위처럼 핸들러 안에서 요소 참조를 변수에 저장해 두면 나중에도 그 요소를 사용할 수 있다.
+
+## 이벤트 전파와 dataset을 이용한 위임
+
+**부모에 핸들러 하나 등록하기**
+
+이벤트 전파는 캡처링, 타깃, 버블링 단계로 진행된다. 버블링하는 이벤트는 자식에서 부모 방향으로 올라가므로 부모의 핸들러에서도 처리할 수 있다. 모든 이벤트가 버블링하는 것은 아니지만, 실습의 `click` 이벤트는 버블링한다.
+
+이 특성을 이용한 **이벤트 위임**은 각 항목에 따로 핸들러를 등록하는 대신 부모에 하나를 등록하는 방식이다. 나중에 추가한 자식 항목에도 같은 처리가 적용된다.
+
+목록 내부의 강조 글자를 클릭하는 경우처럼 `target`이 원하는 항목과 다를 수 있다. 이때는 `closest()`로 자기 자신부터 부모 방향으로 조건에 맞는 요소를 찾는다. 아래는 음료 목록 위임 실습을 정리한 예시다.
+
+```javascript
+const drinkList = document.getElementById('drink-list')
+
+drinkList.addEventListener('click', (event) => {
+  const item = event.target.closest('li')
+  if (!item || !drinkList.contains(item)) return
+
+  item.classList.toggle('highlight')
+})
+```
+
+`closest('li')`로 항목을 찾은 뒤에는 그 결과를 사용해야 한다. 다시 `event.target.matches('li')`만 검사하면 항목 안의 `strong` 같은 요소를 클릭했을 때 처리가 빠진다. `contains()`는 찾아낸 요소가 실제로 해당 목록 안에 있는지 확인한다.
+
+**dataset으로 선택한 상품과 메뉴 찾기**
+
+`data-product-id`는 `dataset.productId`, `data-menu-id`는 `dataset.menuId`로 읽는다. 하이픈으로 구분한 이름이 자바스크립트에서는 카멜 표기법으로 바뀐다.
+
+```html
+<li class="product-item" data-product-id="p-001" data-price="15000">
+  <h3>상품 A</h3>
+</li>
+```
+
+```javascript
+const productList = document.querySelector('.product-list')
+const infoPanel = document.querySelector('.info-panel')
+
+productList.addEventListener('click', (event) => {
+  const item = event.target.closest('.product-item')
+  if (!item || !productList.contains(item)) return
+
+  const productId = item.dataset.productId
+  const price = Number(item.dataset.price)
+  infoPanel.textContent = `${productId}: ${price.toLocaleString('ko-KR')}원`
+})
+```
+
+`dataset` 값은 문자열이므로 가격 계산에는 숫자 변환이 필요하다. `item.dataset.selected = 'true'`처럼 값을 설정하면 대응하는 `data-selected` 어트리뷰트도 변경된다. 삭제는 `delete item.dataset.selected`로 할 수 있다.
+
+메뉴 선택 실습에서는 부모 목록의 클릭 핸들러에서 선택 버튼을 찾고, 모든 메뉴의 `selected` 클래스를 제거한 뒤 선택한 메뉴에만 다시 추가했다. 상품 카드 선택도 같은 방식으로 이전 선택 상태를 먼저 정리했다.
+
+## 기본 동작 제어와 입력·폼 검증
+
+**preventDefault와 stopPropagation은 역할이 다르다**
+
+| 메서드              | 제어하는 것                             | 실습 예시                                    |
+| ------------------- | --------------------------------------- | -------------------------------------------- |
+| `preventDefault()`  | 취소 가능한 이벤트의 브라우저 기본 동작 | 링크 이동, 폼 제출 막기                      |
+| `stopPropagation()` | 다른 요소로 이어지는 이벤트 전파        | 모달 내부 클릭이 배경으로 올라가지 않게 하기 |
+
+모달 배경에는 닫기 핸들러를 등록하고, 모달 내부에는 `stopPropagation()`을 호출하는 핸들러를 등록했다. 내부 링크의 이동은 링크 핸들러에서 `preventDefault()`로 막았다. 기본 동작을 막는다고 전파까지 중단되는 것은 아니며, 전파를 막는다고 링크 이동이 취소되는 것도 아니다.
+
+**키 입력과 값 변경은 구분한다**
+
+마우스 실습에서는 `dblclick`, `mousedown`과 `event.button`을 확인했다. 키보드에서는 `keydown`과 `keyup`, 입력값이 바뀔 때는 `input` 이벤트를 사용했다.
+
+`event.key`는 `'Enter'`, `'a'`처럼 입력된 키 값을 나타내고, `event.code`는 `'KeyA'`처럼 물리적인 키 위치를 나타낸다. Enter 여부를 확인하는 것은 `keydown`에서, 현재 입력값과 글자 수를 갱신하는 것은 `input`에서 처리했다. 붙여넣기처럼 키보드 입력 외의 값 변경도 생각하면 글자 수 표시에 `input`이 적합하다.
+
+입력값을 코드로 `''`로 바꾸는 것만으로 `input` 이벤트가 발생하지는 않는다. 그래서 메시지를 출력한 뒤 입력값을 비울 때 글자 수 표시도 직접 0으로 초기화했다.
+
+**폼 자체의 submit을 처리한다**
+
+폼 실습에서는 이름 입력에 `focus`·`blur` 스타일을 적용하고, 자기소개에 `input` 글자 수 표시를 붙였다. 관심사 체크 여부는 `checked`로 읽고, 체크된 항목 수를 계산했다.
+
+회원가입 종합 실습에서는 이름 두 글자 이상, 비밀번호 여섯 글자 이상, 약관 동의 여부를 순서대로 확인했다. 버튼 클릭만 처리하지 않고 폼의 `submit`을 처리하면 Enter로 제출하는 경우도 함께 다룰 수 있다. 아래는 페이지 이동 없이 검증 결과를 표시하는 실습 정리 예시다.
+
+```javascript
+const form = document.getElementById('signup-form')
+const nameInput = document.getElementById('user-name')
+const passwordInput = document.getElementById('user-password')
+const terms = document.getElementById('terms')
+const signupResult = document.getElementById('signup-result')
+
+form.addEventListener('submit', (event) => {
+  event.preventDefault()
+
+  if (nameInput.value.trim().length < 2) {
+    signupResult.textContent = '이름은 두 글자 이상 입력해주세요.'
+    return
+  }
+  if (passwordInput.value.length < 6) {
+    signupResult.textContent = '비밀번호는 여섯 글자 이상 입력해주세요.'
+    return
+  }
+  if (!terms.checked) {
+    signupResult.textContent = '이용 약관에 동의해주세요.'
+    return
+  }
+
+  signupResult.textContent = '회원가입 검증에 성공했습니다.'
+})
+```
+
+오류가 있으면 안내 문구를 표시하고 `return`으로 종료한다. 실습에서는 성공 시에도 기본 제출을 막았다. 이 코드는 브라우저에서 입력 조건을 확인하는 예시이며 실제 회원 정보를 저장하는 작업까지 수행하지는 않는다.
+
+**기억할 점**
+
+- 핸들러 제거에는 등록한 함수의 참조가 필요하다.
+- 이벤트가 발생한 대상은 `target`, 핸들러를 등록한 대상은 `currentTarget`으로 구분한다.
+- 위임에서는 중첩 요소 클릭도 고려해 `closest()`의 결과를 사용한다.
+- 키 확인, 입력값 변경, 폼 제출은 각각 알맞은 이벤트에서 처리한다.
+
+참고로 핸들러 제거와 이벤트 대상의 동작은 [MDN removeEventListener](https://developer.mozilla.org/en-US/docs/Web/API/EventTarget/removeEventListener), [MDN currentTarget](https://developer.mozilla.org/en-US/docs/Web/API/Event/currentTarget)에서 확인했다. 기본 동작과 전파의 차이는 [MDN preventDefault](https://developer.mozilla.org/en-US/docs/Web/API/Event/preventDefault), [MDN stopPropagation](https://developer.mozilla.org/en-US/docs/Web/API/Event/stopPropagation)을 참고했다. 값 변경과 사용자 정의 데이터의 동작은 [MDN input event](https://developer.mozilla.org/en-US/docs/Web/API/Element/input_event), [MDN dataset](https://developer.mozilla.org/en-US/docs/Web/API/HTMLElement/dataset)에서 확인했다.
