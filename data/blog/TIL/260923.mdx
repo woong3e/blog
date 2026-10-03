@@ -1,0 +1,181 @@
+---
+title: 260923 TIL
+date: '2026-09-23'
+tags: ['TIL']
+draft: false
+summary: Next.js App Router의 페이지와 레이아웃, 경로와 검색 파라미터를 이용한 메뉴 조회, useReducer의 상태 변경 흐름을 정리했다.
+---
+
+# Next.js 라우팅과 useReducer
+
+오늘은 Next.js로 페이지와 공통 레이아웃을 구성하고, 메뉴 목록에서 상세 페이지와 검색 결과로 이동하는 흐름을 만들었다. 같은 날 추가한 카운터 실습에서는 `useState`와 `useReducer`로 같은 계산을 구현하며 상태 변경 방식을 비교했다.
+
+Next.js 실습 프로젝트의 `package.json`에는 Next.js `16.3.6`, React `19.2.8`이 명시되어 있다. 별도의 `reducer-prac.html`은 React 18 UMD 스크립트를 사용한다.
+
+## App Router에서 페이지와 레이아웃 구성하기
+
+**폴더가 경로를 만들고 page.js가 화면을 만든다**
+
+`nexts-app`에서는 `src/app` 아래에 폴더와 `page.js`를 배치했다. 별도의 라우트 목록을 작성하지 않아도 파일 위치로 URL과 화면이 연결된다.
+
+| 파일                        | 연결되는 URL | 역할          |
+| --------------------------- | ------------ | ------------- |
+| `src/app/page.js`           | `/`          | 홈 화면       |
+| `src/app/about/page.js`     | `/about`     | 소개 화면     |
+| `src/app/menu/page.js`      | `/menu`      | 메뉴 화면     |
+| `src/app/dashboard/page.js` | `/dashboard` | 대시보드 화면 |
+
+`page.js`는 해당 경로의 화면을 `default export`하고, `layout.js`는 여러 화면이 공유할 UI를 구성한다. 루트 레이아웃은 `html`, `body`를 포함해야 한다. [Next.js Layouts and Pages](https://nextjs.org/docs/app/getting-started/layouts-and-pages)
+
+**children을 통해 레이아웃 안에 페이지 넣기**
+
+루트 `layout.js`에서는 공통 `Layout` 컴포넌트로 `children`을 감쌌다. `Layout`은 `Header`, `Navbar`, 현재 페이지 순서로 렌더링한다.
+
+```jsx
+export default function Layout({ children }) {
+  return (
+    <>
+      <Header />
+      <Navbar />
+      {children}
+    </>
+  )
+}
+```
+
+`dashboard/layout.js`에는 대시보드 전용 메뉴와 `children`을 넣었다. `/dashboard`에서는 루트 레이아웃 안에 대시보드 레이아웃이 들어가고, 그 안에 `dashboard/page.js`가 표시된다. 전체 페이지의 공통 영역과 특정 경로의 공통 영역을 폴더 구조로 나눌 수 있었다.
+
+**Link로 이동하고 usePathname으로 현재 메뉴 표시하기**
+
+홈에서는 `next/link`의 `Link`로 `/about`, `/menu`에 이동했다. `Link`는 클라이언트 내비게이션과 프리패칭을 제공하는 Next.js 컴포넌트다. [Next.js Link](https://nextjs.org/docs/app/api-reference/components/link)
+
+`Navbar`는 현재 경로를 읽기 위해 `'use client'`를 선언하고 `usePathname()`을 사용했다.
+
+```jsx
+const pathname = usePathname()
+const isActive = (path) => pathname === path
+
+;<Link href="/menu" style={isActive('/menu') ? activeStyle : undefined}>
+  메뉴
+</Link>
+```
+
+`usePathname()`은 URL의 경로 부분을 반환한다. 예를 들어 `/menu?sort=price`라면 `/menu`를 얻는다. 위 실습은 경로를 정확히 비교하므로 `/menu`에서만 메뉴 링크가 활성화되고 `/menu/1`에서는 활성화되지 않는다. 하위 경로까지 같은 메뉴로 표시하려면 비교 조건을 따로 정해야 한다. [Next.js usePathname](https://nextjs.org/docs/app/api-reference/functions/use-pathname)
+
+## 경로 파라미터와 쿼리 스트링으로 메뉴 조회하기
+
+**상세 페이지는 동적 경로로 연결한다**
+
+`nexts-params`에서는 `src/app/menu/[menuCode]/page.js`를 만들었다. `[menuCode]`는 값이 바뀌는 경로 구간이다. 메뉴 카드에서 `href`를 `/menu/${menu.menuCode}`로 지정하면 여러 메뉴가 같은 상세 페이지 코드로 연결된다.
+
+```jsx
+// 메뉴 카드의 상세 페이지 링크
+<Link href={`/menu/${menu.menuCode}`}>{/* 메뉴 이름, 가격, 종류 */}</Link>
+```
+
+상세 페이지는 Client Component로 작성하고 `useParams()`로 `menuCode`를 읽었다. `/menu/1`에서 읽는 값은 문자열 `'1'`이다. [Next.js useParams](https://nextjs.org/docs/app/api-reference/functions/use-params)
+
+```jsx
+const { menuCode } = useParams()
+const [menu, setMenu] = useState()
+
+useEffect(() => {
+  setMenu(getMenuByMenuCode(menuCode))
+}, [menuCode])
+```
+
+`MenuAPI.js`는 JSON 데이터를 import하고, `find()`로 메뉴 한 개를 찾는다. JSON의 `menuCode`는 숫자이므로 URL에서 읽은 문자열을 `Number()`로 바꾼 뒤 비교했다.
+
+```js
+export function getMenuByMenuCode(menuCode) {
+  return menus.find((menu) => menu.menuCode === Number(menuCode))
+}
+```
+
+처음에는 `menu`가 `undefined`이므로 화면에서는 `menu?.menuName`처럼 옵셔널 체이닝을 사용했다. 경로 값이 바뀌면 Effect도 다시 실행되도록 의존성 배열에 `menuCode`를 넣었다. 실습의 메뉴 조회는 네트워크 요청이 아니라 import한 JSON 배열에서 데이터를 찾는 방식이다.
+
+**검색 조건은 쿼리 스트링으로 전달한다**
+
+메뉴 목록에서는 검색 입력을 `searchValue` 상태로 관리했다. 검색 버튼을 누르면 `useRouter()`의 `push()`로 검색 페이지에 이동하면서 검색어를 URL에 넣었다.
+
+```jsx
+const router = useRouter()
+
+const onClickHandler = () => {
+  router.push(`/menu/search?menuName=${searchValue}`)
+}
+```
+
+`Link`는 화면에 이동 링크를 표현하고, `router.push()`는 버튼 클릭 같은 이벤트 처리 안에서 이동할 때 사용할 수 있다. App Router의 `useRouter`는 `next/navigation`에서 가져온다. [Next.js useRouter](https://nextjs.org/docs/app/api-reference/functions/use-router)
+
+검색 결과 컴포넌트에서는 `useSearchParams().get('menuName')`으로 검색어를 읽었다. 그 값이 바뀔 때마다 `filter()`와 `includes()`로 이름에 검색어가 포함된 메뉴를 다시 찾는다.
+
+```jsx
+const searchParams = useSearchParams()
+const menuName = searchParams.get('menuName')
+
+useEffect(() => {
+  setMenuList(searchMenu(menuName))
+}, [menuName])
+```
+
+| 구분          | URL 예시                     | 읽는 방식                           | 용도             |
+| ------------- | ---------------------------- | ----------------------------------- | ---------------- |
+| 경로 파라미터 | `/menu/1`                    | `useParams().menuCode`              | 조회할 메뉴 식별 |
+| 쿼리 스트링   | `/menu/search?menuName=열무` | `useSearchParams().get('menuName')` | 검색 조건 전달   |
+
+`useParams()`가 읽는 것은 `?` 뒤의 검색 조건이 아니라 `[menuCode]`에 대응하는 경로 값이다. 두 값의 위치와 역할을 구분하는 것이 이번 실습의 핵심이었다.
+
+**useSearchParams를 사용하는 컴포넌트는 Suspense 안에 둔다**
+
+검색 페이지는 실제 검색 조건을 읽는 `MenuSearchResultContent`를 분리하고, 바깥에서 `Suspense`로 감쌌다.
+
+```jsx
+export default function MenuSearchResult() {
+  return (
+    <Suspense fallback={<h1>검색 조건을 확인하는 중입니다...</h1>}>
+      <MenuSearchResultContent />
+    </Suspense>
+  )
+}
+```
+
+정적으로 사전 렌더링되는 페이지에서 `useSearchParams()`를 사용하면 가장 가까운 `Suspense` 경계까지 클라이언트 렌더링 대상이 된다. 개발 서버에서 문제가 없어 보여도, 프로덕션 빌드에서는 이 경계가 필요하다. 이 실습의 `fallback`은 검색 조건을 읽는 컴포넌트의 렌더링 경계이며, `useEffect()`가 끝날 때까지 자동으로 표시되는 일반적인 로딩 UI는 아니다. [Next.js useSearchParams](https://nextjs.org/docs/app/api-reference/functions/use-search-params)
+
+**정리하면서 확인한 보완점**
+
+실습 코드에서는 검색어를 URL 문자열에 그대로 붙였다. 검색어에 `&`나 `#`가 들어가도 하나의 값으로 전달하려면 `URLSearchParams`로 쿼리를 만드는 편이 안전하다. 또한 `get('menuName')`은 해당 키가 없으면 `null`을 반환하므로, 검색 조건 없는 주소를 처리할 때는 기본값이나 안내 화면을 정해야 한다. 이는 원래 실습에 구현된 기능이 아니라 코드를 다시 읽으며 확인한 보완 사항이다.
+
+## useReducer로 상태 변경 규칙 모으기
+
+`reducer-prac.html`에서는 숫자에 1 더하기, 4 곱하기, 3 나누기를 각각 `useState`와 `useReducer`로 구현했다.
+
+`useState` 버전은 각 이벤트 함수에서 `setNumber(number + 1)`처럼 다음 값을 직접 계산했다. `useReducer` 버전은 버튼이 액션을 보내고, reducer가 액션 종류에 따라 다음 값을 반환했다.
+
+```jsx
+function reducer(number, action) {
+  switch (action.type) {
+    case 'PLUS1':
+      return number + 1
+    case 'MULTI4':
+      return number * 4
+    case 'DIVIDE3':
+      return number / 3
+    default:
+      return number
+  }
+}
+
+const [number, dispatch] = useReducer(reducer, 0)
+
+// 버튼 클릭 시 계산 종류를 전달한다.
+const onPlus1 = () => dispatch({ type: 'PLUS1' })
+```
+
+`useReducer(reducer, 0)`의 `0`은 초기 상태다. `dispatch()`가 액션을 전달하면 React는 현재 상태와 액션을 reducer에 넣고, 반환된 값으로 다음 렌더링의 상태를 갱신한다. reducer는 입력을 바탕으로 다음 상태를 계산하는 순수 함수여야 한다. [React useReducer](https://react.dev/reference/react/useReducer)
+
+이번 예제에서는 두 방식으로 같은 계산을 할 수 있었다. `useReducer`를 쓰면 버튼마다 계산 코드를 나누는 대신 상태 변경 규칙을 한 함수에 모으고, 이벤트 핸들러에는 어떤 동작을 요청하는지 남길 수 있었다. 초기값 `0`에서 `PLUS1`, `MULTI4`, `DIVIDE3` 순서로 실행하면 상태는 `1`, `4`, `4 / 3`으로 바뀐다. 나누기는 정수로 반올림하지 않는다.
+
+오늘 기억할 내용은 URL에 있는 값의 위치를 구분하고, 상태가 바뀌는 이유를 코드에 드러내는 것이다. 메뉴 상세는 경로 값으로, 검색 결과는 쿼리 값으로 조회하고, 카운터는 액션으로 상태 변경 의도를 표현했다.
+
+참고: [Next.js Layouts and Pages](https://nextjs.org/docs/app/getting-started/layouts-and-pages), [Next.js useParams](https://nextjs.org/docs/app/api-reference/functions/use-params), [Next.js useSearchParams](https://nextjs.org/docs/app/api-reference/functions/use-search-params), [React useReducer](https://react.dev/reference/react/useReducer)
