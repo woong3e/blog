@@ -1,14 +1,17 @@
 {
-  "til": 18,
   "react": 1,
   "hooks": 1,
   "usereducer": 1,
-  "javascript": 4,
+  "til": 11,
+  "authentication": 1,
+  "web": 1,
+  "cookie": 1,
+  "session": 1,
+  "jwt": 1,
+  "token": 1,
+  "javascript": 6,
   "class": 1,
   "css": 1,
   "html": 1,
-  "git": 1,
-  "test-code": 1,
-  "next-js": 1,
-  "typescript": 1
+  "git": 1
 }
