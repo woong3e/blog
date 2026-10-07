@@ -8,6 +8,19 @@ summary: Props Drilling을 Zustand로 줄이고, 상태 영속화와 비동기 �
 
 # 🍀 Zustand와 서버 데이터 관리
 
+## 먼저 설명해보세요
+
+질문을 자신의 말로 설명해보고, 막히는 내용은 `답 확인`으로 이동해 복습한다.
+
+1. Props Drilling은 어떤 상황에서 생기며, Zustand의 store를 사용하면 상태 전달 방식이 어떻게 달라지나요? → [답 확인](#props-drilling과-zustand의-기본-구조)
+2. Zustand의 set에 객체를 전달하는 것과 이전 상태를 받는 함수를 전달하는 것은 언제 각각 필요한가요? → [답 확인](#props-drilling과-zustand의-기본-구조)
+3. 사용자·장바구니·UI store를 나누는 이유와 배열 상태를 추가·삭제하는 방법을 설명해보세요. → [답 확인](#역할별-store와-새로고침-이후의-상태)
+4. persist로 테마를 저장하면 새로고침 이후 어떻게 달라지며, 브라우저에 저장된 테마와 서버 화면의 차이는 어떻게 다뤘나요? → [답 확인](#역할별-store와-새로고침-이후의-상태)
+5. useQuery의 queryKey와 queryFn은 어떤 역할을 하며, isLoading과 isFetching은 어떻게 다른가요? → [답 확인](#비동기-액션-tanstack-query와-crud)
+6. 게시글 CRUD의 HTTP 메서드와 화면 갱신 과정을 설명하고, API 함수를 분리한 이유를 설명해보세요. → [답 확인](#비동기-액션-tanstack-query와-crud)
+
+---
+
 오늘은 같은 카운터를 여러 컴포넌트에서 사용하는 예제로 Props Drilling과 Zustand를 비교했다. 이후 사용자·장바구니·UI 상태를 나누고, 테마 저장, 비동기 요청, TanStack Query, 게시글 CRUD까지 연결해 봤다.
 
 ## Props Drilling과 Zustand의 기본 구조

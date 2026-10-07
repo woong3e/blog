@@ -5,7 +5,22 @@ tags: ['TIL']
 draft: false # true일 때 글을 노출하지 않습니다.(로컬에는 뜸)
 summary: Book 생성자와 프로토타입 메서드로 도서별 총액을 계산하고, 메서드 공유와 Object.hasOwn을 통한 소유 여부를 확인했다.
 ---
-# 🍀 오늘의 과제 
+
+# 🍀 오늘의 과제
+
+## 먼저 설명해보세요
+
+질문을 자신의 말로 설명해보고, 막히는 내용은 `답 확인`으로 이동해 복습한다.
+
+1. Book 생성자에서 title과 price를 this에 저장하면 도서별 데이터는 어떻게 구분되나요? → [답 확인](#도서-객체-생성)
+2. Book.prototype에 정의한 getTotal을 각 도서 객체에서 호출하면 어떤 가격을 사용하나요? → [답 확인](#프로토타입-메서드-정의와-호출)
+3. 두 도서의 getTotal 참조 비교와 Object.hasOwn 결과를 통해 무엇을 확인할 수 있나요? → [답 확인](#메서드-공유와-소유-여부)
+4. 첫 번째 도서의 가격을 바꾸면 두 도서의 총액은 각각 어떻게 달라지며, 수량 0일 때는 어떤 결과가 나오나요? → [답 확인](#객체별-데이터와-계산-결과)
+
+---
+
+### 도서 객체 생성
+
 ```javascript
 // 도서마다 제목과 가격은 다르지만, 수량을 받아 총액을 계산하는 방법은 같죠!!
 
@@ -14,39 +29,50 @@ summary: Book 생성자와 프로토타입 메서드로 도서별 총액을 계�
 // 1. `Book(title, price)` 생성자에서 title과 price를 각 객체에 저장합니다.
 
 function Book(title, price) {
-  this.title = title;
-  this.price = price;
+  this.title = title
+  this.price = price
 }
+```
+
+### 프로토타입 메서드 정의와 호출
+
+```javascript
 // 2. `getTotal(quantity)`은 `Book.prototype`에 정의하고 현재 도서의 가격과 수량을 곱해 반환합니다.
 Book.prototype.getTotal = function (quantity) {
-  return this.price * quantity;
-};
+  return this.price * quantity
+}
 
 // console.log(Book.prototype);
 
 // 3. 15000원 도서와 20000원 도서를 만들어 각각 두 권의 총액을 확인합니다.
-const book1 = new Book("책1", 15000);
-const book2 = new Book("책2", 20000);
+const book1 = new Book('책1', 15000)
+const book2 = new Book('책2', 20000)
 
-console.log(book1.getTotal(2));
-console.log(book2.getTotal(2));
+console.log(book1.getTotal(2))
+console.log(book2.getTotal(2))
+```
 
+### 메서드 공유와 소유 여부
+
+```javascript
 // 4. 두 도서가 같은 getTotal 함수를 사용하는지 확인합니다.
-console.log(book1.getTotal === book2.getTotal);
+console.log(book1.getTotal === book2.getTotal)
 
 // 5. book1이 getTotal을 직접 가지고 있는지, Book.prototype이 가지고 있는지 확인합니다.
-console.log(Object.hasOwn(book1, "getTotal")); //false
-console.log(Object.hasOwn(Book.prototype, "getTotal")); //true
-// 6. 첫 도서의 가격을 18000원으로 바꾸고 두 도서의 총액을 다시 확인합니다. 수량 0도 확인합니다.
-book1.price = 18000;
-console.log(book1.getTotal(2), book2.getTotal(2));
-console.log(book1.getTotal(0), book2.getTotal(0));
+console.log(Object.hasOwn(book1, 'getTotal')) //false
+console.log(Object.hasOwn(Book.prototype, 'getTotal')) //true
+```
 
+### 객체별 데이터와 계산 결과
+
+```javascript
+// 6. 첫 도서의 가격을 18000원으로 바꾸고 두 도서의 총액을 다시 확인합니다. 수량 0도 확인합니다.
+book1.price = 18000
+console.log(book1.getTotal(2), book2.getTotal(2))
+console.log(book1.getTotal(0), book2.getTotal(0))
 ```
 
 # 🍀 생성자 함수
-
-
 
 # 🍀 프로토 타입
 
@@ -59,7 +85,6 @@ const user = {
 ```
 
 즉, 위 user 객체는 개념적으로는 아래와 같다.
-
 
 ```
 user 객체

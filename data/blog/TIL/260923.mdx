@@ -8,6 +8,18 @@ summary: Next.js App Router의 페이지와 레이아웃, 경로와 검색 파�
 
 # Next.js 라우팅과 useReducer
 
+## 먼저 설명해보세요
+
+질문을 자신의 말로 설명해보고, 막히는 내용은 `답 확인`으로 이동해 복습한다.
+
+1. App Router의 폴더, page.js, layout.js가 각각 어떤 역할을 하며, 중첩 레이아웃 안에 페이지는 어떻게 표시되나요? → [답 확인](#app-router에서-페이지와-레이아웃-구성하기)
+2. Link와 usePathname을 이용해 페이지를 이동하고 현재 메뉴를 표시하는 과정을 설명해보세요. → [답 확인](#app-router에서-페이지와-레이아웃-구성하기)
+3. 경로 파라미터와 쿼리 스트링은 URL의 어디에 있으며, 메뉴 상세와 검색 화면에서 각각 어떻게 읽나요? → [답 확인](#경로-파라미터와-쿼리-스트링으로-메뉴-조회하기)
+4. 검색 페이지에서 useSearchParams를 사용하는 컴포넌트를 Suspense로 감싼 이유와 fallback의 역할을 설명해보세요. → [답 확인](#경로-파라미터와-쿼리-스트링으로-메뉴-조회하기)
+5. useReducer에서 dispatch, action, reducer는 상태를 어떻게 변경하며, useState 방식과 어떤 점이 다른가요? → [답 확인](#usereducer로-상태-변경-규칙-모으기)
+
+---
+
 오늘은 Next.js로 페이지와 공통 레이아웃을 구성하고, 메뉴 목록에서 상세 페이지와 검색 결과로 이동하는 흐름을 만들었다. 같은 날 추가한 카운터 실습에서는 `useState`와 `useReducer`로 같은 계산을 구현하며 상태 변경 방식을 비교했다.
 
 Next.js 실습 프로젝트의 `package.json`에는 Next.js `16.3.6`, React `19.2.8`이 명시되어 있다. 별도의 `reducer-prac.html`은 React 18 UMD 스크립트를 사용한다.
