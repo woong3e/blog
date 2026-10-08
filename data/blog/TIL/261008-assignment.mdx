@@ -1,0 +1,872 @@
+---
+title: 261008 TIL - Java chap1~6 과제 풀이
+date: '2026-10-08'
+tags: ['TIL', 'java', '과제']
+draft: false
+summary: Java chap1~6 과제의 문제 주석과 chap3·chap6 PDF를 바탕으로 직접 작성한 풀이를 정리하고, 계산과 제어문, 배열, 메서드의 반환값, DTO 생성자의 동작 및 요구사항과의 차이를 확인했다.
+---
+
+# 🍀 2026-10-08 / Java chap1~6 과제 풀이
+
+## 먼저 설명해보세요
+
+아래 질문을 자신의 말로 설명해보자. 설명할 수 있는 내용은 넘어가고, 막히는 내용은 `답 확인`으로 이동해 복습한다.
+
+1. 정수 20을 30으로 나눈 몫과 나머지는 각각 무엇이며, 실수 총점을 정수로 바꾸는 시점에 따라 계산 과정은 어떻게 달라지나요? → [답 확인](#chap1-변수와-형변환)
+2. 삼항 연산자로 결과를 선택하는 방법과 월·일의 범위를 함께 검사하는 방법을 설명해보세요. 실수 점수를 등급으로 바꾸는 코드는 어떤 순서로 동작하나요? → [답 확인](#chap2-연산자와-조건-판단)
+3. 메서드의 매개변수와 반환값은 어떤 역할을 하나요? 메서드 안에서 출력하는 것과 호출한 쪽에서 반환값을 사용하는 것은 어떻게 다른가요? → [답 확인](#chap3-메서드-호출과-반환값)
+4. 불합격 사유를 모두 출력하는 조건문과 보너스율 하나를 결정하는 조건문은 왜 다르게 구성해야 하나요? 난수 맞추기에서 정답과 입력 횟수는 어디서 관리해야 하나요? → [답 확인](#chap4-조건문과-반복문)
+5. 길이가 7인 배열에 `1 2 3 4 3 2 1`을 저장하는 원리를 설명해보세요. 길이가 1이면 어떤 값이 저장되나요? → [답 확인](#chap5-가운데를-기준으로-증가하고-감소하는-배열)
+6. 숫자 야구에서 난수 중복 검사, 자리 분해, 스트라이크·볼 판정, 기회 차감은 어떻게 연결되나요? 현재 풀이에서 정답 배열의 첫 값이 0이면 어떤 문제가 생기나요? → [답 확인](#chap5-숫자-야구)
+7. `BookDTO`의 세 생성자는 객체를 각각 어떤 상태로 만드나요? 필드, 생성자, getter·setter의 역할과 `this`의 의미를 설명해보세요. → [답 확인](#chap6-bookdto와-생성자)
+
+---
+
+## 학습 내용
+
+이번 기록은 **수업 내용을 적용해 직접 푼 Java 과제 TIL**이다. chap1·2·4·5는 소스에 적힌 문제 주석을, chap3·6은 제공받은 PDF의 문제 원문을 요구사항으로 읽고 작성한 코드를 내 풀이로 정리했다. 기존의 오늘 수업 TIL과 별도로 과제의 문제, 풀이 과정, 결과와 확인할 부분을 기록한다.
+
+본문의 **내 풀이**는 실제 작성한 코드를 발췌한 것이다. 입력 안내문과 반복되는 출력 등 일부를 생략하고 들여쓰기만 정리했다. 입력을 받는 예시는 원본처럼 `Scanner sc = new Scanner(System.in);`을 준비한 상태로 읽으면 된다. **요구사항 확인**과 **보완 예시**는 원래 풀이에 대한 분석이며, 이미 수정한 코드라는 뜻은 아니다.
+
+chap3·chap6은 **각 PDF의 1쪽에 있는 클래스 구조와 구현 조건, 2쪽의 실행 결과 예시를 확인해 풀이와 대조했다.** 계산값이 맞는지뿐 아니라 지정된 인자, 반환값의 사용 위치, 객체 초기화 값과 출력 형식도 함께 확인했다.
+
+| 장    | 과제 자료                                                                 | 정리 범위                                          |
+| ----- | ------------------------------------------------------------------------- | -------------------------------------------------- |
+| chap1 | `java/chap01_literal_and_variable/src/com/woong3e/practice/Practice.java` | 문제 주석 4개와 풀이                               |
+| chap2 | `java/chap02_operator/src/com/woong3e/practice/Practice.java`             | 문제 주석 5개와 풀이                               |
+| chap3 | `java/chap03_method_and_api/src/com/greedy/level01/basic/`                | PDF 문제 1과 `Application`, `Calculator` 풀이 대조 |
+| chap4 | `java/chap04_control_flow/src/com/woong3e/practice/Practice.java`         | 문제 주석 4개와 풀이                               |
+| chap5 | `java/chap05_array/src/com/woong3e/practice/Practice.java`                | 문제 주석 2개와 풀이                               |
+| chap6 | `java/chap06_class_and_object/src/com/greedy/level02/normal/book/`        | PDF 문제 1과 `BookDTO`, `Application` 풀이 대조    |
+
+### chap1 변수와 형변환
+
+#### 문제 1 — 두 정수의 사칙연산과 나머지
+
+**문제:** 정수형 변수 두 개를 20과 30으로 초기화하고 더하기, 빼기, 곱하기, 나누기의 몫과 나머지를 출력한다.
+
+**내 풀이**
+
+```java
+int a = 20, b = 30;
+System.out.println("더하기 결과: " + (a + b));
+System.out.println("빼기 결과: " + (a - b));
+System.out.println("곱하기 결과: " + (a * b));
+System.out.println("나누기한 몫: " + (a / b));
+System.out.println("나누기한 나머지: " + a % b);
+```
+
+**풀이 원리:** 두 피연산자가 `int`이므로 `a / b`는 정수 나눗셈이다. 20을 30으로 나눈 몫은 0이고 나머지는 20이다. 덧셈은 문자열 연결과 같은 `+`를 사용하므로 `(a + b)`로 계산을 먼저 묶었다. 마지막 줄의 `%`는 문자열 연결보다 먼저 계산된다.
+
+| 연산    | 결과 |
+| ------- | ---- |
+| `a + b` | 50   |
+| `a - b` | -10  |
+| `a * b` | 600  |
+| `a / b` | 0    |
+| `a % b` | 20   |
+
+#### 문제 2 — 사각형의 넓이와 둘레
+
+**문제:** 너비 12.5, 높이 36.4를 변수에 저장한다. 넓이와 둘레를 계산해 **각각 변수에 담은 뒤** 출력한다.
+
+**내 풀이**
+
+```java
+double a1 = 12.5, b1 = 36.4;
+System.out.println("면적: " + a1 * b1);
+System.out.println("둘레: " + ((a1 + b1) * 2));
+```
+
+**풀이 원리:** 넓이는 너비 × 높이, 둘레는 (너비 + 높이) × 2로 계산했다. 출력 결과는 각각 `455.0`, `97.8`이다.
+
+**요구사항 확인:** 계산 결과는 맞지만, 넓이와 둘레를 각각 변수에 저장하라는 조건은 반영하지 않았다. 아래는 그 조건을 맞추는 보완 예시다.
+
+```java
+double area = a1 * b1;
+double perimeter = (a1 + b1) * 2;
+System.out.println("면적: " + area);
+System.out.println("둘레: " + perimeter);
+```
+
+#### 문제 3 — 문자의 유니코드 값
+
+**문제:** 문자형 변수에 `'a'`를 저장하고 그 문자의 유니코드 값을 출력한다. 출력 예시는 `문자 a의 unicode : 97`이다.
+
+**내 풀이**
+
+```java
+char a2 = 'a';
+System.out.println((int) a2);
+```
+
+**풀이 원리:** `char` 값을 `int`로 변환해 문자에 대응하는 숫자 97을 출력했다.
+
+**요구사항 확인:** 값은 맞지만 출력 예시의 설명 문구는 빠져 있다. 문구까지 맞추려면 `System.out.println("문자 " + a2 + "의 unicode : " + (int) a2);`처럼 작성한다.
+
+#### 문제 4 — 실수 점수의 총점과 평균을 정수로 출력
+
+**문제:** 국어 80.5, 수학 50.6, 영어 70.8을 실수로 저장하고, 총점과 평균을 정수로 출력한다.
+
+**내 풀이**
+
+```java
+double a3 = 80.5, b3 = 50.6, c3 = 70.8;
+System.out.println("총점: " + (int) (a3 + b3 + c3));
+System.out.println("평균: " + (int) (a3 + b3 + c3) / 3);
+```
+
+**풀이 원리:** 실수 점수의 합을 `int`로 변환해 소수 부분을 버렸다. 총점은 201, 평균은 정수 나눗셈 `201 / 3`의 결과인 67이다.
+
+평균 식의 실제 순서는 **총점 계산 → 정수로 변환 → 3으로 나누기**다. 실수 평균을 먼저 구한 뒤 정수로 바꾸려면 `(int) ((a3 + b3 + c3) / 3.0)`로 작성한다. 이번처럼 양수인 세 점수를 더하고 정수 평균을 출력하는 경우에는 두 방식의 결과가 같지만, 소수 평균을 보존해야 하는 계산에서는 변환 시점을 구분해야 한다.
+
+### chap2 연산자와 조건 판단
+
+#### 문제 1 — 삼항 연산자로 큰 수 선택
+
+**문제:** 두 정수 중 큰 수를 삼항 연산자로 선택해 출력한다.
+
+**내 풀이**
+
+```java
+int num1 = sc.nextInt();
+int num2 = sc.nextInt();
+int result = num1 > num2 ? num1 : num2;
+System.out.println("두 수 중 큰 수는 " + result + "입니다.");
+```
+
+**풀이 원리:** `조건 ? 참일 때의 값 : 거짓일 때의 값`으로 결과를 결정했다. 두 수가 같으면 `num2`를 선택하지만 값은 같으므로 결과에 문제는 없다.
+
+#### 문제 2 — 합격 여부 판단
+
+**문제:** 점수가 60점 이상이면 합격, 그렇지 않으면 불합격을 삼항 연산자로 출력한다.
+
+**내 풀이**
+
+```java
+int a = sc.nextInt();
+String result1;
+result1 = a >= 60 ? "합격입니다." : "아쉽지만 불합격입니다.";
+System.out.println(result1);
+```
+
+**풀이 원리:** 조건의 경계값 60을 포함하기 위해 `>=`를 사용했다. 60점은 합격, 59점은 불합격이다. 선택하는 값이 문자열이므로 결과를 `String`에 저장했다.
+
+#### 문제 3 — 짝수와 홀수 구분
+
+**문제:** 입력받은 정수가 짝수인지 홀수인지 삼항 연산자로 판단한다.
+
+**내 풀이**
+
+```java
+int numA = sc.nextInt();
+String result3 = numA % 2 == 0 ? "짝수" : "홀수";
+System.out.println("입력하신 수는 " + result3 + "입니다.");
+```
+
+**풀이 원리:** 2로 나눈 나머지가 0이면 짝수이고, 그렇지 않으면 홀수다. 홀수를 `% 2 == 1`로 한정하지 않아 음수인 홀수도 구분할 수 있다.
+
+#### 문제 4 — 실수 점수를 정수로 변환해 등급 출력
+
+**문제:** 실수 점수를 정수로 바꾼 뒤 90점 이상 A, 80점 이상 B, 70점 이상 C, 60점 이상 D, 60점 미만 F를 출력한다. 출력 예시는 `홍길동의 이번 점수등급은 B입니다.`이다.
+
+**내 풀이**
+
+```java
+double score;
+score = (int) sc.nextDouble();
+switch ((int) score / 10) {
+    case 10, 9 -> System.out.println("A");
+    case 8 -> System.out.println("B");
+    case 7 -> System.out.println("C");
+    case 6 -> System.out.println("D");
+    default -> System.out.println("F");
+}
+```
+
+**풀이 원리:** 입력을 `int`로 변환한 뒤 `double score`에 저장했다. 예를 들어 89.9를 입력하면 `score`에는 89.0이 저장되고, `(int) score / 10`은 8이어서 B를 출력한다. 100점은 10이 되어 `case 10, 9`에서 A를 출력한다.
+
+**요구사항 확인:** 0~100점 범위에서는 등급 분기가 맞지만 출력은 등급 문자만 있어 예시의 이름과 문구가 빠졌다. 또한 문제의 문구를 그대로 적용하면 110점도 90점 이상인데 현재 코드는 F를 출력한다. 점수 범위를 0~100으로 제한하거나, 높은 점수부터 `>=`로 비교하는 방식으로 이 부분을 정할 수 있다. 실수를 보존하려면 입력 시 형변환을 빼고, 정수 점수만 사용할 목적이면 변수를 `int`로 선언하는 편이 명확하다.
+
+#### 문제 5 — 생일에 따른 선물 선택
+
+**문제:** 월과 일에 따라 선물을 결정한다.
+
+| 조건                 | 선물          |
+| -------------------- | ------------- |
+| 1~6월이면서 1~15일   | 배민 쿠폰     |
+| 7~12월이면서 16~31일 | 스타벅스 커피 |
+| 나머지               | 사탕          |
+
+**내 풀이**
+
+```java
+int month = sc.nextInt();
+int day = sc.nextInt();
+String result5;
+
+if ((month >= 1 && month <= 6) && (day >= 1 && day <= 15)) {
+    result5 = "배민 쿠폰";
+} else if ((month >= 7 && month <= 12) && (day >= 16 && day <= 31)) {
+    result5 = "스타벅스 커피";
+} else {
+    result5 = "사탕";
+}
+System.out.println("박지성의 선물은 " + result5 + "입니다");
+```
+
+**풀이 원리:** 한 범위의 하한과 상한을 `&&`로 묶고, 월 조건과 일 조건도 `&&`로 연결했다. 한 조건만 만족하면 선물을 받는 것이 아니라, 해당 월과 일의 조건을 모두 만족해야 한다. 예를 들어 7월 16일은 스타벅스 커피, 7월 15일은 사탕이다.
+
+**요구사항 확인:** 선물 선택 조건은 반영했다. 출력의 이름은 현재 `박지성`으로 고정되어 있으므로, 문제의 “본인이름” 조건을 맞추려면 본인 이름을 사용해야 한다.
+
+### chap3 메서드 호출과 반환값
+
+**문제 자료:** `chap03-method-and-api-practice-quiestion.com.greedy.level01.basic.pdf` 1~2쪽.
+
+#### 문제 1 — 반환형과 매개변수에 맞는 메서드 작성
+
+**PDF 문제 내용**
+
+> 문제1] 다음과 같은 조건을 만족하는 프로그램을 작성하시오.
+>
+> 반환형과 매개변수 유무에 따라 메소드를 작성하고, 이를 호출하거나 출력하시오.
+
+아래는 PDF의 문제 지시문, 클래스 구조, 구현 내용과 실행 안내를 문서에서 바로 읽을 수 있도록 옮긴 것이다. 표의 줄바꿈과 배치만 정리했으며, 내 풀이와 분석은 이 문제 영역 다음에 따로 작성했다.
+
+**1. 사용 데이터**
+
+PDF의 이 항목은 비어 있다. 사용할 정수는 아래 `Application` 작성 안내에 제시되어 있다.
+
+**2. 구현 클래스**
+
+```text
+com.greedy.level01.basic.Calculator.java
+    + checkMethod(): void
+    + sum1to10(): int
+    + checkMaxNumber(a: int, b: int): void
+    + sumTwoNumber(a: int, b: int): int
+    + minusTwoNumber(a: int, b: int): int
+
+com.greedy.level01.basic.Application.java
+    + main(args: String[]): void
+```
+
+클래스 구조도의 `+`는 public 접근을 나타낸다.
+
+**3. 구현 내용**
+
+| Package명                  | Class명       | method                                 | 설명                                             |
+| -------------------------- | ------------- | -------------------------------------- | ------------------------------------------------ |
+| `com.greedy.level01.basic` | `Calculator`  | `checkMethod(): void`                  | 함수 호출 확인용 메소드                          |
+| `com.greedy.level01.basic` | `Calculator`  | `sum1to10(): int`                      | 1부터 10까지 수를 더하여 값을 리턴함             |
+| `com.greedy.level01.basic` | `Calculator`  | `checkMaxNumber(a: int, b: int): void` | 두 수를 입력받아 큰 수를 출력함                  |
+| `com.greedy.level01.basic` | `Calculator`  | `sumTwoNumber(a: int, b: int): int`    | 두 수를 입력받아 합을 리턴함                     |
+| `com.greedy.level01.basic` | `Calculator`  | `minusTwoNumber(a: int, b: int): int`  | 두 수를 입력받아 차를 리턴함                     |
+| `com.greedy.level01.basic` | `Application` | `main(args: String[]): void`           | 모든 메소드는 main 함수에서 호출하여 출력시킨다. |
+
+**제약 조건: package명, class명과 method명은 변경하지 않는다.**
+
+**4. Application 클래스 작성 내용**
+
+Calculator 클래스에 있는 각 메소드를 호출한다. 다음 주석의 지시에 맞게 코드를 작성한다.
+
+```java
+public class Application {
+    public static void main(String args[]) {
+        // 메소드 호출 확인용 메소드 호출
+        // 함수를 호출하여 1~10까지의 합을 리턴 받아 출력
+        // 10, 20 두 개의 정수를 매개변수로 하여 큰 값 출력하는 메소드 호출
+        // 10, 20 두 개의 정수를 매개변수로 하여 두 수를 더하는 메소드 호출 후 리턴값 출력
+        // 10, 5 두 개의 정수를 매개변수로 하여 두 수의 차를 구하는 메소드 호출 후 리턴값 출력
+    }
+}
+```
+
+**5. 실행 결과 — PDF의 출력 예시**
+
+```text
+메소드 호출 확인
+1부터 10까지의 합 : 55
+두 수 중 큰 수는 20이다.
+10과 20의 합은 : 30
+10과 5의 차는 : 5
+```
+
+위 문제의 작성 안내에서 큰 수 비교와 덧셈의 인자는 `(10, 20)`, 뺄셈의 인자는 `(10, 5)`다. 합계와 두 수의 합·차는 반환값을 `main`에서 받아 출력하는 흐름으로 풀이를 확인한다.
+
+#### 내 풀이 — 구현한 메서드와 호출 흐름
+
+| 메서드                         | 입력과 반환            | 실제 구현                                 |
+| ------------------------------ | ---------------------- | ----------------------------------------- |
+| `checkMethod()`                | 매개변수 없음 / `void` | `메서드 호출 확인` 출력                   |
+| `sum1to10()`                   | 매개변수 없음 / `int`  | 1~10의 합 55를 출력하고 반환              |
+| `checkMaxNumber(int a, int b)` | 정수 두 개 / `void`    | `Math.max()`로 큰 수를 출력               |
+| `sumTwoNumber(int a, int b)`   | 정수 두 개 / `int`     | 두 수의 합을 출력하고 반환                |
+| `minusTwoNumber(int a, int b)` | 정수 두 개 / `int`     | 첫 수에서 둘째 수를 뺀 값을 출력하고 반환 |
+
+**내 풀이 — 실행 클래스**
+
+```java
+Calculator cal = new Calculator();
+cal.checkMethod();
+cal.sum1to10();
+cal.checkMaxNumber(1, 20);
+
+int a = sc.nextInt();
+int b = sc.nextInt();
+cal.sumTwoNumber(a, b);
+
+int c = sc.nextInt();
+int d = sc.nextInt();
+cal.minusTwoNumber(c, d);
+```
+
+**내 풀이 — 계산 메서드**
+
+```java
+public void checkMethod() {
+    System.out.println("메서드 호출 확인");
+}
+
+public int sum1to10() {
+    int sum = 0;
+    for (int i = 1; i <= 10; i++) {
+        sum += i;
+    }
+    System.out.println("1부터 10까지의 합: " + sum);
+    return sum;
+}
+
+public void checkMaxNumber(int a, int b) {
+    int result = Math.max(a, b);
+    System.out.println("두 수 중 큰 수는 " + result + "이다.");
+}
+
+public int sumTwoNumber(int a, int b) {
+    int sum = a + b;
+    System.out.println(a + "와 " + b + "의 합은: " + sum);
+    return sum;
+}
+
+public int minusTwoNumber(int a, int b) {
+    int sum = a - b;
+    System.out.println(a + "와 " + b + "의 차는: " + sum);
+    return sum;
+}
+```
+
+**풀이 원리:** `Application`은 입력과 호출 순서를 관리하고, `Calculator`는 각 기능을 메서드로 나눴다. `sum1to10()`은 `sum`을 0부터 시작해 1~10을 차례로 더한다. 두 수를 받는 메서드는 호출 시 전달한 인자가 매개변수 `a`, `b`에 들어간다.
+
+`return sum;`은 계산값을 호출한 쪽으로 돌려준다. 다만 현재 실행 코드는 `cal.sumTwoNumber(a, b);`처럼 호출만 하므로 **반환값을 저장하거나 후속 계산에 사용하지 않는다.** 화면에 결과가 보이는 이유는 각 메서드 안의 `println()` 때문이다. `int total = cal.sumTwoNumber(a, b);`처럼 호출하면 반환값을 변수에 저장할 수 있다.
+
+#### 요구사항 확인 — 계산과 반환은 맞고 호출 방식은 보완 필요
+
+| 확인 항목                     | 현재 풀이와 PDF의 비교                                         |
+| ----------------------------- | -------------------------------------------------------------- |
+| 패키지·클래스·메서드명        | 일치                                                           |
+| public 접근, 매개변수, 반환형 | 다섯 메서드 모두 일치                                          |
+| 계산                          | 1~10의 합 55, 큰 수 선택, 두 수의 합과 차 구현                 |
+| 큰 수 비교 인자               | PDF는 `(10, 20)`, 현재는 `(1, 20)` → 출력은 같지만 인자는 다름 |
+| 합·차의 인자                  | PDF는 `(10, 20)`, `(10, 5)`, 현재는 Scanner로 입력받음         |
+| 반환값 사용                   | 반환은 하지만 main에서 받아 출력하지 않음                      |
+| 출력 위치                     | 현재는 합계·합·차까지 Calculator 안에서 출력                   |
+| 출력 문구                     | `메서드`/`메소드`, `와`/`과`, 콜론 앞뒤 공백 등이 예시와 다름  |
+
+입력에 10, 20, 10, 5를 주면 합 30과 차 5는 얻을 수 있다. 그러나 계산 결과가 같아도 PDF가 요구한 고정 인자 호출과 반환값 출력 흐름을 그대로 구현한 것은 아니다. 사용자 입력 안내문도 PDF의 출력 예시에는 없는 부분이다.
+
+**보완 예시 — 반환값을 사용하는 main의 핵심 부분**
+
+아래는 문제 조건에 맞추는 예시이며 원본 풀이에는 적용하지 않았다. 이 방식으로 바꿀 때는 `sum1to10()`, `sumTwoNumber()`, `minusTwoNumber()`의 기존 출력문을 제거하고 계산과 반환만 남겨야 결과가 중복 출력되지 않는다. `checkMethod()`의 메시지는 PDF의 `메소드 호출 확인`으로 맞춘다.
+
+```java
+Calculator cal = new Calculator();
+cal.checkMethod();
+System.out.println("1부터 10까지의 합 : " + cal.sum1to10());
+cal.checkMaxNumber(10, 20);
+System.out.println("10과 20의 합은 : " + cal.sumTwoNumber(10, 20));
+System.out.println("10과 5의 차는 : " + cal.minusTwoNumber(10, 5));
+```
+
+이 과제에서 구분할 핵심은 **void 메서드는 동작을 수행하고, int를 반환하는 메서드는 계산값을 호출한 쪽에 전달한다**는 점이다. `println()`은 화면 출력이고 `return`은 값 전달이므로 서로 대신할 수 없다.
+
+### chap4 조건문과 반복문
+
+#### 문제 1 — 합격 판단과 모든 불합격 사유 출력
+
+**문제:** 국어·영어·수학을 입력받는다. 평균 60점 이상이면서 각 과목이 모두 40점 이상이면 합격이다. 불합격이면 평균 미달과 각 과목의 과락 사유를 **해당하는 만큼 모두** 출력한다.
+
+**내 풀이**
+
+```java
+int a = sc.nextInt();
+int b = sc.nextInt();
+int c = sc.nextInt();
+int sum = a + b + c;
+double avg = sum / 3.0;
+
+if ((avg >= 60) && a >= 40 && b >= 40 && c >= 40) {
+    System.out.println("합격입니다!");
+} else {
+    if (avg < 60) {
+        System.out.println("평균점수 미달로 불합격입니다.");
+    }
+    if (a < 40) {
+        System.out.println("국어 과목의 점수 미달로 불합격입니다.");
+    }
+    if (b < 40) {
+        System.out.println("영어 과목의 점수 미달로 불합격입니다.");
+    }
+    if (c < 40) {
+        System.out.println("수학 과목의 점수 미달로 불합격입니다.");
+    }
+}
+```
+
+**풀이 원리:** `3.0`으로 나눠 실수 평균을 구하고, 합격 조건은 `&&`로 모두 묶었다. 불합격 사유는 서로 동시에 발생할 수 있으므로 독립된 `if`로 검사했다. 이를 `else if`로 연결하면 처음 발견한 사유만 출력하게 된다.
+
+| 입력: 국어 / 영어 / 수학 | 결과                                      |
+| ------------------------ | ----------------------------------------- |
+| 60 / 30 / 20             | 평균 미달, 영어 과락, 수학 과락 모두 출력 |
+| 100 / 100 / 39           | 평균은 통과하지만 수학 과락으로 불합격    |
+| 40 / 70 / 70             | 평균 60, 모든 과목 40 이상으로 합격       |
+
+#### 문제 2 — 매출액에 따른 보너스와 총 급여
+
+**문제:** 월 급여와 매출액을 입력받고 `총 급여 = 월 급여 + 매출액 × 보너스율`을 계산한다. 매출액, 보너스율, 월 급여, 보너스 금액, 총 급여를 출력한다.
+
+| 매출액                       | 보너스율 |
+| ---------------------------- | -------- |
+| 5천만 원 이상                | 5%       |
+| 3천만 원 이상, 5천만 원 미만 | 3%       |
+| 1천만 원 이상, 3천만 원 미만 | 1%       |
+| 1천만 원 미만                | 0%       |
+
+**내 풀이 — 계산과 출력**
+
+```java
+int salary = sc.nextInt();
+int revenue = sc.nextInt();
+double totalSalary;
+double bonusRate;
+
+if (revenue >= 50_000_000) {
+    bonusRate = 0.05;
+} else if (revenue >= 30_000_000) {
+    bonusRate = 0.03;
+} else if (revenue >= 10_000_000) {
+    bonusRate = 0.01;
+} else {
+    bonusRate = 0.0;
+}
+
+double bonusAmount = revenue * bonusRate;
+totalSalary = salary + bonusAmount;
+
+System.out.println("===================");
+System.out.println("매출액: " + revenue);
+System.out.println("보너스율: " + (int) (bonusRate * 100) + "%");
+System.out.println("월 급여: " + salary);
+System.out.println("===================");
+System.out.println("총 급여: " + (int) totalSalary);
+```
+
+**풀이 원리:** 매출 구간은 높은 기준부터 비교했다. 5천만 원은 1천만 원 이상이라는 조건도 만족하므로, 낮은 기준부터 `else if`로 검사하면 1%가 선택되는 문제가 생긴다. 보너스율을 0.05처럼 계산용 값으로 저장하고, 출력할 때만 100을 곱해 퍼센트로 표시했다. 숫자 안의 `_`는 자릿수를 읽기 쉽게 나눈 표시다.
+
+월 급여 3,000,000원, 매출액 20,000,000원이면 보너스율은 1%, 보너스 금액은 200,000원, 총 급여는 3,200,000원이다.
+
+**요구사항 확인:** 보너스 금액은 계산했지만 출력에서 빠졌다. 예시의 모든 항목을 출력하려면 두 번째 구분선 앞에 `System.out.println("보너스 금액: " + (int) bonusAmount);`를 추가해야 한다. 총 급여 출력은 `int` 변환으로 소수 부분을 버리는 방식이다.
+
+#### 문제 3 — 입력한 횟수만큼 수박 출력
+
+**문제:** 1부터 입력한 정수까지 반복하며 홀수 번째에는 `수`, 짝수 번째에는 `박`을 이어서 출력한다. 5를 입력하면 `수박수박수`가 나온다.
+
+**내 풀이**
+
+```java
+int numA = sc.nextInt();
+for (int i = 1; i <= numA; i++) {
+    if (i % 2 != 0) {
+        System.out.print("수");
+    } else {
+        System.out.print("박");
+    }
+}
+```
+
+**풀이 원리:** `i`는 입력값 자체가 아니라 현재 출력 순서다. `% 2`로 순서의 홀짝을 구분하고 `print()`로 줄바꿈 없이 연결했다. 문자열 변수에 누적하지 않아도 화면에는 요구한 문자열이 이어서 나온다.
+
+#### 문제 4 — 난수 맞추기와 입력 횟수
+
+**문제:** 1~100의 난수 하나를 만들고, 정답을 맞힐 때까지 입력값보다 큰지 작은지 알려준다. 정답이면 마지막 입력을 포함한 입력 횟수를 출력하고 종료한다.
+
+**내 풀이**
+
+```java
+double random = (int) (Math.random() * 100 + 1);
+int count = 0;
+int number = 0;
+
+while (number != random) {
+    System.out.println("");
+    System.out.print("정수를 입력하세요: ");
+    number = sc.nextInt();
+    count++;
+
+    if (number < random) {
+        System.out.println("입력하신 정수보다 큽니다.");
+    } else if (number > random) {
+        System.out.println("입력하신 정수보다 작습니다.");
+    } else {
+        System.out.println("정답입니다. " + count + "회만에 정답을 맞추셨습니다.");
+    }
+}
+```
+
+**풀이 원리:** `Math.random()`의 결과를 100배 하고 1을 더한 뒤 정수로 변환해 1~100을 만들었다. 정답은 반복문 밖에서 한 번 생성하므로 입력할 때마다 바뀌지 않는다. 입력 직후 `count++`를 실행하므로 첫 입력에 맞히면 1회로 표시된다. 정답을 입력하면 다음 조건 검사에서 `number != random`이 거짓이 되어 반복문이 끝난다.
+
+**요구사항 확인:** 핵심 반복과 횟수 계산은 반영했다. 정수로 만든 난수를 `double`에 저장하고 있으므로, 같은 동작을 더 명확하게 표현하려면 `int random = (int) (Math.random() * 100) + 1;`로 선언할 수 있다.
+
+### chap5 가운데를 기준으로 증가하고 감소하는 배열
+
+**문제:** 홀수인 양의 정수를 입력받아 그 크기의 배열을 만든다. 가운데까지 1부터 증가시키고, 이후에는 감소시킨다. 잘못된 값이면 `양수 혹은 홀수만 입력해야 합니다.`를 출력한다.
+
+**내 풀이**
+
+```java
+int oddNum = 0;
+while (oddNum <= 0 || oddNum % 2 == 0) {
+    System.out.print("홀수인 양의 정수를 입력하세요: ");
+    oddNum = sc.nextInt();
+    if (oddNum <= 0 || oddNum % 2 == 0) {
+        System.out.println("양수 혹은 홀수만 입력해야 합니다.");
+    }
+}
+
+int[] oddArr = new int[oddNum];
+for (int i = 0; i < oddNum; i++) {
+    int middleIndex = oddNum / 2;
+    if (i <= middleIndex) {
+        oddArr[i] = i + 1;
+    } else {
+        oddArr[i] = oddNum - i;
+    }
+}
+for (int number : oddArr) {
+    System.out.print(number + " ");
+}
+```
+
+**풀이 원리:** 유효한 입력은 `oddNum > 0`이면서 홀수인 경우다. 반대로 잘못된 입력은 0 이하 **또는** 짝수이므로 `||`로 검사했다. 유효한 값을 받은 다음 배열을 생성하므로 잘못된 크기로 배열을 만들지 않는다.
+
+길이 7이면 가운데 인덱스는 정수 나눗셈 `7 / 2`의 결과인 3이다.
+
+| 인덱스 `i` | 0       | 1       | 2       | 3       | 4       | 5       | 6       |
+| ---------- | ------- | ------- | ------- | ------- | ------- | ------- | ------- |
+| 적용 식    | `i + 1` | `i + 1` | `i + 1` | `i + 1` | `7 - i` | `7 - i` | `7 - i` |
+| 저장값     | 1       | 2       | 3       | 4       | 3       | 2       | 1       |
+
+가운데는 증가하는 쪽에 한 번만 포함되므로 최고값 4가 중복되지 않는다. 길이 1이면 가운데 인덱스 0에 `0 + 1`을 저장해 `1`을 출력한다. 값을 채울 때는 인덱스가 필요하고, 출력할 때는 요소를 읽기만 하므로 향상된 for문을 사용했다.
+
+**요구사항 확인:** 배열 값과 잘못된 입력 안내를 구현했다. 현재 풀이는 안내 후 다시 입력받는 동작도 추가했다. 문제 주석에는 재입력을 반드시 해야 한다는 조건은 없다. `middleIndex`는 반복마다 같으므로 반복문 밖에서 한 번 계산해도 된다.
+
+### chap5 숫자 야구
+
+**문제:** 0~9 중 중복되지 않는 값 4개를 배열에 저장한다. 사용자가 4자리 정수를 입력하면 숫자와 자리가 모두 맞는 경우 스트라이크, 숫자만 맞는 경우 볼로 알려준다. 기회는 10번이며, 4자리가 아닌 정수 입력은 기회를 차감하지 않는다. 정답이면 종료하고, 10번을 모두 틀리면 기회 소진 메시지를 출력한다.
+
+#### 내 풀이 1 — 중복 없는 정답 배열 생성
+
+```java
+int[] randomArr = new int[4];
+for (int i = 0; i < randomArr.length; i++) {
+    int random = (int) (Math.random() * 10);
+    boolean isDuplicate = false;
+
+    for (int j = 0; j < i; j++) {
+        if (randomArr[j] == random) {
+            isDuplicate = true;
+            break;
+        }
+    }
+    if (isDuplicate) {
+        i--;
+        continue;
+    }
+    randomArr[i] = random;
+}
+```
+
+**풀이 원리:** 새 난수를 이미 저장한 범위인 `j < i`와 비교했다. 아직 채우지 않은 배열 요소는 기본값 0이므로, 전체 배열을 검사하면 저장하지 않은 0까지 중복으로 판단할 수 있다.
+
+중복이면 저장하지 않고 `i--` 후 `continue`한다. for문의 증감식 `i++`가 이어서 실행되므로 다음 반복에서도 같은 인덱스를 다시 채운다. 안쪽의 `break`는 중복 검사만 끝내며, 전체 게임을 종료하는 것이 아니다.
+
+#### 내 풀이 2 — 입력 검증과 자리 분해
+
+아래 코드는 `while (count < 10)` 안에서 실행한다.
+
+```java
+inputNumber = sc.nextInt();
+if (inputNumber < 1000 || inputNumber > 9999) {
+    System.out.println("4자리의 정수를 입력해야 합니다.");
+    continue;
+}
+
+int[] inputArr = new int[4];
+for (int i = 3; i >= 0; i--) {
+    inputArr[i] = inputNumber % 10;
+    inputNumber /= 10;
+}
+```
+
+**풀이 원리:** `count++`보다 먼저 유효성을 검사하고, 잘못된 정수면 `continue`로 다음 입력을 받는다. 따라서 999나 10000은 기회를 차감하지 않는다.
+
+`% 10`으로 마지막 자리를 꺼내고 `/= 10`으로 그 자리를 제거한다. 오른쪽 인덱스부터 저장해 원래 자리 순서를 유지한다. 7416을 분해하면 `[7, 4, 1, 6]`이 된다. 분해가 끝나면 `inputNumber`는 0이 되지만, 판정에는 `inputArr`를 사용하므로 문제가 없다.
+
+#### 내 풀이 3 — 판정과 종료 조건
+
+`count`, `strikeCount`, `ballCount`는 게임 전에 0으로 선언했다. 다음은 자리 분해 이후의 처리다.
+
+```java
+strikeCount = 0;
+ballCount = 0;
+for (int i = 0; i < 4; i++) {
+    for (int j = 0; j < 4; j++) {
+        if (inputArr[i] == randomArr[j]) {
+            if (i == j) {
+                strikeCount++;
+            } else {
+                ballCount++;
+            }
+        }
+    }
+}
+
+count++;
+if (strikeCount == 4) {
+    System.out.println("정답입니다.");
+    break;
+} else {
+    System.out.println("아쉽네요 " + strikeCount
+            + "S " + ballCount + "B 입니다.");
+}
+```
+
+반복문이 끝난 뒤에는 다음 조건으로 기회 소진을 알린다.
+
+```java
+if (count == 10 && strikeCount != 4) {
+    System.out.println("10번의 기회를 모두 소진하셨습니다. 프로그램을 종료합니다.");
+}
+```
+
+**풀이 원리:** 입력의 각 숫자를 정답의 모든 자리와 비교한다. 숫자가 같을 때만 자리까지 검사하고, 같은 자리면 스트라이크, 다른 자리면 볼을 늘린다. 매 입력마다 두 카운트를 초기화해야 이전 입력의 결과가 누적되지 않는다.
+
+정답이 `[7, 4, 1, 6]`이면 1234와 5678은 각각 `0S 2B`, 7416은 `4S`로 정답이다. 유효한 입력만 `count++`에 도달한다. 열 번째에 맞혀도 `strikeCount != 4`가 거짓이므로 기회 소진 메시지를 출력하지 않는다.
+
+#### 요구사항 확인 — 첫 자리 0과 중복 입력
+
+**첫 자리가 0인 정답을 생성할 수 있다.** `[0, 1, 2, 3]`도 현재 난수 생성 조건을 만족하지만, 정답을 `0123`으로 입력하면 `nextInt()`가 정수 123으로 읽는다. 이후 4자리 검사에 걸려 거부되므로 이 정답은 맞힐 수 없다.
+
+4자리 **정수** 입력을 유지하려면 정답의 첫 자리만 1~9로 제한하고, 나머지는 기존처럼 0~9로 생성하는 방법이 있다. 아래는 난수 생성 줄을 바꾸는 **보완 예시**이며 원본 풀이에는 아직 적용하지 않았다.
+
+```java
+int random = i == 0
+        ? (int) (Math.random() * 9) + 1
+        : (int) (Math.random() * 10);
+```
+
+**사용자 입력의 중복 숫자는 검사하지 않는다.** 예를 들어 정답 `[1, 2, 3, 4]`에 1111을 입력하면 현재 비교 방식은 `1S 3B`를 출력한다. 같은 숫자 1이 입력의 여러 자리에서 같은 정답 자리와 반복해서 비교되기 때문이다.
+
+문제 주석은 정답 난수의 중복을 금지하지만 사용자 입력의 중복 처리 규칙은 명시하지 않았다. 중복 입력을 금지할지, 허용한다면 같은 정답 숫자를 여러 번 세지 않게 할지 정해야 한다. 현재 풀이는 이 상황에 대한 별도 처리를 하지 않은 상태로 기록한다.
+
+### chap6 BookDTO와 생성자
+
+**문제 자료:** `chap06-class-and-object-practice-1.pdf` 1~2쪽.
+
+#### 문제 1 — 책 정보를 담는 DTO와 세 종류의 생성자
+
+**PDF 문제 내용**
+
+> 문제1] 다음과 같은 조건을 만족하는 프로그램을 작성하시오.
+>
+> 반환형과 매개변수 유무에 따라 메소드를 작성하고, 이를 호출하거나 출력하시오.
+
+아래는 PDF의 문제 지시문, 클래스 구조, 구현 내용과 실행 안내를 옮긴 것이다. 긴 패키지명과 생성자의 줄바꿈은 읽기 쉽게 정리했다.
+
+**1. 사용 데이터**
+
+PDF의 이 항목은 비어 있다. 객체에 저장할 예시 값은 아래 실행 결과에 제시되어 있다.
+
+**2. 구현 클래스**
+
+```text
+com.greedy.level02.normal.book.model.dto.BookDTO.java
+    - title: String
+    - publisher: String
+    - author: String
+    - price: int
+    - discountRate: double
+    + BookDTO()
+    + BookDTO(title: String, publisher: String, author: String)
+    + BookDTO(title: String, publisher: String, author: String,
+              price: int, discountRate: double)
+    + setters / getters
+
+com.greedy.level02.normal.book.run.Application.java
+    + main(args: String[]): void
+```
+
+클래스 구조도의 `-`는 private, `+`는 public 접근을 나타낸다.
+
+**3. 구현 내용**
+
+| Package명                                  | Class명       | method                       | 설명                                                                            |
+| ------------------------------------------ | ------------- | ---------------------------- | ------------------------------------------------------------------------------- |
+| `com.greedy.level02.normal.book.model.dto` | `BookDTO`     | Constructor                  | 기본 생성자, 필드 3가지를 초기화하는 생성자, 모든 필드를 초기화하는 생성자 작성 |
+| `com.greedy.level02.normal.book.model.dto` | `BookDTO`     | setters                      | 필드 수정용 메소드                                                              |
+| `com.greedy.level02.normal.book.model.dto` | `BookDTO`     | getters                      | 필드값 리턴용 메소드                                                            |
+| `com.greedy.level02.normal.book.model.dto` | `BookDTO`     | `printInformation(): void`   | 필드값 출력용 메소드                                                            |
+| `com.greedy.level02.normal.book.run`       | `Application` | `main(args: String[]): void` | 모든 메소드는 main 함수에서 호출하여 출력시킨다.                                |
+
+**제약 조건: package명, class명과 method명은 변경하지 않는다.**
+
+**4. Application 클래스 작성 내용**
+
+BookDTO 클래스에 있는 각 메소드를 호출한다. 다음 주석의 지시에 맞게 코드를 작성한다.
+
+```java
+public class Application {
+    public static void main(String args[]) {
+        // 기본 생성자를 이용하여 인스턴스 생성 후 필드 값 출력
+        // 필드 3가지를 초기화하는 생성자를 이용하여 인스턴스 생성 후 필드 값 출력
+        // 모든 필드를 초기화하는 생성자를 이용하여 인스턴스 생성 후 필드 값 출력
+    }
+}
+```
+
+**5. 실행 결과 — PDF의 출력 예시**
+
+```text
+null, null, null, 0, 0.0
+자바의 정석, 도우출판, 남궁성, 0, 0.0
+홍길동전, 활빈당, 허균, 5000000, 0.5
+```
+
+위 문제에서 세 필드를 초기화하는 생성자는 제목·출판사·저자를 받고, 전체 필드 생성자는 여기에 가격과 할인율을 함께 받는다. 이후의 풀이에서는 생성자별 저장값과 `printInformation()`의 실제 출력을 위 예시와 비교한다.
+
+#### 내 풀이 — 생성자별 초기화와 출력
+
+**내 풀이 — 필드와 생성자, 출력 메서드 발췌**
+
+```java
+public class BookDTO {
+    private String title;
+    private String publisher;
+    private String author;
+    private int price;
+    private double discountRate;
+
+    public BookDTO() {
+    }
+
+    public BookDTO(String title, String publisher, String author) {
+        this.title = title;
+        this.publisher = publisher;
+        this.author = author;
+    }
+
+    public BookDTO(String title, String publisher, String author,
+                   int price, double discountRate) {
+        this.title = title;
+        this.publisher = publisher;
+        this.author = author;
+        this.price = price;
+        this.discountRate = discountRate;
+    }
+
+    public void printInformation() {
+        System.out.println(this.title + " " + this.publisher + " "
+                + this.author + " " + this.price + " " + this.discountRate);
+    }
+}
+```
+
+**내 풀이 — 객체 생성과 출력**
+
+```java
+BookDTO book1 = new BookDTO();
+book1.printInformation();
+BookDTO book2 = new BookDTO("자바의 정석", "도우출판", "남궁성");
+book2.printInformation();
+BookDTO book3 = new BookDTO("홍길동전", "활빈당", "허균", 5_000_000, 0.5);
+book3.printInformation();
+```
+
+**내 풀이의 실제 실행 결과**
+
+```text
+null null null 0 0.0
+자바의 정석 도우출판 남궁성 0 0.0
+홍길동전 활빈당 허균 5000000 0.5
+```
+
+**풀이 원리:** 생성자의 매개변수 구성을 다르게 선언하고, 객체를 만들 때 전달한 인자에 맞는 생성자를 호출했다. 기본 생성자는 값을 따로 대입하지 않으므로 필드가 기본값을 유지한다. 세 문자열을 받는 생성자는 제목·출판사·저자만 초기화하고, 가격과 할인율은 각각 0, 0.0으로 남는다. 다섯 값을 받는 생성자는 모든 필드를 초기화한다.
+
+`this.title = title;`에서 왼쪽은 현재 객체의 필드이고 오른쪽은 생성자 매개변수다. 같은 이름을 사용했으므로 `this`로 구분했다. 매개변수 있는 생성자를 선언하면 인자 없는 생성자가 자동으로 추가되지 않으므로, `new BookDTO()`도 사용하기 위해 기본 생성자를 직접 작성했다.
+
+원본에는 각 필드의 getter와 setter도 있다. 아래는 제목 관련 부분이다.
+
+```java
+public String getTitle() {
+    return title;
+}
+
+public void setTitle(String title) {
+    this.title = title;
+}
+```
+
+필드는 `private`으로 감췄고 getter로 읽거나 setter로 변경할 수 있게 했다. 다만 현재 `Application`에서는 생성자와 `printInformation()`만 호출하며 getter·setter는 사용하지 않는다. `discountRate`도 저장하고 출력할 뿐, 할인 적용 금액을 계산하는 코드는 없다.
+
+#### 요구사항 확인 — 필드와 초기화 값은 일치하고 구분자는 다름
+
+| 확인 항목                  | 현재 풀이와 PDF의 비교                                |
+| -------------------------- | ----------------------------------------------------- |
+| 패키지·클래스명            | 일치                                                  |
+| 필드명·자료형·private 접근 | 다섯 필드 모두 일치                                   |
+| public 생성자              | 기본, 문자열 3개, 전체 필드 5개의 세 생성자 모두 구현 |
+| getter·setter              | 다섯 필드 모두 구현                                   |
+| 출력 메서드                | `public void printInformation()` 구현                 |
+| 생성자 호출 순서와 저장값  | PDF의 세 예시와 일치                                  |
+| 출력 구분자                | PDF는 쉼표와 공백, 현재는 공백만 사용                 |
+| getter·setter 호출         | 구현했지만 Application에서는 호출하지 않음            |
+
+5,000,000이라는 가격과 0.5라는 할인율도 PDF 예시와 같다. PDF에는 할인된 가격을 계산하라는 조건이 없으므로 **할인 계산을 하지 않은 것은 누락이 아니다.** 이번 과제는 필드 저장, 생성자 초기화와 정보 출력에 초점을 둔다.
+
+getter·setter 호출 조건은 PDF의 두 안내를 구분해서 읽어야 한다. 구현 내용 표에는 “모든 메소드는 main 함수에서 호출하여 출력시킨다”라고 적혀 있지만, 바로 아래 `Application` 작성 안내에는 세 생성자로 객체를 만든 뒤 출력하는 과정만 나와 있다. **현재 코드는 구체적인 생성자 실행 안내를 따랐다.** 표의 문구까지 엄격하게 적용한다면 getter·setter를 실제로 호출하는 확인도 추가할 필요가 있다. 별도의 setter 입력값과 출력 예시는 제시되어 있지 않다.
+
+**보완 예시 — PDF와 같은 출력 구분자**
+
+```java
+public void printInformation() {
+    System.out.println(this.title + ", " + this.publisher + ", "
+            + this.author + ", " + this.price + ", " + this.discountRate);
+}
+```
+
+원본의 값과 순서는 유지하면서 필드 사이를 `", "`로 바꾸면 PDF의 세 출력 줄과 형식까지 맞출 수 있다. 이 예시는 원본 코드에 적용하지 않은 보완안이다.
+
+### 과제에서 다시 확인할 부분
+
+| 위치            | 현재 상태                                                      | 확인하거나 보완할 내용                                  |
+| --------------- | -------------------------------------------------------------- | ------------------------------------------------------- |
+| chap1 문제 2    | 넓이와 둘레를 바로 출력                                        | 계산값을 각각 변수에 저장하라는 조건 반영               |
+| chap1 문제 3    | 숫자 97만 출력                                                 | 예시의 유니코드 설명 문구 추가                          |
+| chap2 문제 4    | 0~100점 등급 분기, 등급 문자만 출력                            | 허용 점수 범위와 출력 예시 문구 확인                    |
+| chap2 문제 5    | 이름이 `박지성`으로 고정                                       | 본인 이름으로 출력                                      |
+| chap3           | 메서드 정의와 계산은 일치, 고정 인자와 반환값 출력 흐름은 다름 | PDF의 인자로 호출하고 main에서 반환값 출력, 문구 맞추기 |
+| chap4 문제 2    | 보너스 금액 계산 완료, 출력 누락                               | 보너스 금액 출력 추가                                   |
+| chap5 숫자 야구 | 첫 자리에도 0 생성 가능                                        | 정수 입력으로 맞힐 수 있는 정답 생성                    |
+| chap5 숫자 야구 | 중복 숫자 입력 허용, 같은 정답 숫자를 반복 집계                | 입력 중복 처리 규칙 결정                                |
+| chap6           | 필드·생성자·예시 값은 일치, 공백만으로 출력                    | 쉼표 구분자 맞추기, getter·setter 호출 안내 구분        |
+
+문제를 풀 때는 계산 결과뿐 아니라 **지정된 구현 방식, 모든 출력 항목, 반복 종료 조건, 경계값**도 함께 확인해야 한다. 이번 과제에서는 각 코드를 문제별로 읽으며, 동작하는 부분과 요구사항에서 빠진 부분을 구분해 복습했다.
