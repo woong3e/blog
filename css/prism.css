@@ -70,6 +70,16 @@
   font-style: italic;
 }
 
+.dark .token.comment,
+.dark .token.prolog,
+.dark .token.cdata {
+  color: #94a3b8;
+}
+
+.dark .token.deleted {
+  color: #fda4af;
+}
+
 .token.symbol,
 .token.property {
   color: rgb(128, 203, 196);
