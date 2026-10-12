@@ -184,7 +184,7 @@ npx degit 'timlrx/tailwind-nextjs-starter-blog'
 3. Modify the content security policy in `next.config.js` if you want to use
    other analytics provider or a commenting solution other than giscus.
 4. Personalize `authors/default.md` (main author)
-5. Modify `projectsData.ts`
+5. Add project articles as MDX files in `data/projects` (see [Projects](#projects))
 6. Modify `headerNavLinks.ts` to customize navigation links
 7. Add blog posts
 8. Deploy on Vercel
@@ -213,13 +213,15 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 Edit the layout in `app` or content in `data`. With live reloading, the pages auto-updates as you edit them.
 
+개발 서버는 `.next-dev`, 프로덕션 빌드와 `serve`는 `.next`를 사용하므로 빌드가 실행 중인 개발 서버의 JavaScript 파일을 덮어쓰지 않습니다. 별도의 개발 서버를 동시에 실행할 때는 `NEXT_DIST_DIR`에 `.next-preview`처럼 다른 경로를 지정해 캐시를 분리하세요.
+
 ## Extend / Customize
 
 `data/siteMetadata.js` - contains most of the site related information which should be modified for a user's need.
 
 `data/authors/default.md` - default author information (required). Additional authors can be added as files in `data/authors`.
 
-`data/projectsData.js` - data used to generate styled card on the projects page.
+`data/projects` - project MDX articles used to generate cards and detail pages. See [Projects](#projects).
 
 `data/headerNavLinks.js` - navigation links.
 
@@ -285,6 +287,34 @@ layout: PostLayout
 canonicalUrl: https://tailwind-nextjs-starter-blog.vercel.app/blog/introducing-tailwind-nextjs-starter-blog
 ---
 ```
+
+## Projects
+
+프로젝트는 `data/projects/**/*.mdx`에서 관리합니다. 별도의 링크 목록을 수정할 필요 없이 MDX 파일을 추가하면 `/projects`에 날짜순으로 표시됩니다. 카드를 누르면 사이트 안의 프로젝트 상세 페이지로 이동합니다.
+
+1. `data/projects/0_sample.mdx`를 복사해 `data/projects/my-project.mdx`처럼 저장합니다.
+2. 상단 정보와 본문을 작성합니다. `title`과 `date`는 필수입니다.
+3. 작성이 끝나면 `draft: false`로 변경합니다. `draft: true`인 글은 개발 서버에서만 미리 볼 수 있으며, 배포 시 목록·상세 페이지·사이트맵에서 제외됩니다.
+
+```yaml
+---
+title: '프로젝트 이름'
+date: '2026-10-12'
+draft: false
+summary: '프로젝트 카드에 표시할 소개'
+tags: ['Next.js', 'TypeScript']
+images: ['/static/images/my-project/cover.png']
+---
+```
+
+- `my-project.mdx`의 주소는 `/projects/my-project`입니다. 하위 폴더도 지원하므로 `team/my-project.mdx`는 `/projects/team/my-project`가 됩니다.
+- `summary`는 카드 소개, `images`의 첫 번째 이미지는 카드 썸네일과 공유 이미지로 사용합니다. 이미지가 없으면 `images: []`로 두거나 생략합니다. 실제 이미지 파일은 `public/static/images` 아래에 저장합니다.
+- 대표 이미지는 16:9 비율(예: 1600×900)을 권장합니다. 카드 상단을 채우도록 표시하므로 다른 비율의 이미지는 중앙을 기준으로 일부 잘릴 수 있습니다. 이미지가 없으면 같은 비율의 기본 그래픽을 표시합니다.
+- 이미지·제목·설명을 포함한 카드 전체가 상세 페이지 링크입니다. 화면 폭에 따라 1~3열로 표시하고, 긴 소개는 카드에서 최대 세 줄까지 표시합니다.
+- 프로젝트 상세는 날짜·작성자 프로필·태그를 표시하지 않고 본문과 오른쪽 목차를 넓게 배치합니다. 프로젝트 목록 링크는 제목 위, 이전·다음 프로젝트 링크는 본문 아래에 표시합니다.
+- `date`는 목록 정렬에 사용합니다. 필요하면 수정일을 `lastmod: '2026-10-13'`으로 지정할 수 있습니다. `tags`와 `authors`는 메타데이터로 저장할 수 있지만 상세 화면에는 표시하지 않습니다.
+- 프로젝트는 blog 목록, 홈의 최신 블로그 글, tags 목록·집계, 블로그 검색 및 RSS에 포함되지 않습니다.
+- 본문은 블로그와 같은 MDX 문법을 사용하며, 목차·코드 강조·이미지 컴포넌트를 지원합니다. GitHub나 서비스 링크는 본문에 Markdown 링크로 작성하면 됩니다.
 
 ## Deploy
 

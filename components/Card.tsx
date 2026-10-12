@@ -1,56 +1,59 @@
 import Image from './Image'
 import Link from './Link'
 
-const Card = ({ title, description, imgSrc, href }) => (
-  <div className="md max-w-[544px] p-4 md:w-1/2">
-    <div
-      className={`${
-        imgSrc && 'h-full'
-      } overflow-hidden rounded-md border-2 border-gray-200/60 dark:border-gray-700/60`}
+interface CardProps {
+  title: string
+  description?: string
+  imgSrc?: string
+  href: string
+}
+
+export default function Card({ title, description, imgSrc, href }: CardProps) {
+  return (
+    <Link
+      href={href}
+      aria-label={`${title} 프로젝트 보기`}
+      className="group hover:border-primary-400 focus-visible:outline-primary-500 dark:hover:border-primary-500 flex h-full flex-col overflow-hidden rounded-xl border border-gray-200 bg-white transition-[border-color,box-shadow] duration-200 hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-4 dark:border-gray-800 dark:bg-gray-900/40"
     >
-      {imgSrc &&
-        (href ? (
-          <Link href={href} aria-label={`Link to ${title}`}>
-            <Image
-              alt={title}
-              src={imgSrc}
-              className="object-cover object-center md:h-36 lg:h-48"
-              width={544}
-              height={306}
-            />
-          </Link>
-        ) : (
+      <div className="relative aspect-video w-full overflow-hidden border-b border-gray-200 bg-gray-100 dark:border-gray-800 dark:bg-gray-900">
+        {imgSrc ? (
           <Image
-            alt={title}
+            alt={`${title} 대표 이미지`}
             src={imgSrc}
-            className="object-cover object-center md:h-36 lg:h-48"
-            width={544}
-            height={306}
+            fill
+            sizes="(min-width: 1536px) 30vw, (min-width: 768px) 50vw, 100vw"
+            className="object-cover object-center motion-safe:transition-transform motion-safe:duration-300 motion-safe:group-hover:scale-105"
           />
-        ))}
-      <div className="p-6">
-        <h2 className="mb-3 text-2xl leading-8 font-bold tracking-tight">
-          {href ? (
-            <Link href={href} aria-label={`Link to ${title}`}>
-              {title}
-            </Link>
-          ) : (
-            title
-          )}
-        </h2>
-        <p className="prose mb-3 max-w-none text-gray-500 dark:text-gray-400">{description}</p>
-        {href && (
-          <Link
-            href={href}
-            className="text-primary-500 hover:text-primary-600 dark:hover:text-primary-400 text-base leading-6 font-medium"
-            aria-label={`Link to ${title}`}
+        ) : (
+          <div
+            className="flex h-full items-center justify-center bg-linear-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800"
+            aria-hidden="true"
           >
-            Learn more &rarr;
-          </Link>
+            <svg
+              className="text-primary-500/40 dark:text-primary-400/40 h-16 w-16"
+              viewBox="0 0 48 48"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <rect x="7" y="9" width="34" height="30" rx="4" />
+              <path d="M7 18h34M14 13.5h.01M19 13.5h.01M18 25l-4 4 4 4M30 25l4 4-4 4" />
+            </svg>
+          </div>
         )}
       </div>
-    </div>
-  </div>
-)
-
-export default Card
+      <div className="flex flex-1 flex-col p-6">
+        <h2 className="group-hover:text-primary-500 dark:group-hover:text-primary-400 text-2xl leading-8 font-bold tracking-tight break-words text-gray-900 transition-colors dark:text-gray-100">
+          {title}
+        </h2>
+        {description && (
+          <p className="mt-3 line-clamp-3 text-base leading-7 break-words text-gray-500 dark:text-gray-400">
+            {description}
+          </p>
+        )}
+      </div>
+    </Link>
+  )
+}

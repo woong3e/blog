@@ -3,7 +3,7 @@ const siteMetadata = {
   title: 'woong3e',
   author: 'woong3e',
   headerTitle: 'root@woong3e',
-  description: 'A blog created with Next.js and Tailwind.css',
+  description: '새로운 기술을 익히고 프로젝트에 적용하며 개발 경험을 쌓아가고 있습니다.',
   language: 'ko-kr',
   theme: 'system', // system, dark or light
   siteUrl: 'https://woong3e.vercel.app/',

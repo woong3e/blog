@@ -1,4 +1,5 @@
 const { withContentlayer } = require('next-contentlayer2')
+const { PHASE_DEVELOPMENT_SERVER } = require('next/constants')
 
 const withBundleAnalyzer = require('@next/bundle-analyzer')({
   enabled: process.env.ANALYZE === 'true',
@@ -61,9 +62,12 @@ const unoptimized = process.env.UNOPTIMIZED ? true : undefined
 /**
  * @type {import('next/dist/next-server/server/config').NextConfig}
  **/
-module.exports = () => {
+module.exports = (phase) => {
   const plugins = [withContentlayer, withBundleAnalyzer]
   return plugins.reduce((acc, next) => next(acc), {
+    // Keep builds from overwriting chunks served by a running development server.
+    distDir:
+      process.env.NEXT_DIST_DIR || (phase === PHASE_DEVELOPMENT_SERVER ? '.next-dev' : '.next'),
     output,
     basePath,
     reactStrictMode: true,
