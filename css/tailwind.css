@@ -83,6 +83,13 @@
 
 @layer utilities {
   .prose {
+    & pre {
+      @variant dark {
+        color: var(--color-gray-100);
+        background-color: var(--color-gray-800);
+        border: 1px solid var(--color-gray-700);
+      }
+    }
     & a {
       color: var(--color-primary-500);
       text-decoration: none;
@@ -106,6 +113,9 @@
     }
     & :where(code):not(pre code) {
       color: var(--color-indigo-500);
+      @variant dark {
+        color: var(--color-indigo-300);
+      }
     }
   }
 
