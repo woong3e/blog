@@ -1,0 +1,359 @@
+---
+title: 261012 TIL
+date: '2026-10-12'
+tags: ['TIL', 'java']
+draft: false
+summary: 생성자와 오버로딩, 값과 참조값의 전달, final·static·싱글톤과 변수 종류를 정리하고 객체 배열로 회원을 관리하는 역할 분담을 학습했다.
+---
+
+# 🍀 2026-10-12 / 객체의 초기화와 공유, 객체 배열 활용
+
+## 먼저 설명해보세요
+
+아래 질문을 자신의 말로 설명해보자. 설명할 수 있는 내용은 넘어가고, 막히는 내용은 `답 확인`으로 이동해 복습한다.
+
+1. 생성자에서 다른 생성자를 호출하는 이유는 무엇인가요? 같은 이름의 메서드를 여러 개 선언할 수 있는 조건과, 반환 타입만 다른 경우를 설명해보세요. → [답 확인](#생성자-호출과-오버로딩)
+2. 메서드 안에서 정수 매개변수를 변경한 경우와 배열 요소를 변경한 경우, 호출한 쪽에 나타나는 결과는 왜 다른가요? → [답 확인](#매개변수와-값-복사)
+3. `final` 인스턴스 필드와 `static final` 상수는 어떻게 다른가요? `final`로 선언한 배열의 요소를 변경할 수 있는지도 설명해보세요. → [답 확인](#final과-상수)
+4. 지역 변수, 인스턴스 변수, 클래스 변수는 각각 누구에게 속하고 어디에서 사용할 수 있나요? 두 Student 객체의 일반 필드와 static 필드를 변경했을 때 결과를 설명해보세요. → [답 확인](#static과-변수의-종류)
+5. 싱글톤은 어떻게 외부의 객체 생성을 제한하고 같은 객체를 반환하나요? 이른 초기화와 게으른 초기화의 차이를 설명해보세요. → [답 확인](#싱글톤과-객체-공유)
+6. `new Car[3]` 직후 배열에는 무엇이 들어 있나요? 객체 배열을 순회할 때의 null 검사와 가장 빠른 자동차를 찾는 과정을 설명해보세요. → [답 확인](#객체-배열과-탐색)
+7. 회원 등록·조회·검색 요청은 Application, Service, Repository를 어떤 순서로 거치나요? 역할을 나누는 이유와 저장 개수를 관리하는 방법을 설명해보세요. → [답 확인](#회원-관리와-계층별-역할)
+
+---
+
+## 학습 내용
+
+오늘은 객체를 초기화하는 방법과 메서드의 인자 전달을 학습하고, 객체마다 가지는 상태와 클래스가 공유하는 상태를 구분했다. 이후 객체 배열로 여러 자동차와 회원을 관리하고, 사용자 입력·기능 처리·데이터 보관을 클래스로 나누는 실습을 했다.
+
+### 생성자 호출과 오버로딩
+
+생성자는 객체를 만들 때 필드를 초기화한다. 여러 생성자에서 같은 초기화 코드가 반복되면 `this(...)`로 같은 클래스의 다른 생성자를 호출해 재사용할 수 있다.
+
+```java
+public User(String id, String pwd, String name) {
+    this.id = id;
+    this.pwd = pwd;
+    this.name = name;
+}
+
+public User(String id, String pwd, String name, java.util.Date enrollDate) {
+    this(id, pwd, name);
+    this.enrollDate = enrollDate;
+}
+```
+
+네 인자를 받는 생성자는 세 인자를 받는 생성자의 초기화를 먼저 수행하고, 가입 날짜를 추가로 설정한다. 수업 코드에서는 생성자 호출을 첫 문장에 작성했다. `this.id`는 현재 객체의 필드이고, `this(...)`는 다른 생성자 호출이라는 차이가 있다.
+
+**오버로딩**은 같은 이름을 사용하면서 매개변수 구성을 다르게 선언하는 것이다. 비슷한 기능을 호출할 때 여러 메서드 이름을 외울 필요가 없다.
+
+```java
+public int add(int num1, int num2) {
+    return num1 + num2;
+}
+
+public double add(double num1, double num2) {
+    return num1 + num2;
+}
+
+public int add(int num1, int num2, int num3) {
+    return num1 + num2 + num3;
+}
+```
+
+`add(20, 30)`은 정수 두 개를 받는 메서드, `add(20.5, 30.5)`는 실수 두 개를 받는 메서드를 호출한다.
+
+| 선언의 차이                          | 오버로딩 성립 여부 |
+| ------------------------------------ | ------------------ |
+| 매개변수 개수 또는 타입이 다름       | 성립               |
+| 매개변수 타입의 순서가 다름          | 성립               |
+| 반환 타입만 다름                     | 성립하지 않음      |
+| 접근제한자 또는 매개변수 이름만 다름 | 성립하지 않음      |
+
+수업에서 메서드를 구별하는 기준인 시그니처는 메서드 이름과 매개변수 타입의 나열로 이해했다. 생성자도 매개변수 구성을 다르게 해 여러 개 선언할 수 있다.
+
+### 매개변수와 값 복사
+
+Java의 인자 전달은 **항상 값 복사**다. 기본 자료형은 값 자체를 복사하고, 참조 자료형은 객체나 배열을 가리키는 참조값을 복사한다.
+
+```java
+public void primitiveType(int num) {
+    num = 99;
+}
+
+public void ArrayParameter(int[] arr) {
+    arr[0] = 99;
+}
+```
+
+```java
+MethodParameter mp = new MethodParameter();
+
+int num = 20;
+mp.primitiveType(num);
+System.out.println(num); // 20
+
+int[] numbers = {10, 20, 30};
+mp.ArrayParameter(numbers);
+System.out.println(numbers[0]); // 99
+```
+
+첫 번째 호출에서는 복사된 지역 변수만 99로 바뀌므로 호출한 쪽의 `num`은 20이다. 두 번째 호출에서는 `numbers`와 `arr`가 같은 배열을 가리킨다. 따라서 `arr[0]`의 변경을 호출한 쪽에서도 확인한다.
+
+배열 자체가 복사되거나 호출한 쪽의 변수가 매개변수와 하나가 되는 것은 아니다. 메서드 안에서 `arr`에 다른 배열을 대입해도 호출한 쪽의 `numbers`가 가리키는 배열은 바뀌지 않는다.
+
+### final과 상수
+
+`final`은 초기화한 변수에 다시 값을 대입하지 못하게 한다. 객체마다 고정할 값과 클래스 전체에서 공유할 기준값을 구분해 사용할 수 있다.
+
+```java
+public class Person {
+    final String ssn;
+    private String name;
+
+    public Person(String ssn, String name) {
+        this.ssn = ssn;
+        this.name = name;
+    }
+}
+```
+
+`ssn`은 객체마다 따로 가지지만, 생성자에서 초기화한 뒤 다시 대입할 수 없다. 이 예제처럼 선언할 때 초기화하지 않은 final 인스턴스 필드는 생성이 완료되기 전에 초기화되어야 한다.
+
+```java
+public static final double PI = 3.141592;
+```
+
+`MathConstant.PI`는 클래스에 속하는 공유 값이면서 다시 대입할 수 없는 상수다. 상수 이름은 관례적으로 대문자와 밑줄을 사용한다.
+
+| 선언                  | 의미                                       |
+| --------------------- | ------------------------------------------ |
+| `final` 인스턴스 필드 | 객체마다 정해진 값을 다시 대입할 수 없음   |
+| `static final` 필드   | 클래스가 공유하는 값을 다시 대입할 수 없음 |
+
+참조형의 final은 객체 내부까지 변경을 금지하지 않는다. 회원 관리 예제의 `private static final Member[] members`는 다른 배열로 바꿀 수 없지만, `members[0]`에 회원을 저장하는 것은 가능하다.
+
+### static과 변수의 종류
+
+인스턴스 필드는 객체마다 따로 가지고, static 필드는 클래스에 속해 공유한다. 수업의 `Student`는 개인 사물함과 공용 사물함으로 두 필드를 비교했다.
+
+```java
+private int personalLockerCount;
+private static int sharedLockerCount;
+
+public void increasePL() {
+    this.personalLockerCount++;
+}
+
+public void increaseSL() {
+    Student.sharedLockerCount++;
+}
+```
+
+`student1`에서 두 값을 한 번씩 증가시킨 뒤 `student2`를 만들면 다음과 같다.
+
+| 객체     | personalLockerCount | sharedLockerCount |
+| -------- | ------------------- | ----------------- |
+| student1 | 1                   | 1                 |
+| student2 | 0                   | 1                 |
+
+두 번째 객체의 개인 값은 새로 0부터 시작하지만, 공용 값은 이미 증가한 1을 공유한다. static을 이해할 때는 특정 메모리 위치보다 **객체가 아닌 클래스에 속한다**는 점에 집중한다. 접근 허용 범위 안에서는 클래스 이름으로 static 멤버를 사용할 수 있다.
+
+| 변수 종류     | 선언 위치와 소속            | 사용 범위와 초기화                                             |
+| ------------- | --------------------------- | -------------------------------------------------------------- |
+| 지역 변수     | 메서드나 블록 안에 선언     | 선언한 범위 안에서 사용하며, 읽기 전에 직접 초기화해야 함      |
+| 인스턴스 변수 | 클래스 안의 non-static 필드 | 객체마다 존재하며, 별도 초기화가 없으면 자료형의 기본값을 가짐 |
+| 클래스 변수   | 클래스 안의 static 필드     | 클래스가 공유하며, 접근제한자에 따라 접근 범위가 결정됨        |
+
+매개변수도 지역 변수에 해당하며 호출 시 전달된 값으로 초기화된다. static이라고 해서 어디에서나 접근 가능한 것은 아니다. 예를 들어 private static 필드는 해당 클래스 내부에서 접근한다.
+
+### 싱글톤과 객체 공유
+
+싱글톤은 클래스의 객체를 하나만 생성하고 여러 곳에서 같은 객체를 사용하도록 하는 설계 패턴이다. 수업에서는 설정이나 공통 상태를 여러 곳에서 참조하는 상황을 예로 들었다.
+
+```java
+public class EagerSingleton {
+    private static EagerSingleton eager = new EagerSingleton();
+
+    private EagerSingleton() {}
+
+    public static EagerSingleton getInstance() {
+        return eager;
+    }
+}
+```
+
+생성자를 private으로 선언해 외부의 `new` 호출을 제한하고, static 필드에 보관한 객체를 `getInstance()`로 반환한다.
+
+```java
+EagerSingleton eager1 = EagerSingleton.getInstance();
+EagerSingleton eager2 = EagerSingleton.getInstance();
+System.out.println(eager1 == eager2); // true
+```
+
+여기서 `==`는 두 참조가 같은 객체를 가리키는지 비교한다.
+
+| 방식          | 객체 생성 시점                           |
+| ------------- | ---------------------------------------- |
+| 이른 초기화   | 클래스 초기화 시 객체를 미리 생성        |
+| 게으른 초기화 | getInstance() 호출 시 객체가 없으면 생성 |
+
+```java
+public static LazySingleton getInstance() {
+    if (lazy == null) {
+        lazy = new LazySingleton();
+    }
+    return lazy;
+}
+```
+
+수업의 순차 실행에서는 처음 호출할 때만 객체를 만들고 이후에는 같은 객체를 반환한다. static은 멤버의 소속을 정하는 키워드이고, 싱글톤은 객체 생성과 공유를 제어하는 설계 방식이라는 차이가 있다.
+
+### 객체 배열과 탐색
+
+객체 배열은 여러 객체의 참조값을 하나의 배열로 관리한다. 자동차를 개별 변수로 선언하면 호출 코드도 반복되지만, 배열로 묶으면 반복문으로 처리할 수 있다.
+
+```java
+Car[] carArr = new Car[3];
+carArr[0] = new Car("차arr1", 100);
+carArr[1] = new Car("차arr2", 200);
+carArr[2] = new Car("차arr3", 300);
+```
+
+`new Car[3]`은 자동차 세 대를 생성하지 않는다. 참조값을 담을 세 칸을 만들고 각 칸은 처음에 null이다. 이후 `new Car(...)`로 객체를 생성해 각 칸에 연결한다.
+
+배열 생성과 요소 초기화는 한 번에 작성할 수도 있다.
+
+```java
+Car[] carArr2 = {
+    new Car("차arr2-1", 100),
+    new Car("차arr2-2", 200),
+    new Car("차arr2-3", 300)
+};
+
+for (Car car : carArr2) {
+    car.driveMaxSpeed();
+}
+```
+
+향상된 for문의 `car`에는 각 요소의 참조값이 복사된다. 따라서 해당 자동차의 메서드를 호출할 수 있다. 빈 칸이 있을 수 있는 배열에서는 메서드 호출 전 `car != null`을 확인해야 한다. null에서 메서드를 호출하면 NullPointerException이 발생한다.
+
+#### 가장 빠른 자동차 찾기
+
+```java
+Car fastestCar = carArr[0];
+
+for (int i = 1; i < carArr.length; i++) {
+    if (carArr[i].getMaxSpeed() > fastestCar.getMaxSpeed()) {
+        fastestCar = carArr[i];
+    }
+}
+```
+
+첫 자동차를 후보로 정하고, 더 빠른 자동차를 만나면 후보를 바꾼다. 첫 요소를 이미 후보로 사용했으므로 비교는 인덱스 1부터 시작한다. 결과는 최고 속도가 300인 `차arr3`이다.
+
+`fastestCar = carArr[i]`는 자동차 객체의 복사가 아니다. 같은 객체를 가리키도록 참조값을 대입한다. 이 코드는 수업처럼 배열이 비어 있지 않고 모든 칸에 자동차가 들어 있는 상황을 전제로 한다.
+
+### 회원 관리와 계층별 역할
+
+회원 관리 실습에서는 입력과 메뉴, 기능 처리, 데이터 보관을 나눴다.
+
+| 클래스           | 현재 담당하는 역할                  |
+| ---------------- | ----------------------------------- |
+| Application      | 메뉴 선택과 기능 호출               |
+| Member           | 번호·아이디·비밀번호·이름·나이 보관 |
+| MemberService    | 등록·전체 조회·아이디 검색 처리     |
+| MemberRepository | 회원 배열 보관, 저장과 반환         |
+
+#### 등록과 저장 개수 관리
+
+메뉴 1을 선택하면 Service가 미리 작성된 회원 세 명을 객체 배열로 만들어 Repository에 전달한다. 현재 등록 기능은 사용자 입력을 받는 방식이 아니다.
+
+```java
+Member[] members = {
+    new Member(1, "user01", "pwd01", "박지성", 10),
+    new Member(2, "user02", "pwd02", "손흥민", 20),
+    new Member(3, "user03", "pwd03", "이강인", 30)
+};
+
+MemberRepository.store(members);
+```
+
+Repository는 static 초기화 블록에서 10칸짜리 배열을 만들고, count로 저장 개수를 관리한다.
+
+```java
+private static final Member[] members;
+private static int count;
+
+static {
+    members = new Member[10];
+}
+
+public static boolean store(Member[] newMembers) {
+    if (count + newMembers.length > members.length) {
+        return false;
+    }
+
+    for (int i = 0; i < newMembers.length; i++) {
+        members[count++] = newMembers[i];
+    }
+    return true;
+}
+```
+
+static 초기화 블록은 클래스가 처음 초기화될 때 한 번 실행된다. count의 초기값은 0이며, **등록된 회원 수이자 다음 저장 위치**다. `members[count++]`는 현재 위치에 저장하고 count를 1 증가시킨다.
+
+세 명씩 등록하면 count는 3, 6, 9가 된다. 네 번째 등록은 12칸이 필요하므로 저장 전에 실패한다. 현재 코드는 중복 아이디를 검사하지 않아 같은 회원 정보가 반복 등록될 수 있다.
+
+#### 전체 조회와 검색
+
+`findAllMembers()`는 저장 배열의 참조값을 그대로 반환한다. 별도의 배열 복사본을 만드는 것은 아니다.
+
+```java
+Member[] allMembers = MemberRepository.findAllMembers();
+
+for (Member member : allMembers) {
+    if (member != null) {
+        System.out.println(member.getInformation());
+    }
+}
+```
+
+등록된 회원보다 배열의 크기가 클 수 있으므로 null을 검사한다. Member의 `getInformation()`은 아이디, 이름, 나이를 문자열로 반환한다.
+
+아이디 검색에서는 같은 배열을 순회하며 문자열 내용을 비교한다.
+
+```java
+boolean isFound = false;
+
+for (Member member : foundMembers) {
+    if (member != null && searchId.equals(member.getId())) {
+        System.out.println(member.getInformation());
+        isFound = true;
+        break;
+    }
+}
+
+if (!isFound) {
+    System.out.println("해당 아이디 회원을 찾을 수 없습니다.");
+}
+```
+
+위 코드는 수업의 중첩 if를 하나의 조건으로 줄인 형태다. `equals()`로 문자열 내용을 비교하고, 찾으면 isFound를 true로 바꾸고 반복을 종료한다. 끝까지 찾지 못했을 때만 실패 메시지를 출력한다.
+
+메뉴 입력의 `nextInt()`는 줄바꿈을 남기므로, Application에서 `sc.nextLine()`으로 남은 줄바꿈을 소비한다. 그래야 검색용 `nextLine()`이 실제 아이디 입력을 기다린다.
+
+#### Spring 계층 구조와 연결
+
+이 실습은 Spring에서 사용하는 **Controller → Service → Repository**의 역할 분리를 이해하는 기초 예제다. 현재 프로그램은 Spring을 사용하지 않는다.
+
+```text
+현재: 콘솔 메뉴 → Application → MemberService → MemberRepository → 배열
+웹:   HTTP 요청 → Controller  → Service       → Repository       → DB
+```
+
+Controller는 요청과 응답, Service는 업무 규칙과 처리 흐름, Repository는 데이터 저장과 조회를 담당한다. 메뉴나 요청 방식이 바뀌는 경우, 가입 규칙이 바뀌는 경우, 저장 방식이 바뀌는 경우를 각 역할에 맞게 다룰 수 있도록 나누는 것이다.
+
+현재 예제는 Service를 직접 생성하고 Repository의 static 메서드를 호출한다. 앞서 구조를 비교하며 확인한 Spring의 일반적인 방식에서는 Spring이 객체를 관리하고 필요한 객체를 주입한다. 또한 현재 Service에 섞여 있는 Scanner 입력과 콘솔 출력은 웹 구조에서 요청·응답을 담당하는 계층으로 분리한다.
+
+오늘 실습에서 먼저 이해할 부분은 **요청을 받는 곳, 기능을 처리하는 곳, 데이터를 보관하는 곳의 책임이 서로 다르다**는 점이다.
