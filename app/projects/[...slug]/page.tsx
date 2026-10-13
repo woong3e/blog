@@ -8,6 +8,7 @@ import { genPageMetadata } from 'app/seo'
 import { notFound } from 'next/navigation'
 import { MDXLayoutRenderer } from 'pliny/mdx-components'
 import { coreContent } from 'pliny/utils/contentlayer'
+import { allProjects } from 'contentlayer/generated'
 
 interface ProjectPageProps {
   params: Promise<{ slug: string[] }>
@@ -29,7 +30,9 @@ export async function generateMetadata({ params }: ProjectPageProps) {
 }
 
 export function generateStaticParams() {
-  return getProjects().map((project) => ({
+  // Next.js 15 requires a non-empty path list for static export. Draft paths
+  // render notFound() below, so their content remains hidden in production.
+  return allProjects.map((project) => ({
     slug: project.slug.split('/').map((name) => decodeURI(name)),
   }))
 }
