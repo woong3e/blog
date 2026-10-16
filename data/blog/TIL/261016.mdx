@@ -1,0 +1,396 @@
+---
+title: 261016 TIL
+date: '2026-10-16'
+tags: ['TIL', 'java']
+draft: false
+summary: try-catch-finally와 사용자 정의 예외, 오버라이딩의 예외 선언 규칙을 학습했다. 파일·바이트·문자 스트림과 자원 반납, 버퍼·UTF-8·Properties를 실습하고 enum의 타입 안전성과 초기화 과정을 정리했다.
+---
+
+# 🍀 2026-10-16 / 예외 처리와 파일 입출력, enum
+
+## 먼저 설명해보세요
+
+아래 질문을 자신의 말로 설명해보자. 설명할 수 있는 내용은 넘어가고, 막히는 내용은 `답 확인`으로 이동해 복습한다.
+
+1. 예외가 발생했을 때 try·catch·finally는 어떤 순서로 실행되나요? 사용자 정의 예외로 구매 실패 사유를 나누는 이유와 catch의 순서도 설명해보세요. → [답 확인](#예외-처리와-사용자-정의-예외)
+2. 검사 예외와 비검사 예외는 어떻게 다른가요? 부모 메서드가 IOException을 선언했을 때 자식 메서드에서 선언할 수 있는 예외 범위를 설명해보세요. → [답 확인](#검사-예외와-오버라이딩의-선언-범위)
+3. File 객체를 생성하는 것과 실제 파일을 생성하는 것은 어떻게 다른가요? 바이트·문자 스트림의 선택 기준과 읽기가 끝났는지 확인하는 방법도 설명해보세요. → [답 확인](#file과-바이트문자-스트림)
+4. 스트림을 닫아야 하는 이유는 무엇인가요? try-with-resources, 문자 인코딩을 지정하는 변환 스트림, 버퍼의 역할을 설명해보세요. → [답 확인](#자원-반납과-문자-인코딩-버퍼)
+5. Properties로 설정값을 파일에 저장하고 다시 읽으려면 어떤 과정을 거치나요? 저장과 읽기에 같은 문자 인코딩을 지정하는 이유도 설명해보세요. → [답 확인](#properties로-설정-저장과-읽기)
+6. 정수 상수 대신 enum을 사용하면 어떤 실수를 막을 수 있나요? enum 타입의 매개변수와 상수 비교·순회 방법을 설명해보세요. → [답 확인](#enum과-타입-안전성)
+7. enum에 설명 필드와 생성자를 두는 이유는 무엇인가요? UserRole.ADMIN을 처음 참조할 때 어떤 상수들이 초기화되고, 이후 GUEST를 참조하면 어떻게 되는지 설명해보세요. → [답 확인](#enum의-필드와-생성자-초기화)
+
+---
+
+## 학습 내용
+
+오늘은 `chap13_exception`에서 예외를 처리하고 상황별 예외를 만드는 방법을 학습했다. `chap14_io`에서는 파일 입출력과 설정 저장을 실습하고, `chap15_enum`에서는 상수를 하나의 타입으로 묶어 사용하는 방법을 확인했다.
+
+### 예외 처리와 사용자 정의 예외
+
+전날에는 throw로 발생한 예외를 throws로 호출자에게 전달했다. 오늘은 **호출한 곳에서 catch로 예외를 처리하면 그 뒤의 작업을 계속할 수 있다**는 점을 확인했다.
+
+```java
+ExceptionTest et = new ExceptionTest();
+try {
+    et.checkEnoughMoney(1_000, 500);
+} catch (Exception e) {
+    System.out.println(e.getMessage());
+    e.printStackTrace();
+}
+System.out.println("프로그램을 정상적으로 종료합니다.");
+```
+
+잔액이 부족하면 `checkEnoughMoney()`의 throw에서 메서드의 정상 실행이 중단되고, 예외를 받을 수 있는 catch로 이동한다. catch 처리가 끝나면 try-catch 다음 문장을 실행하므로 종료 메시지도 출력된다.
+
+| 구문·메서드         | 역할                                                   |
+| ------------------- | ------------------------------------------------------ |
+| try                 | 예외가 발생할 수 있는 작업 실행                        |
+| catch               | 해당 타입의 예외를 받아 대응                           |
+| finally             | 정상 실행과 예외 발생 여부에 관계없이 마무리 작업 실행 |
+| `getMessage()`      | 예외 객체에 담긴 메시지 확인                           |
+| `printStackTrace()` | 예외 정보와 호출 경로 출력                             |
+
+#### 실패 원인을 예외 타입으로 구분
+
+같은 구매 실패라도 가격 음수, 보유 금액 음수, 잔액 부족은 원인이 다르다. 사용자 정의 예외를 사용하면 호출자가 예외 타입에 따라 구분해서 처리할 수 있다.
+
+```java
+public class NotEnoughMoneyException extends Exception {
+    public NotEnoughMoneyException(String message) {
+        super(message);
+    }
+}
+```
+
+Exception을 상속하고, 생성자에서 메시지를 부모 생성자에 전달한다. 수업의 PriceNegativeException과 MoneyNegativeException도 같은 구조다.
+
+```java
+public void checkEnoughMoney(int price, int money)
+        throws PriceNegativeException, MoneyNegativeException,
+               NotEnoughMoneyException {
+    if (price < 0) {
+        throw new PriceNegativeException("상품 가격은 음수일 수 없습니다.");
+    }
+    if (money < 0) {
+        throw new MoneyNegativeException("가진 돈이 음수일 수 없습니다.");
+    }
+    if (money < price) {
+        throw new NotEnoughMoneyException("돈이 부족합니다.");
+    }
+    System.out.println("구입 감사합니다. 즐거운 쇼핑하세요");
+}
+```
+
+강의 코드에서 금액 안내 출력만 생략했다. 조건은 위에서부터 검사하므로, 가격과 보유 금액이 모두 음수여도 먼저 검사한 가격 예외가 발생한다.
+
+```java
+try {
+    et.checkEnoughMoney(30_000, 5_000);
+} catch (PriceNegativeException e) {
+    System.out.println(e.getMessage());
+} catch (MoneyNegativeException e) {
+    System.out.println(e.getMessage());
+} catch (NotEnoughMoneyException e) {
+    System.out.println(e.getMessage());
+} catch (Exception e) {
+    e.printStackTrace();
+} finally {
+    System.out.println("구매 가능 여부 확인을 마칩니다.");
+}
+System.out.println("프로그램을 정상 종료합니다.");
+```
+
+위 호출은 잔액 부족이므로 NotEnoughMoneyException catch가 실행된다. 이후 finally의 확인 종료 메시지와 마지막 정상 종료 메시지를 출력한다.
+
+**부모 예외를 받는 catch는 자식 예외를 받는 catch보다 뒤에 둔다.** Exception을 먼저 받으면 하위 예외까지 잡아 버리므로, 뒤의 구체적인 catch는 도달할 수 없어 컴파일 오류가 난다. 한 번 발생한 예외를 모든 catch가 차례로 처리하는 것은 아니다.
+
+수업의 NegativeException도 Exception을 직접 상속한다. 이름이 비슷하더라도 PriceNegativeException·MoneyNegativeException의 부모로 연결되어 있지는 않으므로, 선언된 실제 상속 관계를 기준으로 이해한다.
+
+### 검사 예외와 오버라이딩의 선언 범위
+
+| 구분        | 컴파일러의 확인                             | 수업 예제                                           |
+| ----------- | ------------------------------------------- | --------------------------------------------------- |
+| 검사 예외   | catch로 처리하거나 throws로 선언했는지 확인 | Exception을 직접 상속한 구매 관련 예외, IOException |
+| 비검사 예외 | 처리나 throws 선언을 강제하지 않음          | 빈 ArrayDeque에서 pop할 때의 NoSuchElementException |
+
+비검사 예외도 필요하면 catch로 처리할 수 있다. 검사 예외라는 말은 컴파일할 때 예외가 발생한다는 뜻이 아니라, **처리 책임을 코드에 표시했는지 컴파일러가 확인한다**는 의미다.
+
+오버라이딩하는 메서드는 부모 메서드보다 넓은 검사 예외를 선언할 수 없다.
+
+```java
+public class SuperClass {
+    public void method() throws IOException {}
+}
+```
+
+| 자식 메서드의 선언                           | 허용 여부 | 이유                                  |
+| -------------------------------------------- | --------- | ------------------------------------- |
+| `void method()`                              | 가능      | 검사 예외 선언 생략                   |
+| `void method() throws IOException`           | 가능      | 부모와 같은 범위                      |
+| `void method() throws FileNotFoundException` | 가능      | IOException의 하위 타입으로 범위 축소 |
+| `void method() throws Exception`             | 불가능    | 부모보다 넓은 검사 예외로 범위 확대   |
+
+부모 타입의 메서드를 사용하는 호출자는 IOException에 대한 대응을 기준으로 코드를 작성한다. 자식이 더 넓은 검사 예외를 요구하면 그 약속을 지킬 수 없기 때문이다. 강의의 SubClass에는 이 선언들을 비교하는 주석 예제가 있다.
+
+### File과 바이트·문자 스트림
+
+File은 파일이나 디렉터리의 경로와 관련 정보를 다룬다. **File 객체를 만드는 것만으로 디스크에 파일이 생성되지는 않는다.**
+
+```java
+File file = new File("src/com/woong3e/section01/test.txt");
+boolean created = file.createNewFile();
+System.out.println(file.length());          // 파일 크기, 바이트 단위
+System.out.println(file.getPath());         // 지정한 경로
+System.out.println(file.getAbsolutePath()); // 절대 경로
+boolean deleted = file.delete();
+```
+
+위 코드는 강의의 try-catch 내부와 경로 조회 부분을 요약했다. `createNewFile()`은 새 파일을 만들면 true, 이미 존재하면 false를 반환하며 IOException 처리가 필요하다. `delete()`는 삭제 성공 여부를 반환한다. 상대 경로는 실행할 때의 작업 디렉터리를 기준으로 해석된다.
+
+파일의 **내용**을 읽고 쓰는 작업에는 스트림을 사용한다.
+
+| 계열          | 입력            | 출력             | 처리 단위와 용도                                     |
+| ------------- | --------------- | ---------------- | ---------------------------------------------------- |
+| 바이트 스트림 | FileInputStream | FileOutputStream | 바이트 단위. 이미지 등 바이너리를 포함한 파일 데이터 |
+| 문자 스트림   | FileReader      | FileWriter       | 문자 단위. 텍스트를 문자로 처리                      |
+
+#### 바이트 읽기와 쓰기
+
+```java
+try (FileInputStream fin = new FileInputStream(
+        "src/com/woong3e/section02/testInputStream.txt")) {
+    int value;
+    while ((value = fin.read()) != -1) {
+        System.out.println(value);
+    }
+} catch (IOException e) {
+    e.printStackTrace();
+}
+```
+
+`read()`는 읽은 바이트를 0~255 범위의 int로 반환하고, 끝에 도달하면 -1을 반환한다. 한글처럼 여러 바이트로 표현되는 문자를 바이트마다 char로 변환하면 올바른 문자로 해석되지 않을 수 있다.
+
+```java
+try (FileOutputStream fout = new FileOutputStream(
+        "src/com/woong3e/section02/testOutputStream.txt", true)) {
+    fout.write(97);
+    fout.write(new byte[] {98, 99, 100, 101, 10, 102});
+} catch (IOException e) {
+    e.printStackTrace();
+}
+```
+
+ASCII 문자 기준으로 `abcde`, 줄바꿈, `f`를 기록한다. 두 번째 인자 true는 이어쓰기이며, 기본 생성자는 기존 파일 내용을 덮어쓴다. 이어쓰기 예제를 반복 실행하면 내용도 누적된다.
+
+#### 문자 읽기와 쓰기
+
+FileReader의 `read()`도 끝에서는 -1을 반환하지만, 바이트 대신 문자 단위로 읽는다. FileWriter는 문자·문자 배열·문자열을 기록할 수 있다.
+
+```java
+try (FileWriter writer = new FileWriter(
+        "src/com/woong3e/section02/testWriter.txt")) {
+    writer.write(97);
+    writer.write('A');
+    writer.write(new char[] {'a', 'p', 'p', 'l', 'e'});
+    writer.write("안녕하세요 반갑습니다.");
+} catch (IOException e) {
+    e.printStackTrace();
+}
+// 저장 내용: aAapple안녕하세요 반갑습니다.
+```
+
+### 자원 반납과 문자 인코딩, 버퍼
+
+스트림은 파일 등의 자원을 사용하므로 작업이 끝나면 닫아야 한다. 강의에서는 finally에서 null 여부를 확인해 `close()`를 호출하는 방식과, try-with-resources 방식을 비교했다.
+
+**try-with-resources는 괄호 안에 선언한 자원을 블록이 끝날 때 자동으로 닫는다.** 정상 종료와 예외 발생 모두에 적용되어 자원 반납 코드를 줄일 수 있다.
+
+#### 바이트와 문자를 연결하고 UTF-8 지정
+
+| 변환 스트림        | 역할                                    |
+| ------------------ | --------------------------------------- |
+| InputStreamReader  | 바이트 입력 스트림을 문자 입력으로 변환 |
+| OutputStreamWriter | 문자 출력을 바이트 출력 스트림으로 변환 |
+
+```java
+try (Reader reader = new InputStreamReader(
+        new FileInputStream("src/com/woong3e/section02/testReader.txt"),
+        StandardCharsets.UTF_8)) {
+    int value;
+    while ((value = reader.read()) != -1) {
+        System.out.print((char) value);
+    }
+} catch (IOException e) {
+    e.printStackTrace();
+}
+```
+
+```java
+try (Writer writer = new OutputStreamWriter(
+        new FileOutputStream("src/com/woong3e/section02/testWriterUtf8.txt"),
+        StandardCharsets.UTF_8)) {
+    writer.write("UTF-8로 저장한 한글 텍스트");
+} catch (IOException e) {
+    e.printStackTrace();
+}
+```
+
+문자 인코딩은 문자와 바이트를 대응시키는 규칙이다. 문자셋을 생략한 FileReader·FileWriter는 기본 문자셋을 사용한다. 수업처럼 UTF-8을 명시하면 사용할 인코딩이 분명해지며, 읽을 때도 파일이 저장된 인코딩과 맞춰야 한다.
+
+#### 버퍼로 입출력 묶기
+
+BufferedReader·BufferedWriter는 Reader·Writer를 감싸 버퍼 기능을 추가한다. 버퍼는 데이터를 모아 두는 공간이며, 작은 단위의 실제 입출력이 반복되는 횟수를 줄이는 데 사용한다.
+
+```java
+try (BufferedWriter writer = new BufferedWriter(new FileWriter(
+        "src/com/woong3e/section03/filterstream/testBuffered.txt"))) {
+    writer.write("하이");
+    writer.write("반가워");
+} catch (IOException e) {
+    e.printStackTrace();
+}
+
+try (BufferedReader reader = new BufferedReader(new FileReader(
+        "src/com/woong3e/section03/filterstream/testBuffered.txt"))) {
+    String line;
+    while ((line = reader.readLine()) != null) {
+        System.out.println(line);
+    }
+} catch (IOException e) {
+    e.printStackTrace();
+}
+```
+
+`write()`로 쓴 내용은 버퍼에 남아 있을 수 있다. `flush()`는 버퍼 내용을 하위 스트림으로 내보내며, 위 BufferedWriter는 자동으로 close될 때 남은 내용을 내보낸다. flush와 자원을 닫는 close는 역할이 다르다.
+
+`readLine()`은 줄바꿈 문자를 제외한 한 줄을 String으로 반환하며, 읽을 줄이 없으면 null이다. `read()`의 종료값 -1과 구분한다.
+
+키보드 입력도 `new BufferedReader(new InputStreamReader(System.in))`처럼 연결했다. System.in의 바이트 입력을 InputStreamReader로 문자로 해석한 뒤, BufferedReader로 한 줄씩 읽는 구조다.
+
+### Properties로 설정 저장과 읽기
+
+Properties는 문자열 키와 값으로 설정 정보를 관리하는 클래스다. 수업에서는 애플리케이션 이름·버전·언어를 `application.properties`에 저장하고 다시 불러왔다.
+
+```java
+Properties prop = new Properties();
+prop.setProperty("app.name", "fullstack-course");
+prop.setProperty("app.version", "1.0");
+prop.setProperty("app.language", "ko");
+
+String filePath = "src/com/woong3e/section04/properties/application.properties";
+try (Writer writer = new OutputStreamWriter(
+        new FileOutputStream(filePath), StandardCharsets.UTF_8)) {
+    prop.store(writer, "application settings");
+} catch (IOException e) {
+    e.printStackTrace();
+}
+
+Properties loadedProp = new Properties();
+try (Reader reader = new InputStreamReader(
+        new FileInputStream(filePath), StandardCharsets.UTF_8)) {
+    loadedProp.load(reader);
+} catch (IOException e) {
+    e.printStackTrace();
+}
+System.out.println(loadedProp.getProperty("app.name")); // fullstack-course
+```
+
+| 메서드                    | 역할                            |
+| ------------------------- | ------------------------------- |
+| `setProperty(key, value)` | 설정값 추가·변경                |
+| `store(writer, comment)`  | 현재 설정을 파일에 저장         |
+| `load(reader)`            | 파일의 설정을 Properties로 읽기 |
+| `getProperty(key)`        | 키에 해당하는 설정값 조회       |
+
+설정 객체를 만들고 값을 넣은 다음 저장하며, 다시 읽을 때는 별도의 Properties 객체에 load한다. 저장·읽기 모두 UTF-8 변환 스트림을 사용해 같은 규칙으로 문자를 처리했다. 강의 파일은 `app.name=fullstack-course`와 같은 키=값 형식이며 주석과 저장 시각도 포함한다.
+
+### enum과 타입 안전성
+
+정수 상수로 과목을 표현하면 서로 다른 과목이 같은 숫자를 가질 수 있고, 과목이 아닌 숫자도 전달할 수 있다.
+
+```java
+// 정수 상수 예제
+int JAVA = 0;
+int HTML = 0;
+// 값만 비교하면 서로 같은 과목처럼 판단된다.
+```
+
+수업의 `printSubject(int subjectNumber)`에는 2뿐 아니라 100도 전달할 수 있었다. 100은 switch에 해당하는 과목이 없어 빈 과목명을 출력하지만, int라는 타입 조건은 만족하므로 컴파일 단계에서 막지 못한다.
+
+enum은 **사용할 상수들을 하나의 타입으로 묶는 열거형**이다.
+
+```java
+public enum Subjects {
+    JAVA, MYSQL, JDBC, HTML, CSS
+}
+
+// Application 클래스의 메서드
+public static void printSubject(Subjects subject) {
+    System.out.println("전달받은 과목: " + subject);
+}
+```
+
+```java
+Subjects subject1 = Subjects.JAVA;
+Subjects subject2 = Subjects.HTML;
+System.out.println(subject1 == subject2); // false
+printSubject(Subjects.HTML);
+// printSubject(2); // Subjects 타입이 아니므로 컴파일 오류
+
+for (Subjects subject : Subjects.values()) {
+    System.out.println((subject.ordinal() + 1) + ". " + subject.name());
+}
+```
+
+메서드가 Subjects를 받도록 하면 임의의 정수를 전달하는 실수를 막을 수 있다. enum 상수는 `==`로 비교할 수 있으며, JAVA와 HTML은 별개의 상수다.
+
+| 기능        | 의미                           |
+| ----------- | ------------------------------ |
+| `values()`  | 선언된 모든 상수를 배열로 반환 |
+| `name()`    | 선언된 상수 이름 반환          |
+| `ordinal()` | 선언 위치를 0부터 반환         |
+
+위 반복문은 JAVA부터 CSS까지 선언 순서대로 1~5번을 붙여 출력한다. ordinal은 선언 위치이므로, 순서를 바꾸면 값도 달라진다.
+
+### enum의 필드와 생성자, 초기화
+
+enum에는 상수 이름 외에 필드·생성자·메서드도 둘 수 있다. 수업의 UserRole은 각 역할에 한글 설명을 연결했다.
+
+```java
+public enum UserRole {
+    GUEST("게스트"),
+    CONSUMER("구매자"),
+    PRODUCER("판매자"),
+    ADMIN("관리자");
+
+    private final String description;
+
+    private UserRole(String description) {
+        System.out.println("UserRole 생성자 호출 " + description);
+        this.description = description;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public String getNameToLowerCase() {
+        return this.name().toLowerCase();
+    }
+}
+```
+
+`ADMIN("관리자")`의 인자가 생성자에 전달되어 description에 저장된다. 외부에서 `new UserRole(...)`로 임의의 상수를 생성할 수는 없다.
+
+```java
+UserRole admin = UserRole.ADMIN;
+UserRole guest = UserRole.GUEST;
+System.out.println(admin.name());               // ADMIN
+System.out.println(admin.getDescription());     // 관리자
+System.out.println(admin.getNameToLowerCase()); // admin
+```
+
+이 프로그램에서 UserRole을 처음 사용하는 `UserRole.ADMIN` 참조 시 enum 클래스가 초기화된다. **ADMIN만 생성되는 것이 아니라 GUEST·CONSUMER·PRODUCER·ADMIN이 선언 순서대로 초기화된다.** 생성자 메시지도 그 순서대로 네 번 출력된다.
+
+이후 `UserRole.GUEST`를 참조하면 이미 만들어진 상수를 사용하므로 생성자를 다시 호출하지 않는다. 강의 주석의 “여기서 new로 객체 생성”은 직접 new를 실행한다는 의미가 아니라, 첫 사용 시 enum 전체의 초기화가 일어나는 것으로 이해해야 한다.
