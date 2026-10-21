@@ -7,10 +7,11 @@
 /* Core theme configuration */
 @theme {
   /* Font families */
-  --font-bmdohyeon: var(--font-bmdohyeon);
   --font-sans:
     var(--font-bmdohyeon), ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji',
     'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+  --font-mono: var(--font-sans);
+  --font-serif: var(--font-sans);
 
   /* Colors */
   /* Copied from https://tailwindcss.com/docs/theme#default-theme-variable-reference */
@@ -60,6 +61,18 @@
   color utility to any element that depends on these defaults.
 */
 @layer base {
+  body,
+  input,
+  textarea,
+  select,
+  button,
+  code,
+  pre,
+  kbd,
+  samp {
+    font-family: var(--font-sans);
+  }
+
   *,
   ::after,
   ::before,

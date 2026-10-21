@@ -6,246 +6,72 @@ draft: false
 summary: 람다와 함수형 인터페이스로 동작을 전달하고 메서드·생성자 참조로 표현하는 방법을 학습했다. Stream의 중간·최종 연산과 재사용 제한을 확인하고 강의 목록을 필터링·정렬·집계·그룹화했다.
 ---
 
-# 🍀 2026-10-19 / 람다와 함수형 인터페이스, Stream API
+[소스코드 보기](https://github.com/woong3e/sesac_lecture/commit/7d6e6ab3196dac952cd26982bed24198aaeffb6e)
 
-## 먼저 설명해보세요
+## ☘️ 먼저 설명해보세요
 
-아래 질문을 자신의 말로 설명해보자. 설명할 수 있는 내용은 넘어가고, 막히는 내용은 `답 확인`으로 이동해 복습한다.
+1. 람다는 어떤 형태의 동작을 전달할까? → [답 확인](#%EF%B8%8F-%EB%9E%8C%EB%8B%A4%EC%99%80-%ED%95%A8%EC%88%98%ED%98%95-%EC%9D%B8%ED%84%B0%ED%8E%98%EC%9D%B4%EC%8A%A4)
+2. 메서드 참조는 어떤 람다를 줄일까? → [답 확인](#%EF%B8%8F-%EB%A9%94%EC%84%9C%EB%93%9C%EC%99%80-%EC%83%9D%EC%84%B1%EC%9E%90-%EC%B0%B8%EC%A1%B0)
+3. Stream으로 어떻게 거르고 모을까? → [답 확인](#%EF%B8%8F-stream%EA%B3%BC-%EA%B0%95%EC%9D%98-%EB%AA%A9%EB%A1%9D)
 
-1. 람다가 구현하는 대상은 무엇인가요? 같은 calculate 메서드에 덧셈과 곱셈을 전달하는 원리도 설명해보세요. → [답 확인](#람다와-함수형-인터페이스)
-2. 람다에서 바깥 지역 변수를 사용할 때 어떤 제약이 있나요? bonus에 다시 값을 대입하면 어떻게 되는지 설명해보세요. → [답 확인](#람다와-지역-변수)
-3. 문자열을 검사하고 변환한 뒤 출력하는 작업에서 어떤 함수형 인터페이스를 선택하나요? 입력·반환값과 호출 메서드를 기준으로 설명해보세요. → [답 확인](#표준-함수형-인터페이스)
-4. 메서드 참조와 생성자 참조는 어떤 람다를 대신할 수 있나요? String::equals와 Account::new의 동작이 어떻게 정해지는지도 설명해보세요. → [답 확인](#메서드-참조와-생성자-참조)
-5. Stream의 중간 연산과 최종 연산은 어떻게 다른가요? filter와 map의 역할, 원본 목록에 미치는 영향도 설명해보세요. → [답 확인](#stream-파이프라인)
-6. count·anyMatch·allMatch·findFirst는 각각 무엇을 반환하나요? 최종 연산 뒤 같은 스트림을 다시 사용하면 어떻게 되나요? → [답 확인](#최종-연산과-스트림의-재사용-제한)
-7. 무료 강의를 시간순으로 정렬하고 총 시간을 구하려면 어떤 연산을 연결하나요? 카테고리 중복 제거와 카테고리별 그룹화의 결과 차이도 설명해보세요. → [답 확인](#강의-목록의-정렬과-집계)
+## ☘️ 람다와 함수형 인터페이스
 
----
-
-## 학습 내용
-
-오늘은 `chap16-lambda`에서 동작을 값처럼 전달하는 람다와 함수형 인터페이스, 메서드 참조를 실습했다. `chap17-stream`에서는 이름 목록과 온라인 강의 목록을 조건에 따라 처리했다.
-
-### 람다와 함수형 인터페이스
-
-람다는 **하나의 추상 메서드를 가진 함수형 인터페이스의 구현을 간결하게 표현하는 문법**이다. 수업에서는 계산 동작을 메서드의 인자로 전달했다.
+람다는 **추상 메서드가 하나인 함수형 인터페이스** 구현을 간결하게 표현한다. @FunctionalInterface로 조건을 검사하며 추상 메서드를 더하면 컴파일 오류다.
 
 ```java
-@FunctionalInterface
-public interface Calculator {
-    int operate(int a, int b);
-}
+calculate(10, 20, (a, b) -> a + b);
+calculate(10, 20, (a, b) -> a * b);
 ```
 
-`@FunctionalInterface`를 붙이면 함수형 인터페이스 조건을 컴파일러가 확인한다. 여기에 다른 추상 메서드를 추가하면 컴파일 오류가 발생한다.
+calculate가 전달받은 Calculator.operate를 호출하므로 같은 흐름에 덧셈·곱셈을 바꿔 넣는다. 익명 클래스의 구현을 줄인 것으로, `(매개변수) -> { 코드 }`에서 타입 추론·단일 식의 중괄호/return 생략이 가능하다.
+
+바깥 지역 변수 bonus는 **final 또는 사실상 final**이어야 한다. 초기화 후 재대입하면 람다에서 사용할 수 없다. 나중에 실행될 수도 있는 동작이 참조하는 지역값을 고정한다.
+
+| 인터페이스             | 입력 → 반환 | 호출   |
+| ---------------------- | ----------- | ------ |
+| Consumer&lt;T&gt;      | T → 없음    | accept |
+| Supplier&lt;T&gt;      | 없음 → T    | get    |
+| Function&lt;T,R&gt;    | T → R       | apply  |
+| Predicate&lt;T&gt;     | T → boolean | test   |
+| UnaryOperator&lt;T&gt; | T → T       | apply  |
+
+java.util.function을 쓰면 형태마다 직접 인터페이스를 만들 필요가 없다. 문자열 검사(Predicate) → trim·대문자 정규화(UnaryOperator) → 길이 계산(Function) → 출력(Consumer)로 나눴다. 공백뿐이면 Supplier의 GUEST를 사용한다. UnaryOperator는 입력·반환 타입이 같은 Function이다.
+
+## ☘️ 메서드와 생성자 참조
+
+기존 메서드를 그대로 부르는 람다는 대상 인터페이스의 입력·반환이 맞을 때 ::로 줄인다.
+
+- `Integer::parseInt` ↔ value → Integer.parseInt(value): 정적 메서드
+- `System.out::println` ↔ message → System.out.println(message): 특정 객체 메서드
+- `String::equals` ↔ (left,right) → left.equals(right): 타입의 인스턴스 메서드. 첫 인자가 호출 객체
+- BiPredicate&lt;T,U&gt;는 두 입력→boolean, BiFunction&lt;T,U,R&gt;는 두 입력→R
+- `Account::new`: Supplier&lt;Account&gt;면 인자 없음, Function&lt;String,Account&gt;면 이름 하나, BiFunction&lt;String,Integer,Account&gt;면 이름·잔액 생성자 선택
+
+같은 생성자 참조도 대상 함수형 인터페이스의 인자 개수·타입에 따라 생성자가 결정된다.
+
+## ☘️ Stream과 강의 목록
+
+**원본.stream() → 중간 연산 → 최종 연산**으로 데이터를 처리한다. 중간은 처리 흐름을 연결하고, 최종 연산 시 실제 처리한다. 필터·정렬로 원본 List 자체를 바꾸지 않는다.
+
+- 중간: filter(조건 유지), map(값 변환), sorted(정렬), distinct(중복 제거), mapToInt(IntStream 변환)
+- 최종: forEach(출력), collect(수집), count(long 개수), anyMatch(하나라도), allMatch(전부), findFirst(Optional), sum(합계). average는 평균
+- 이름 3글자만 filter 후 대괄호로 map하면 신사임당 제외. 역순 정렬·collect로 새 List 생성
+- 수업 이름 목록의 이씨 count는 2L, 장보고 anyMatch는 true, 모두 3글자 allMatch는 false
+- findFirst는 없을 수 있어 Optional 반환. ifPresent는 있을 때만 Consumer 실행. 첫 조건 충족 강의는 Spring 완전 정복
+- **최종 연산 뒤 스트림 재사용 불가**: count 후 forEach하면 예외. 원본에서 새 stream 생성
+
+OnlineCourse는 제목·카테고리·수강 시간·무료 여부이며 7개 목록을 처리했다.
 
 ```java
-public static int calculate(int first, int second, Calculator calculator) {
-    return calculator.operate(first, second);
-}
-
-// 호출하는 곳
-Calculator lambdaAdd = (a, b) -> a + b;
-System.out.println(calculate(10, 19, lambdaAdd));       // 29
-System.out.println(calculate(10, 19, (a, b) -> a * b)); // 190
+List<OnlineCourse> free = courses.stream()
+    .filter(OnlineCourse::isFree)
+    .sorted(Comparator.comparingInt(OnlineCourse::getDuration))
+    .collect(Collectors.toList());
+int total = courses.stream().filter(OnlineCourse::isFree)
+    .mapToInt(OnlineCourse::getDuration).sum();
 ```
 
-`calculate()`는 전달된 Calculator의 `operate()`를 호출한다. 계산 메서드는 그대로 두고, 호출자가 전달하는 동작을 바꿀 수 있다. 익명 클래스에서 작성했던 객체 생성·메서드 재정의 코드를 람다로 줄인 것이다.
+무료 강의는 SQL 첫걸음 80분 → 포토샵 마스터 90분 → 일러스트레이터 시작하기 110분, 총 280분이다.
 
-기본 형태는 `(매개변수) -> { 실행할 코드 }`다. 대상 메서드로 타입을 추론할 수 있어 매개변수 타입을 생략하며, 반환할 식이 하나라면 중괄호와 return도 생략할 수 있다.
-
-### 람다와 지역 변수
-
-```java
-int bonus = 5;
-Calculator bonusCalculator = (a, b) -> a + b + bonus;
-// bonus = 10; // 주석을 해제하면 컴파일 오류
-System.out.println(calculate(10, 20, bonusCalculator)); // 35
-```
-
-람다에서 참조하는 바깥 **지역 변수는 final이거나 사실상 final이어야 한다.** 사실상 final은 final을 쓰지 않았더라도 초기화한 뒤 다시 대입하지 않는다는 뜻이다.
-
-람다는 선언된 자리에서 바로 실행되지 않고 나중에 호출될 수도 있다. 자바는 이때 참조하는 지역 변수의 값이 바뀌지 않도록 제한한다. 위 코드에서 bonus에 다시 대입하면 람다에서 사용할 수 없다.
-
-### 표준 함수형 인터페이스
-
-`java.util.function`에는 자주 쓰는 입력·출력 형태가 정의되어 있다. 동작의 형태에 맞는 인터페이스를 선택하면 매번 새 인터페이스를 만들 필요가 없다.
-
-| 인터페이스         | 입력   | 반환    | 호출 메서드 | 수업 예시              |
-| ------------------ | ------ | ------- | ----------- | ---------------------- |
-| `Consumer<T>`      | T 하나 | 없음    | `accept()`  | 결과 출력              |
-| `Supplier<T>`      | 없음   | T       | `get()`     | 기본값 제공            |
-| `Function<T, R>`   | T 하나 | R       | `apply()`   | 문자열 길이 계산       |
-| `Predicate<T>`     | T 하나 | boolean | `test()`    | 유효한 문자열인지 검사 |
-| `UnaryOperator<T>` | T 하나 | T       | `apply()`   | 문자열 정규화          |
-
-```java
-Predicate<String> hasText = value -> value != null && !value.trim().isEmpty();
-UnaryOperator<String> normalize = value -> value.trim().toUpperCase();
-Consumer<String> printer = value -> System.out.println("처리결과: " + value);
-Function<String, Integer> length = value -> value.length();
-Supplier<String> defaultValue = () -> "GUEST";
-
-String input = "   java   ";
-String result = hasText.test(input) ? normalize.apply(input) : defaultValue.get();
-printer.accept(result);                    // 처리결과: JAVA
-System.out.println(length.apply(result)); // 4
-```
-
-공백만 있는 문자열은 hasText의 결과가 false이므로 기본값 GUEST를 사용한다. 검사·변환·출력·기본값 제공을 각각 다른 동작으로 표현했다. `UnaryOperator<T>`는 Function 중에서도 입력과 반환 타입이 같은 경우다.
-
-### 메서드 참조와 생성자 참조
-
-람다가 기존 메서드 하나를 그대로 호출한다면 `::`로 줄여 표현할 수 있다. **대상 함수형 인터페이스의 입력·반환 형태와 호출할 메서드가 맞아야 한다.**
-
-| 형태                        | 수업 코드             | 대응하는 람다                            |
-| --------------------------- | --------------------- | ---------------------------------------- |
-| 정적 메서드 참조            | `Integer::parseInt`   | `value -> Integer.parseInt(value)`       |
-| 특정 객체의 메서드 참조     | `System.out::println` | `message -> System.out.println(message)` |
-| 타입의 인스턴스 메서드 참조 | `String::equals`      | `(left, right) -> left.equals(right)`    |
-
-```java
-Function<String, Integer> parseInt = Integer::parseInt;
-Consumer<String> printer = System.out::println;
-BiPredicate<String, String> sameText = String::equals;
-
-System.out.println(parseInt.apply("123"));           // 123
-System.out.println(sameText.test("hello", "hello")); // true
-System.out.println(sameText.test("hello", "world")); // false
-```
-
-`BiPredicate<T, U>`는 값 두 개를 받아 boolean을 반환한다. `String::equals`에서는 첫 번째 인자가 메서드를 호출하는 객체가 되고, 두 번째 인자가 equals의 인자로 들어간다.
-
-생성자는 `클래스이름::new`로 참조한다. 수업의 Account에는 인자가 없는 생성자, 이름을 받는 생성자, 이름과 잔액을 받는 생성자가 있다.
-
-```java
-Supplier<Account> newAccount = Account::new;
-Function<String, Account> newAccountWithName = Account::new;
-BiFunction<String, Integer, Account> newAccountFull = Account::new;
-
-Account first = newAccount.get();
-Account second = newAccountWithName.apply("홍길동");
-Account third = newAccountFull.apply("판다", 10000);
-```
-
-같은 Account::new라도 함수형 인터페이스가 요구하는 인자의 개수와 타입에 따라 호출할 생성자가 결정된다. `BiFunction<T, U, R>`는 값 두 개를 받아 R을 반환한다.
-
-### Stream 파이프라인
-
-Stream API는 여러 데이터를 **거르고, 변환하고, 결과로 모으는 처리 흐름**을 표현한다. 컬렉션의 `stream()`으로 시작해 중간 연산을 연결하고 최종 연산으로 결과를 얻는다.
-
-```java
-List<String> names = Arrays.asList(
-        "홍길동", "유관순", "이순신", "신사임당", "장보고", "강감찬", "이성계");
-
-names.stream()
-        .filter(name -> name.length() == 3)
-        .map(name -> "[" + name + "]")
-        .forEach(System.out::println);
-```
-
-`filter()`는 조건에 맞는 요소를 남기고, `map()`은 남은 요소를 다른 값으로 변환한다. 이 예제는 이름이 세 글자인 사람만 골라 대괄호를 붙여 출력한다. 신사임당은 제외된다.
-
-| 구분      | 수업에서 사용한 연산                                                      | 역할                         |
-| --------- | ------------------------------------------------------------------------- | ---------------------------- |
-| 중간 연산 | `filter`, `map`, `sorted`, `distinct`, `mapToInt`                         | 다음 처리를 위한 스트림 연결 |
-| 최종 연산 | `forEach`, `collect`, `count`, `anyMatch`, `allMatch`, `findFirst`, `sum` | 출력하거나 결과 반환         |
-
-중간 연산은 처리 과정을 구성하며, 실제 요소 처리는 최종 연산이 실행될 때 이루어진다.
-
-```java
-List<String> leeFamily = names.stream()
-        .filter(name -> name.startsWith("이"))
-        .sorted(Comparator.reverseOrder())
-        .collect(Collectors.toList());
-// [이순신, 이성계]
-```
-
-문자열의 역순으로 정렬한 결과를 새 List로 수집한다. 이 파이프라인의 필터링·정렬은 원본 names의 내용이나 순서를 변경하지 않는다.
-
-### 최종 연산과 스트림의 재사용 제한
-
-위 이름 목록에 대한 결과는 다음과 같다.
-
-| 연산                                            | 확인하는 내용            | 결과  |
-| ----------------------------------------------- | ------------------------ | ----- |
-| `filter(name -> name.startsWith("이")).count()` | 이씨의 수                | `2L`  |
-| `anyMatch(name -> name.equals("장보고"))`       | 장보고가 하나라도 있는지 | true  |
-| `allMatch(name -> name.length() == 3)`          | 모두 세 글자인지         | false |
-
-`count()`는 long을 반환한다. anyMatch는 하나라도 조건에 맞으면 true, allMatch는 모든 요소가 조건에 맞으면 true다. 수업 목록에는 네 글자인 신사임당이 있어 allMatch 결과는 false다.
-
-`findFirst()`는 첫 번째 요소를 찾지만, 조건에 맞는 요소가 없을 수 있으므로 Optional로 반환한다.
-
-```java
-Optional<OnlineCourse> firstRecommendedCourse = courses.stream()
-        .filter(c -> "Programming".equals(c.getCategory()))
-        .filter(c -> c.getDuration() > 200)
-        .findFirst();
-
-firstRecommendedCourse.ifPresent(c -> System.out.println(c.getTitle()));
-// Spring 완전 정복
-```
-
-`ifPresent()`는 값이 있을 때만 전달한 Consumer를 실행한다. 수업 목록에서는 조건을 만족하는 첫 강의가 Spring 완전 정복이다.
-
-**최종 연산으로 소비한 스트림은 다시 사용할 수 없다.**
-
-```java
-Stream<String> stream = names.stream();
-System.out.println(stream.count()); // 7
-stream.forEach(System.out::println); // IllegalStateException 발생
-```
-
-이 코드는 수업에서 재사용 제한을 확인하는 예제다. count 이후 forEach에서 예외가 발생한다. 같은 원본을 다시 처리하려면 `names.stream()`으로 새 스트림을 만든다.
-
-### 강의 목록의 정렬과 집계
-
-수업의 OnlineCourse는 제목·카테고리·수강 시간·무료 여부를 가진 객체다. courses는 이 객체 일곱 개가 담긴 목록이다.
-
-#### 무료 강의를 시간순으로 정렬
-
-```java
-courses.stream()
-        .filter(OnlineCourse::isFree)
-        .sorted((c1, c2) -> Integer.compare(c1.getDuration(), c2.getDuration()))
-        .forEach(System.out::println);
-```
-
-무료 강의만 남긴 뒤 수강 시간을 오름차순으로 비교한다. 결과는 SQL 첫걸음 80분, 포토샵 마스터 90분, 일러스트레이터 시작하기 110분 순서다.
-
-#### 무료 강의의 총 시간
-
-```java
-int totalDurationOfFree = courses.stream()
-        .filter(OnlineCourse::isFree)
-        .mapToInt(OnlineCourse::getDuration)
-        .sum();
-System.out.println(totalDurationOfFree); // 280
-```
-
-`mapToInt()`는 강의 객체에서 시간을 꺼내 IntStream으로 변환한다. 그 뒤 sum으로 `80 + 90 + 110 = 280`을 구한다. 수업에서는 개수를 구하는 count와 합계를 구하는 sum, 평균을 구하는 average의 역할도 구분했다.
-
-#### 카테고리 중복 제거와 그룹화
-
-```java
-courses.stream()
-        .map(OnlineCourse::getCategory)
-        .distinct()
-        .forEach(System.out::println);
-// Programming, Design, Database 순서로 출력
-```
-
-map으로 카테고리 문자열을 꺼내고 distinct로 중복을 제거한다. 이 결과에는 카테고리 이름만 남는다.
-
-```java
-Map<String, List<OnlineCourse>> courseByCategory = courses.stream()
-        .collect(Collectors.groupingBy(OnlineCourse::getCategory));
-
-courseByCategory.forEach((category, courseList) -> {
-    System.out.println("[" + category + "]");
-    courseList.forEach(c -> System.out.println(" - " + c.getTitle()));
-});
-```
-
-groupingBy는 카테고리를 키로, 해당 강의 목록을 값으로 모은다. Programming에는 세 강의, Design과 Database에는 각각 두 강의가 들어간다. **distinct는 중복 없는 값 목록을 만들고, groupingBy는 같은 기준을 가진 원본 요소들을 묶는다.** 반환된 Map의 카테고리 출력 순서는 보장하지 않는다.
+- `map(OnlineCourse::getCategory).distinct()`: 중복 없는 **카테고리 이름** 목록
+- `collect(Collectors.groupingBy(OnlineCourse::getCategory))`: 카테고리→**원본 강의 목록** Map. Programming 3개, Design·Database 각 2개이며 키 순서 미보장
