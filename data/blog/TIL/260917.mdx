@@ -8,56 +8,46 @@ summary: useState로 화면 상태를 바꾸고 이벤트와 제어 입력을 �
 
 [소스코드 보기 1](https://github.com/woong3e/sesac_lecture/commit/312d6b9935a61413d5ea98dc7ead249b4054d652) · [소스코드 보기 2](https://github.com/woong3e/sesac_lecture/commit/f25d6eee6124bbdf8ead62c94549f76eb08ec195)
 
-## ☘️ 먼저 설명해보세요
+## ☘️ state와 다시 렌더링되는 과정
 
-1. 연속 업데이트는 어떻게 계산될까? → [답 확인](#%EF%B8%8F-%EC%83%81%ED%83%9C%EC%99%80-%EC%97%85%EB%8D%B0%EC%9D%B4%ED%8A%B8)
-2. 입력값을 화면에 연결하려면? → [답 확인](#%EF%B8%8F-%EC%9D%B4%EB%B2%A4%ED%8A%B8%EC%99%80-%EC%A0%9C%EC%96%B4-%EC%9E%85%EB%A0%A5)
-3. 여러 입력과 수량은 어떻게 관리할까? → [답 확인](#%EF%B8%8F-%EA%B0%9D%EC%B2%B4-%EC%83%81%ED%83%9C%EC%99%80-%EC%8B%A4%EC%8A%B5)
+props는 부모가 전달한 값이고 **state**는 컴포넌트가 기억하며 관리하는 값이다. 일반 지역 변수만 바꾸면 React에 화면을 다시 계산해 달라고 알리지 못한다. useState는 기억할 값과 그 값을 바꾸는 함수를 제공한다. 이런 React 기능을 함수형 컴포넌트에서 사용할 수 있게 연결하는 함수를 Hook이라고 부른다.
 
-## ☘️ 상태와 업데이트
+useState 호출 결과는 현재 상태와 setter라는 변경 함수의 쌍이다. 처음 전달한 값은 초기 상태다. 수업의 MessageManager는 메시지와 글자 색을 따로 관리하고, 입장·퇴장 버튼에서 두 setter를 호출했다. React는 상태 변경을 처리한 뒤 컴포넌트를 다시 실행해 새 JSX를 만들고 화면에 반영한다.
 
-props는 부모에게 받은 값, state는 컴포넌트가 관리하는 값이다. `const [message, setMessage] = useState('초기 메시지')`는 현재 값과 setter를 반환한다.
+**이전 상태로 연속 계산하기**
 
-입장·퇴장 예제는 메시지·색상 state를 함께 변경했다. setter로 다음 렌더링을 요청하면 DOM을 직접 수정할 필요가 없다.
+현재 이벤트 핸들러가 보는 count는 그 렌더링 시점의 값이다. setter를 호출했다고 그 변수 자체가 즉시 새 숫자로 바뀌는 것은 아니다. 같은 이벤트에서 `setCount(count + 1)`을 두 번 호출하면 두 줄 모두 같은 count를 사용해 +1만 된다.
 
 ```jsx
-setCount(count + 1)
-setCount(count + 1) // 같은 스냅샷을 읽어 합계 +1
-// 별도 비교 예시
-setCount((prev) => prev + 1)
-setCount((prev) => prev + 1) // 앞선 결과를 이어 받아 +2
+const increaseByTwo = () => {
+  setCount((prev) => prev + 1)
+  setCount((prev) => prev + 1)
+}
 ```
 
-핸들러의 count는 현재 렌더링의 스냅샷이다. setter 호출 직후 그 변수가 바뀌지는 않으며, 함수형 업데이트는 큐에서 순서대로 적용된다.
+수업의 함수형 업데이트에서는 React가 앞 계산의 결과를 다음 함수의 prev로 전달한다. 따라서 두 번 증가해 +2가 된다. 이전 상태에 의존해 연속으로 계산할 때는 이런 형태가 적합하다. 렌더링 당시의 값을 **스냅샷**이라고 하며, 다음 렌더링에서 새 상태를 받아 사용한다.
 
 ## ☘️ 이벤트와 제어 입력
 
-- `onClick={handleEnter}`: 실행할 함수 전달
-- `onClick={handleEnter()}`: 렌더링 중 호출. 인수를 넘길 때는 `() => handleEnter(value)`로 감쌈
-- `value` + `onChange`: state가 입력값을 결정하는 제어 입력
+onClick에는 클릭했을 때 실행할 함수를 전달한다. 함수 이름 뒤에 괄호를 붙이면 렌더링 중 호출한 결과를 전달하게 된다. 인수가 필요하면 화살표 함수 안에서 호출해 이벤트가 발생했을 때 실행되게 한다.
+
+입력 칸의 value를 state에 연결하고 onChange에서 setter를 호출하면 React가 입력값을 관리한다. 이를 제어 입력이라고 한다. 사용자가 입력 → event.target.value로 최신 값 읽기 → state 변경 → 다시 렌더링 → value와 미리 보기에 반영되는 순서다.
+
+수업의 프로필 미리 보기는 이름과 소개를 각각 state로 두었다. 이름이나 소개가 빈 문자열이면 대체 문구를 보여 준다. 직접 DOM 텍스트를 찾아 고치지 않고 state가 바뀔 때 JSX가 표시할 내용을 정한다.
+
+## ☘️ 여러 입력을 객체 하나로 관리하기
+
+기본 회원가입 폼은 아이디와 이메일을 각각의 state로 관리한다. 입력이 많아질 때는 하나의 객체에 묶고 공통 변경 함수로 처리할 수 있다. 수업의 고급 폼은 input의 name을 username·email이라는 객체 키와 맞췄다.
 
 ```jsx
-const [name, setName] = useState('')
-<input value={name} onChange={event => setName(event.target.value)} />
-<p>{name !== '' ? name : '이름 없음'}</p>
-```
-
-프로필 실습은 이름·소개를 각각 관리했다. **입력 → event.target.value → state 변경 → 렌더링 → 미리 보기**이며, 빈 소개에는 안내 문구를 표시했다.
-
-## ☘️ 객체 상태와 실습
-
-```jsx
-const [form, setForm] = useState({ username: '', email: '' })
-const handleChange = ({ target: { name, value } }) => {
+const handleChange = (e) => {
+  const { name, value } = e.target
   setForm({ ...form, [name]: value })
 }
-;<input name="email" value={form.email} onChange={handleChange} />
 ```
 
-input의 name과 객체 키를 맞추고 `[name]`으로 변경 대상을 선택한다. 기존 필드를 펼친 뒤 변경값만 덮어쓰므로 다른 입력도 유지된다. 직접 수정 대신 새 객체를 전달한다.
+이벤트가 난 입력의 name은 바꿀 항목이고 value는 새 값이다. 기존 form을 Spread로 먼저 복사한 뒤 해당 항목만 덮어쓴다. 다른 입력값까지 사라지지 않도록 기존 항목을 유지하는 것이다. `[name]`은 문자 name이라는 키가 아니라 변수에 들어 있는 값을 키로 사용한다.
 
-- 회원가입: 아이디·이메일 확인 후 `setForm({ username: '', email: '' })`로 입력칸까지 초기화
-- 수량: 초기 0, 증가 +1, 감소는 `quantity > 0`일 때만 -1, 초기화는 0
-- 이전 상태를 이어 계산할 때 함수형 setter 사용
+상태 객체를 직접 수정하는 대신 새 객체를 setter에 전달한다. 가입 동작에서는 현재 값을 안내한 뒤 username과 email을 모두 빈 문자열로 바꾼다. value가 state와 연결되어 있으므로 입력 칸도 함께 비워진다. 이 실습은 가입 정보를 서버에 저장하는 완성된 회원가입 기능까지 구현한 것은 아니다.
 
-참고: [React useState](https://react.dev/reference/react/useState) · [React input](https://react.dev/reference/react-dom/components/input) · [React 이벤트 처리](https://react.dev/learn/responding-to-events)
+수량 과제는 초기 0에서 증가 시 1을 더하고, 감소는 현재 값이 0보다 클 때만 허용하며, 초기화는 0으로 지정한다. 0에서 감소 버튼을 눌러 음수가 되지 않는 경계 조건을 확인한다. 이전 상태를 이어 계산하는 상황에서는 앞서 본 함수형 setter를 사용할 수 있다.
