@@ -3,70 +3,130 @@ title: 260918 TIL
 date: '2026-09-18'
 tags: ['TIL']
 draft: false
-summary: map과 key로 목록을 렌더링하고 Todo의 추가·삭제·완료 상태를 구현한 뒤 useEffect의 의존성과 타이머 정리를 공부했다.
+summary: '할 일 목록은 배열 상태와 컴포넌트 역할 분리, Effect의 실행 시점을 함께 이해하기 좋은 구조다.'
 ---
 
-[소스코드 보기 1](https://github.com/woong3e/sesac_lecture/commit/b07cbe4d492ac5305edc6e41fbbb254fe68c950f) · [소스코드 보기 2](https://github.com/woong3e/sesac_lecture/commit/1c3b2cf2ef0efd2a92d6c618866475ffbd97d4a3)
+[소스코드: 260918 react useState-todolist & useEffect](https://github.com/woong3e/sesac_lecture/commit/b07cbe4d492ac5305edc6e41fbbb254fe68c950f) · [소스코드: todolist checkbox 추가](https://github.com/woong3e/sesac_lecture/commit/1c3b2cf2ef0efd2a92d6c618866475ffbd97d4a3)
 
-## ☘️ 먼저 설명해보세요
+할 일 목록은 배열 상태와 컴포넌트 역할 분리, Effect의 실행 시점을 함께 이해하기 좋은 구조다. 목록의 원본 상태는 부모가 보관하고 각 항목은 전달받은 값과 콜백으로 화면을 구성한다.
 
-1. 목록을 어떻게 추가·삭제·수정할까? → [답 확인](#%EF%B8%8F-%EB%AA%A9%EB%A1%9D%EA%B3%BC-todo)
-2. 자식 이벤트는 부모에게 어떻게 전할까? → [답 확인](#%EF%B8%8F-%EC%97%AD%ED%95%A0-%EB%B6%84%EB%A6%AC%EC%99%80-%EC%99%84%EB%A3%8C)
-3. Effect는 언제 실행하고 정리할까? → [답 확인](#%EF%B8%8F-effect%EC%99%80-cleanup)
+## ☘️ 추가·삭제·변경은 새 배열로 전달
 
-## ☘️ 목록과 Todo
+새 할 일에는 표시할 내용과 완료 여부, 항목을 구분할 id가 필요하다. 추가할 때는 기존 배열 뒤에 새 객체를 붙인 배열을 만든다. 빈 입력은 trim으로 걸러 공백뿐인 항목이 생기지 않게 한다.
 
-`map()`으로 데이터를 JSX로 바꾸고 `key={item.id}`로 항목을 식별한다. key는 형제 사이에서 고유하고 같은 항목에 안정적이어야 한다. 고정 목록에서는 index를 쓰기도 했지만, 추가·삭제되는 Todo에는 위치가 바뀌므로 id를 쓴다.
+삭제는 대상 id와 다른 항목만 filter로 남긴다. 완료 전환은 map으로 각 항목을 보고 대상 객체만 새로 복사해 done을 반대로 바꾼다. 기존 배열을 직접 고치는 대신 새 배열과 필요한 새 객체를 전달하면 이전 상태와 다음 상태가 분리된다.
 
-```jsx
-// 빈 입력 차단 → 추가 → 다음 id 증가 → 입력 비우기
-if (!inputValue.trim()) return
-setTodos([...todos, { id: nextId, text: inputValue, isDone: false }])
-setNextId(nextId + 1)
-setInputValue('')
-// 삭제
-setTodos(todos.filter((todo) => todo.id !== id))
-// 완료 토글
-setTodos(todos.map((todo) => (todo.id === id ? { ...todo, isDone: !todo.isDone } : todo)))
+TodoItem은 자신이 표시할 데이터와 부모가 제공한 처리 함수를 props로 받는다. 클릭하면 id를 인수로 콜백을 호출하고 실제 배열 갱신은 부모가 담당한다. 자식의 버튼과 부모의 상태가 이어지는 방향을 따라가면 데이터 흐름이 명확해진다.
+
+## ☘️ Effect와 의존 값
+
+useEffect는 화면 렌더링과 함께 외부 작업을 동기화할 때 사용한다. 렌더링 함수의 계산 자체와 달리 Effect는 결과가 반영된 뒤 실행된다. 의존 배열에 count가 있으면 처음 실행된 뒤 count가 바뀌는 렌더링에서 다시 실행된다. 다른 상태만 바뀌면 해당 Effect를 다시 실행할 필요가 없다.
+
+빈 의존 배열은 매 렌더링마다 실행하라는 뜻이 아니다. 다만 개발 중 StrictMode의 추가 실행과 정리 검사는 있을 수 있으므로 무조건 정확히 한 번이라는 전제로 외부 작업을 작성하지 않는다. Effect에서 참조하는 값은 의존성 관계를 맞춰야 오래된 값을 사용하는 문제를 줄일 수 있다.
+
+## ☘️ 타이머를 정리하는 이유
+
+setInterval은 등록한 뒤 계속 작업을 예약한다. 타이머 화면을 숨겼다고 interval이 자동으로 취소되지는 않는다. Effect가 반환하는 정리 함수에서 clearInterval을 호출해야 한다. 의존 값이 바뀌어 Effect가 다시 시작될 때도 이전 정리가 먼저 수행된다.
+
+아래 예제는 할 일 조작과 별개로 count·다른 상태·Timer 표시를 바꿀 수 있게 했다. 브라우저 콘솔을 함께 보면 어떤 상태 변경이 어떤 Effect를 다시 실행하는지, Timer를 숨길 때 정리가 실행되는지 구분할 수 있다.
+
+## ☘️ 할 일 목록과 Effect의 정리 시점
+
+다음은 연결된 학습 코드의 핵심 동작을 한 파일에서 확인하도록 정리한 설명용 예제다. 원본 프로젝트 전체를 그대로 옮긴 것은 아니다. 필요한 선언과 실행 부분을 함께 두었으며, 아래 코드만 저장해 흐름을 따라갈 수 있다.
+
+**index.html**
+
+```html
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>React 동작 확인</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="text/babel">
+      const { useState, useEffect } = React
+      function TodoItem({ todo, onRemove, onToggle }) {
+        return (
+          <li>
+            <input type="checkbox" checked={todo.isDone} onChange={() => onToggle(todo.id)} />
+            <span style={{ textDecoration: todo.isDone ? 'line-through' : 'none' }}>
+              {todo.text}
+            </span>
+            <button onClick={() => onRemove(todo.id)}>삭제</button>
+          </li>
+        )
+      }
+      function Timer() {
+        useEffect(() => {
+          const timerId = setInterval(() => console.log('1초 경과'), 1000)
+          return () => {
+            clearInterval(timerId)
+            console.log('타이머 정리')
+          }
+        }, [])
+        return <p>타이머 실행 중</p>
+      }
+      function App() {
+        const [inputText, setInputText] = useState('')
+        const [todos, setTodos] = useState([{ id: 1, text: 'React 복습하기', isDone: false }])
+        const [nextId, setNextId] = useState(2),
+          [showTimer, setShowTimer] = useState(true)
+        const [count, setCount] = useState(0),
+          [otherCount, setOtherCount] = useState(0)
+        useEffect(() => {
+          console.log('count 변경:', count)
+        }, [count])
+        const handleAdd = () => {
+          if (!inputText.trim()) return
+          setTodos((prev) => [...prev, { id: nextId, text: inputText, isDone: false }])
+          setNextId((prev) => prev + 1)
+          setInputText('')
+        }
+        const handleRemove = (id) => setTodos((prev) => prev.filter((todo) => todo.id !== id))
+        const handleToggle = (id) =>
+          setTodos((prev) =>
+            prev.map((todo) => (todo.id === id ? { ...todo, isDone: !todo.isDone } : todo))
+          )
+        return (
+          <>
+            <input
+              aria-label="할 일"
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+            />
+            <button onClick={handleAdd}>추가</button>
+            <p>남은 할 일: {todos.filter((todo) => !todo.isDone).length}</p>
+            <ul>
+              {todos.map((todo) => (
+                <TodoItem
+                  key={todo.id}
+                  todo={todo}
+                  onRemove={handleRemove}
+                  onToggle={handleToggle}
+                />
+              ))}
+            </ul>
+            <button onClick={() => setCount((prev) => prev + 1)}>count: {count}</button>
+            <button onClick={() => setOtherCount((prev) => prev + 1)}>other: {otherCount}</button>
+            <button onClick={() => setShowTimer((prev) => !prev)}>타이머 표시 전환</button>
+            {showTimer && <Timer />}
+          </>
+        )
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(<App />)
+    </script>
+  </body>
+</html>
 ```
 
-push·splice로 원본 state를 직접 수정하지 않는다. **새 배열과 변경할 객체의 복사 둘 다** 필요하다. id는 삭제해도 다시 당기지 않고 계속 증가시킨다.
+새 할 일은 기존 배열 뒤에 새 객체를 붙인 배열로 등록한다. 삭제는 해당 id를 제외한 배열, 완료 전환은 그 id의 객체만 복사해 done을 바꾼 배열을 사용한다. TodoItem은 부모가 내려 준 콜백을 호출하며 목록 상태를 직접 바꾸지 않는다. Effect는 렌더링 결과가 반영된 뒤 실행된다. 의존 배열이 바뀌면 이전 Effect의 정리 함수가 먼저 실행되고 다음 Effect가 시작된다. Timer의 interval은 정리 함수에서 해제하므로 타이머를 숨겼을 때도 계속 동작하지 않는다. 개발 모드의 StrictMode에서는 정리 동작을 확인하려고 Effect가 추가 실행될 수 있다.
 
-## ☘️ 역할 분리와 완료
+**실행 방법**
 
-TodoList는 입력값·배열·다음 id·변경 로직, TodoItem은 항목 화면과 사용자 동작 전달을 담당한다.
-
-```jsx
-function TodoItem({ todo, onRemove, onToggle }) {
-  return (
-    <li>
-      <input type="checkbox" checked={todo.isDone} onChange={() => onToggle(todo.id)} />
-      <span className={todo.isDone ? 'completed' : ''}>{todo.text}</span>
-      <button onClick={() => onRemove(todo.id)}>삭제</button>
-    </li>
-  )
-}
-```
-
-부모가 데이터·콜백을 props로 전달하고, 자식은 id로 동작을 알린다. 체크 상태는 value가 아닌 boolean checked다. 완료 클래스에 취소선을 적용했다.
-
-원본의 “남은 할 일”은 todos.length로 전체를 셌다. 미완료 수는 `todos.filter(todo => !todo.isDone).length`로 계산해야 한다.
-
-## ☘️ Effect와 cleanup
-
-Effect는 DOM 반영 후 외부 작업을 시작한다.
-
-- 의존성 생략: 매 커밋 후 / `[]`: 마운트 / `[count]`: 마운트와 count 변경 시
-- otherCount만 바꾸면 `[count]` Effect는 재실행하지 않음
-- 사용한 반응형 값을 의존성에 포함. 이전 값과 Object.is로 비교
-
-```jsx
-useEffect(() => {
-  const id = setInterval(() => console.log('1초 경과'), 1000)
-  return () => clearInterval(id)
-}, [])
-```
-
-Timer를 조건부 표시·숨김하며 정리를 확인했다. cleanup은 **제거 시**, 그리고 **의존성 변경으로 재실행하기 전**에 이전 작업을 정리한다. 개발 Strict Mode는 초기 setup·cleanup을 추가 실행할 수 있어 `[]`를 무조건 한 번이라고 외우지 않는다.
-
-참고: [React 목록 렌더링](https://react.dev/learn/rendering-lists) · [React 배열 state 업데이트](https://react.dev/learn/updating-arrays-in-state) · [React input](https://react.dev/reference/react-dom/components/input) · [React useEffect](https://react.dev/reference/react/useEffect)
+아래 전체 코드를 index.html로 저장하고 브라우저에서 연다. React 18·React DOM 18·Babel을 CDN에서 가져오므로 인터넷 연결이 필요하다. Babel은 브라우저에서 JSX를 변환하는 실습용 구성이다. 파일을 여러 조각으로 나누어 붙일 필요가 없다.
