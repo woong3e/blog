@@ -3,75 +3,195 @@ title: 261019 TIL
 date: '2026-10-19'
 tags: ['TIL', 'java']
 draft: false
-summary: 람다와 함수형 인터페이스로 동작을 전달하고 메서드·생성자 참조로 표현하는 방법을 학습했다. Stream의 중간·최종 연산과 재사용 제한을 확인하고 강의 목록을 필터링·정렬·집계·그룹화했다.
+summary: '람다는 동작을 값처럼 전달하는 방법이고 Stream은 여러 데이터를 순서대로 처리하는 흐름을 표현한다.'
 ---
 
-[소스코드 보기](https://github.com/woong3e/sesac_lecture/commit/7d6e6ab3196dac952cd26982bed24198aaeffb6e)
+[소스코드: 261019 Java lambda and Stream API exercises](https://github.com/woong3e/sesac_lecture/commit/7d6e6ab3196dac952cd26982bed24198aaeffb6e)
 
-## ☘️ 먼저 설명해보세요
+람다는 동작을 값처럼 전달하는 방법이고 Stream은 여러 데이터를 순서대로 처리하는 흐름을 표현한다. 원본 목록을 어떻게 저장하는지와 그 목록에서 어떤 결과를 만드는지는 서로 다른 문제다.
 
-1. 람다는 어떤 형태의 동작을 전달할까? → [답 확인](#%EF%B8%8F-%EB%9E%8C%EB%8B%A4%EC%99%80-%ED%95%A8%EC%88%98%ED%98%95-%EC%9D%B8%ED%84%B0%ED%8E%98%EC%9D%B4%EC%8A%A4)
-2. 메서드 참조는 어떤 람다를 줄일까? → [답 확인](#%EF%B8%8F-%EB%A9%94%EC%84%9C%EB%93%9C%EC%99%80-%EC%83%9D%EC%84%B1%EC%9E%90-%EC%B0%B8%EC%A1%B0)
-3. Stream으로 어떻게 거르고 모을까? → [답 확인](#%EF%B8%8F-stream%EA%B3%BC-%EA%B0%95%EC%9D%98-%EB%AA%A9%EB%A1%9D)
+## ☘️ 함수형 인터페이스와 메서드 참조
 
-## ☘️ 람다와 함수형 인터페이스
+함수형 인터페이스는 구현해야 할 추상 메서드가 하나인 인터페이스다. 람다는 그 메서드의 인수와 본문을 짧게 표현한다. @FunctionalInterface는 이 조건을 컴파일러가 검사하게 한다. 매개변수 타입은 연결되는 인터페이스에서 추론할 수 있다.
 
-람다는 **추상 메서드가 하나인 함수형 인터페이스** 구현을 간결하게 표현한다. @FunctionalInterface로 조건을 검사하며 추상 메서드를 더하면 컴파일 오류다.
+Predicate는 입력을 검사해 boolean을 반환하고 Function은 입력을 다른 값으로 바꾼다. Consumer는 입력을 처리하지만 반환값이 없고 Supplier는 입력 없이 값을 제공한다. 인수가 두 개인 BiFunction처럼 입력 수가 다른 형태도 있다. 어떤 값을 받고 무엇을 돌려주는지 먼저 확인한다.
 
-```java
-calculate(10, 20, (a, b) -> a + b);
-calculate(10, 20, (a, b) -> a * b);
-```
+메서드 참조는 람다가 기존 메서드를 그대로 호출하는 경우를 짧게 적는다. 정적 메서드·특정 객체의 메서드·생성자 참조를 사용할 수 있지만 연결되는 인수와 반환 타입이 맞아야 한다. 표기가 짧아도 호출 규칙이 달라지는 것은 아니다.
 
-calculate가 전달받은 Calculator.operate를 호출하므로 같은 흐름에 덧셈·곱셈을 바꿔 넣는다. 익명 클래스의 구현을 줄인 것으로, `(매개변수) -> { 코드 }`에서 타입 추론·단일 식의 중괄호/return 생략이 가능하다.
+## ☘️ Stream의 중간 연산과 최종 연산
 
-바깥 지역 변수 bonus는 **final 또는 사실상 final**이어야 한다. 초기화 후 재대입하면 람다에서 사용할 수 없다. 나중에 실행될 수도 있는 동작이 참조하는 지역값을 고정한다.
+Stream은 데이터를 저장하는 컬렉션 자체가 아니라 처리 흐름이다. filter는 조건을 통과한 요소를, map은 변환한 요소를 다음 단계로 전달한다. sorted는 결과의 순서를 정하고 distinct는 중복을 제거한다. 중간 연산만 연결하면 아직 최종 결과를 소비하지 않은 상태다.
 
-| 인터페이스             | 입력 → 반환 | 호출   |
-| ---------------------- | ----------- | ------ |
-| Consumer&lt;T&gt;      | T → 없음    | accept |
-| Supplier&lt;T&gt;      | 없음 → T    | get    |
-| Function&lt;T,R&gt;    | T → R       | apply  |
-| Predicate&lt;T&gt;     | T → boolean | test   |
-| UnaryOperator&lt;T&gt; | T → T       | apply  |
+collect·reduce·count·forEach 같은 최종 연산이 결과를 만든다. 한 번 소비한 Stream은 다시 사용할 수 없으므로 같은 목록을 다시 처리하려면 새 Stream을 얻는다. 원본 컬렉션을 직접 정렬하는 것과 sorted로 정렬된 결과를 얻는 것도 구분한다.
 
-java.util.function을 쓰면 형태마다 직접 인터페이스를 만들 필요가 없다. 문자열 검사(Predicate) → trim·대문자 정규화(UnaryOperator) → 길이 계산(Function) → 출력(Consumer)로 나눴다. 공백뿐이면 Supplier의 GUEST를 사용한다. UnaryOperator는 입력·반환 타입이 같은 Function이다.
+## ☘️ 집계와 값이 없는 결과
 
-## ☘️ 메서드와 생성자 참조
+groupingBy는 분류 키에 따라 요소들을 묶는다. counting은 개수, summing은 숫자 합계로 모은다. 분류별 목록과 분류별 개수는 결과 타입부터 다르다. 아래 강의 목록은 조건으로 선택하고 제목으로 변환하며 총 시간과 분류별 개수를 구한다.
 
-기존 메서드를 그대로 부르는 람다는 대상 인터페이스의 입력·반환이 맞을 때 ::로 줄인다.
+찾은 결과가 없을 수 있으면 Optional로 그 가능성을 표현한다. get을 바로 호출하면 값이 없을 때 예외가 나므로 기본값을 정하거나 명시적인 예외를 선택한다. Optional은 null 문제를 자동으로 모두 해결하는 도구가 아니라 값이 없는 경우를 호출자가 처리하도록 드러내는 방식이다.
 
-- `Integer::parseInt` ↔ value → Integer.parseInt(value): 정적 메서드
-- `System.out::println` ↔ message → System.out.println(message): 특정 객체 메서드
-- `String::equals` ↔ (left,right) → left.equals(right): 타입의 인스턴스 메서드. 첫 인자가 호출 객체
-- BiPredicate&lt;T,U&gt;는 두 입력→boolean, BiFunction&lt;T,U,R&gt;는 두 입력→R
-- `Account::new`: Supplier&lt;Account&gt;면 인자 없음, Function&lt;String,Account&gt;면 이름 하나, BiFunction&lt;String,Integer,Account&gt;면 이름·잔액 생성자 선택
+## ☘️ 함수형 인터페이스와 Stream의 전체 흐름
 
-같은 생성자 참조도 대상 함수형 인터페이스의 인자 개수·타입에 따라 생성자가 결정된다.
+다음은 연결된 학습 코드의 핵심 동작을 한 파일에서 확인하도록 정리한 설명용 예제다. 원본 프로젝트 전체를 그대로 옮긴 것은 아니다. 필요한 선언과 실행 부분을 함께 두었으며, 아래 코드만 저장해 흐름을 따라갈 수 있다.
 
-## ☘️ Stream과 강의 목록
-
-**원본.stream() → 중간 연산 → 최종 연산**으로 데이터를 처리한다. 중간은 처리 흐름을 연결하고, 최종 연산 시 실제 처리한다. 필터·정렬로 원본 List 자체를 바꾸지 않는다.
-
-- 중간: filter(조건 유지), map(값 변환), sorted(정렬), distinct(중복 제거), mapToInt(IntStream 변환)
-- 최종: forEach(출력), collect(수집), count(long 개수), anyMatch(하나라도), allMatch(전부), findFirst(Optional), sum(합계). average는 평균
-- 이름 3글자만 filter 후 대괄호로 map하면 신사임당 제외. 역순 정렬·collect로 새 List 생성
-- 수업 이름 목록의 이씨 count는 2L, 장보고 anyMatch는 true, 모두 3글자 allMatch는 false
-- findFirst는 없을 수 있어 Optional 반환. ifPresent는 있을 때만 Consumer 실행. 첫 조건 충족 강의는 Spring 완전 정복
-- **최종 연산 뒤 스트림 재사용 불가**: count 후 forEach하면 예외. 원본에서 새 stream 생성
-
-OnlineCourse는 제목·카테고리·수강 시간·무료 여부이며 7개 목록을 처리했다.
+**Main.java**
 
 ```java
-List<OnlineCourse> free = courses.stream()
-    .filter(OnlineCourse::isFree)
-    .sorted(Comparator.comparingInt(OnlineCourse::getDuration))
-    .collect(Collectors.toList());
-int total = courses.stream().filter(OnlineCourse::isFree)
-    .mapToInt(OnlineCourse::getDuration).sum();
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.function.BiFunction;
+import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.function.Predicate;
+import java.util.function.Supplier;
+import java.util.function.UnaryOperator;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+public class Main {
+  public static void main(String[] args) {
+    int bonus = 5;
+    Calculator operation = (a, b) -> a + b + bonus;
+    System.out.println(calculate(10, 20, operation));
+    Predicate<String> hasText = value -> value != null && !value.trim().isEmpty();
+    UnaryOperator<String> normalize = value -> value.trim().toUpperCase();
+    Supplier<String> defaultValue = () -> "GUEST";
+    Consumer<String> printer = System.out::println;
+    Function<String, Integer> length = String::length;
+    String input = " java ",
+        text = hasText.test(input) ? normalize.apply(input) : defaultValue.get();
+    printer.accept(text);
+    System.out.println(length.apply(text));
+    Function<String, Integer> parser = Integer::parseInt;
+    System.out.println(parser.apply("123"));
+    BiFunction<String, Integer, Account> accountFactory = Account::new;
+    System.out.println(accountFactory.apply("예제 사용자", 10000));
+    List<String> names = List.of("홍길동", "유관순", "이순신", "신사임당", "장보고", "강감찬", "이성계");
+    System.out.println(names.stream().filter(name -> name.startsWith("이")).count());
+    System.out.println(names.stream().anyMatch(name -> name.equals("장보고")));
+    System.out.println(names.stream().allMatch(name -> name.length() == 3));
+    List<OnlineCourse> courses =
+        List.of(
+            new OnlineCourse("Spring 완전 정복", "Programming", 300, false),
+            new OnlineCourse("JPA 끝장내기", "Programming", 240, false),
+            new OnlineCourse("java의 정석", "Programming", 120, false),
+            new OnlineCourse("포토샵 마스터", "Design", 90, true),
+            new OnlineCourse("일러스트레이터 시작하기", "Design", 110, true),
+            new OnlineCourse("SQL 첫걸음", "Database", 80, true),
+            new OnlineCourse("데이터베이스 모델링", "Database", 150, false));
+    Optional<OnlineCourse> first =
+        courses.stream()
+            .filter(course -> course.category().equals("Programming") && course.duration() > 200)
+            .findFirst();
+    first.ifPresent(course -> System.out.println(course.title()));
+    courses.stream()
+        .filter(OnlineCourse::isFree)
+        .sorted(Comparator.comparingInt(OnlineCourse::duration))
+        .map(OnlineCourse::title)
+        .forEach(printer);
+    System.out.println(
+        courses.stream().filter(OnlineCourse::isFree).mapToInt(OnlineCourse::duration).sum());
+    Map<String, List<OnlineCourse>> groups =
+        courses.stream().collect(Collectors.groupingBy(OnlineCourse::category));
+    groups.keySet().stream()
+        .sorted()
+        .forEach(key -> System.out.println(key + ": " + groups.get(key).size()));
+    Stream<String> stream = names.stream();
+    System.out.println(stream.count());
+    try {
+      stream.forEach(printer);
+    } catch (IllegalStateException exception) {
+      System.out.println("소비한 스트림은 재사용 불가");
+    }
+  }
+
+  static int calculate(int first, int second, Calculator calculator) {
+    return calculator.operate(first, second);
+  }
+}
+
+@FunctionalInterface
+interface Calculator {
+  int operate(int first, int second);
+}
+
+class Account {
+  private String name;
+  private int balance;
+
+  Account() {}
+
+  Account(String name) {
+    this.name = name;
+  }
+
+  Account(String name, int balance) {
+    this.name = name;
+    this.balance = balance;
+  }
+
+  public String toString() {
+    return name + ": " + balance;
+  }
+}
+
+class OnlineCourse {
+  private final String title, category;
+  private final int duration;
+  private final boolean free;
+
+  OnlineCourse(String title, String category, int duration, boolean free) {
+    this.title = title;
+    this.category = category;
+    this.duration = duration;
+    this.free = free;
+  }
+
+  String title() {
+    return title;
+  }
+
+  String category() {
+    return category;
+  }
+
+  int duration() {
+    return duration;
+  }
+
+  boolean isFree() {
+    return free;
+  }
+}
 ```
 
-무료 강의는 SQL 첫걸음 80분 → 포토샵 마스터 90분 → 일러스트레이터 시작하기 110분, 총 280분이다.
+람다는 추상 메서드가 하나인 인터페이스의 구현을 짧게 표현한다. Predicate는 조건의 boolean, Function은 변환값, Consumer는 처리만, Supplier는 인수 없이 값을 제공한다. 메서드 참조는 같은 호출을 더 짧게 표현하는 문법이다. Stream의 filter·map·sorted는 처리 과정을 만들고 collect·reduce 같은 최종 연산이 결과를 만든다. 원본 컬렉션 자체를 바꾸는 정렬과 달리 sorted는 스트림의 결과 순서를 바꾼다. groupingBy는 분류별 목록을, counting과 summing은 개수나 합계를 모은다. Optional은 값이 없을 가능성을 드러내며 get을 무조건 부르기보다 기본값이나 예외 처리 규칙을 정한다.
 
-- `map(OnlineCourse::getCategory).distinct()`: 중복 없는 **카테고리 이름** 목록
-- `collect(Collectors.groupingBy(OnlineCourse::getCategory))`: 카테고리→**원본 강의 목록** Map. Programming 3개, Design·Database 각 2개이며 키 순서 미보장
+**Main.java 실행 확인 결과**
+
+```text
+35
+JAVA
+4
+123
+예제 사용자: 10000
+2
+true
+false
+Spring 완전 정복
+SQL 첫걸음
+포토샵 마스터
+일러스트레이터 시작하기
+280
+Database: 2
+Design: 2
+Programming: 3
+7
+소비한 스트림은 재사용 불가
+```
+
+**실행 방법**
+
+JDK 21 환경에서 파일명을 `Main.java`로 저장한다. 같은 폴더에서 `javac -encoding UTF-8 Main.java`로 컴파일한 뒤 `java -Dfile.encoding=UTF-8 Main`을 실행한다. 글마다 Main 클래스가 있으므로 예제는 서로 다른 폴더에 저장한다.
