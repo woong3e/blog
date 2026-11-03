@@ -3,75 +3,263 @@ title: 261013 TIL
 date: '2026-10-13'
 tags: ['TIL', 'java']
 draft: false
-summary: 상속과 super, 오버라이딩의 조건을 정리하고 다형성·형변환·객체 배열을 활용했다. 추상 클래스와 인터페이스의 역할을 실습 코드와 비교표로 정리했다.
+summary: '상속은 기존 클래스의 상태와 동작을 바탕으로 더 구체적인 클래스를 만드는 방법이다.'
 ---
 
-[소스코드 보기](https://github.com/woong3e/sesac_lecture/commit/9b1b7f9a7815d855100fb75322e002d8209783f1)
+[소스코드: 261013](https://github.com/woong3e/sesac_lecture/commit/9b1b7f9a7815d855100fb75322e002d8209783f1)
 
-## ☘️ 먼저 설명해보세요
+상속은 기존 클래스의 상태와 동작을 바탕으로 더 구체적인 클래스를 만드는 방법이다. 다형성은 같은 부모 타입으로 요청해도 실제 객체에 따라 다른 동작이 실행되는 성질이다. 공통 기능과 바뀌는 기능을 나누어 읽으면 상속 구조를 이해하기 쉽다.
 
-1. 상속과 재정의의 조건은? → [답 확인](#%EF%B8%8F-%EC%83%81%EC%86%8D%EA%B3%BC-%EC%98%A4%EB%B2%84%EB%9D%BC%EC%9D%B4%EB%94%A9)
-2. 부모 타입에서 실제 동작은 누가 정할까? → [답 확인](#%EF%B8%8F-%EB%8B%A4%ED%98%95%EC%84%B1%EA%B3%BC-%ED%98%95%EB%B3%80%ED%99%98)
-3. 추상 클래스와 인터페이스는 언제 쓸까? → [답 확인](#%EF%B8%8F-%EA%B3%B5%ED%86%B5-%EA%B5%AC%ED%98%84%EA%B3%BC-%EA%B8%B0%EB%8A%A5-%EC%95%BD%EC%86%8D)
+## ☘️ 부모 초기화와 메서드 재정의
 
-## ☘️ 상속과 오버라이딩
+extends로 부모를 지정하면 자식은 접근 가능한 부모 멤버를 사용한다. 객체 생성 시 부모 생성자가 먼저 실행되고 자식 초기화가 이어진다. super는 부모 생성자나 부모 구현에 접근할 때 사용한다. 부모의 private 필드를 자식이 직접 사용할 수 있는 것은 아니다.
 
-extends로 공통 상태·기능을 재사용하고 확장한다. Car의 FireCar는 물 뿌리기를 추가하고 경적을 재정의했다.
+오버라이딩은 물려받은 메서드를 같은 호출 규칙으로 다시 구현하는 것이다. @Override를 붙이면 실제 재정의가 맞는지 컴파일러가 확인한다. 이름만 같은 별도 메서드를 추가하는 오버로딩과 구분한다. 접근 범위를 더 좁히는 등 재정의 규칙을 어기면 컴파일되지 않는다.
 
-- super()·super(...): 부모 생성자 호출. 부모 → 자식 생성자 순서. 생성자는 상속되지 않음
-- super.method(): 부모 구현 재사용. RacingCar.run은 부모의 주행 상태 변경 후 추가 동작
-- 부모 private 필드는 직접 접근하지 않고 생성자·메서드로 처리. runningStatus는 protected isRunning으로 확인
-- protected: 같은 패키지, 다른 패키지는 상속 규칙에 따른 접근
-- Product→Computer: 부모 생성자가 code·name·price, 자식은 cpu·ram 초기화. getInformation도 부모 결과 확장
-- 매개변수 생성자만 있는 SmartPhone은 인자 없는 new SmartPhone() 불가
+## ☘️ 참조 타입과 실제 객체
 
-**오버라이딩**은 부모 동작을 같은 호출 형태로 재정의한다. VendingMachine.vend의 밀크 커피를 CoffeeVendingMachine이 아이스 아메리카노로 바꿨다. @Override로 컴파일러 검사를 받는다.
+부모 타입 변수는 자식 객체를 가리킬 수 있다. 호출할 수 있는 멤버의 범위는 참조 타입에 영향을 받지만 재정의된 메서드의 실행은 실제 객체를 따른다. Animal로 Rabbit과 Tiger를 다루면 같은 먹기 요청이 서로 다른 구현으로 이어진다.
 
-- 이름·매개변수 동일 / 반환 타입 동일 또는 참조형의 하위 타입
-- 접근 범위는 같거나 넓게 / 검사 예외는 같거나 좁게
-- private은 상속된 메서드 재정의 대상 아님 / final은 호출 가능하지만 재정의 불가
-- 오버로딩은 매개변수 구성이 다른 같은 이름의 메서드 추가
+부모 참조에서 자식 전용 기능을 사용하려고 형변환할 때 실제 객체가 해당 타입인지 확인해야 한다. 잘못된 다운캐스팅은 실행 중 오류가 된다. instanceof는 타입 확인에 사용할 수 있다. 가능한 공통 동작은 부모 타입으로 요청하면 불필요한 형변환을 줄일 수 있다.
 
-수업은 protected clean()을 public으로 넓혔다. vend()의 반환형만 String→int로 바꾸면 재정의가 아니며, vend(String type)은 오버로딩이라 @Override를 붙이면 오류다.
+## ☘️ 추상 클래스와 인터페이스
 
-## ☘️ 다형성과 형변환
+추상 클래스는 직접 객체로 만들 수 없으며 자식이 구현할 추상 메서드와 공통 구현을 함께 둘 수 있다. Player의 공통 구조를 두고 Warrior와 Wizard가 자신의 공격을 구현하는 형태다.
+
+인터페이스는 사용할 수 있는 기능의 약속을 표현한다. IConnectable을 구현한 Keyboard와 Mouse는 구체 종류가 달라도 연결·해제 요청을 받을 수 있다. 사용하는 코드가 구체 클래스 대신 인터페이스에 의존하면 구현 교체의 영향을 줄일 수 있다. 상속은 단순 코드 복사 수단보다 실제 포함 관계와 역할이 맞는지 먼저 판단한다.
+
+## ☘️ 상속·다형성·인터페이스를 호출로 확인하기
+
+다음은 연결된 학습 코드의 핵심 동작을 한 파일에서 확인하도록 정리한 설명용 예제다. 원본 프로젝트 전체를 그대로 옮긴 것은 아니다. 필요한 선언과 실행 부분을 함께 두었으며, 아래 코드만 저장해 흐름을 따라갈 수 있다.
+
+**Main.java**
 
 ```java
-Animal animal = new Rabbit(); // 자동 업캐스팅
-animal.cry();                 // Rabbit의 재정의한 cry
-if (animal instanceof Rabbit) ((Rabbit) animal).jump();
-```
+public class Main {
+  public static void main(String[] args) {
+    FireCar fireCar = new FireCar();
+    fireCar.run();
+    fireCar.soundHorn();
+    fireCar.sprayWater();
+    System.out.println(new Computer("c-123", "컴퓨터", 2_000_000, "i5").getInformation());
+    VendingMachine machine = new CoffeeVendingMachine();
+    System.out.println(machine.vend());
+    machine.powerOn();
+    Animal[] animals = {new Rabbit(), new Tiger()};
+    ZooKeeper keeper = new ZooKeeper();
+    for (Animal animal : animals) {
+      animal.cry();
+      keeper.feed(animal);
+      if (animal instanceof Rabbit rabbit) rabbit.jump();
+    }
+    Player[] players = {new Warrior(), new Wizard()};
+    for (Player player : players) {
+      player.attack();
+      player.levelUp();
+    }
+    IConnectable[] devices = {new Keyboard(), new Mouse()};
+    for (IConnectable device : devices) {
+      device.connect();
+      device.disconnect();
+    }
+  }
+}
 
-부모 타입으로 여러 자식 객체를 매개변수·배열에 담아 같은 기능을 호출한다. **동적 바인딩은 실제 객체의 재정의된 동작을 선택**하며 객체 자체가 부모로 바뀌지는 않는다.
+class Car {
+  private boolean running;
 
-컴파일 때는 참조 타입의 호출 가능 메서드를 확인한다. ZooKeeper의 feed(Rabbit)·feed(Tiger)·feed(Animal) 중 `feed(new Rabbit())`은 Rabbit 버전, Animal 타입 변수·배열 요소를 전달하면 Animal 버전이 선택된다. 그 안의 animal.eat()은 실제 동물의 구현으로 실행된다. **오버로딩 선택과 오버라이딩 실행을 구분한다.**
+  void run() {
+    running = true;
+  }
 
-부모에 없는 jump는 Rabbit으로 다운캐스팅해야 한다. 실제 Tiger를 Rabbit으로 변환하면 ClassCastException이므로 instanceof로 확인한다. 배열 처리에서는 검사한 현재 변수 animal을 변환한다. 원본의 바깥 tiger 변수를 사용하면 같은 호랑이를 반복 처리한다.
+  protected boolean isRunning() {
+    return running;
+  }
 
-## ☘️ 공통 구현과 기능 약속
+  void soundHorn() {
+    System.out.println("경적");
+  }
+}
 
-```java
+class FireCar extends Car {
+  FireCar() {
+    super();
+  }
+
+  @Override
+  void soundHorn() {
+    System.out.println(isRunning() ? "소방차 경적" : "정지");
+  }
+
+  void sprayWater() {
+    System.out.println("물 뿌리기");
+  }
+}
+
+class Product {
+  private final String code, name;
+  private final int price;
+
+  Product(String code, String name, int price) {
+    this.code = code;
+    this.name = name;
+    this.price = price;
+  }
+
+  String getInformation() {
+    return code + " " + name + " " + price;
+  }
+}
+
+class Computer extends Product {
+  private final String cpu;
+
+  Computer(String code, String name, int price, String cpu) {
+    super(code, name, price);
+    this.cpu = cpu;
+  }
+
+  @Override
+  String getInformation() {
+    return super.getInformation() + " " + cpu;
+  }
+}
+
+class VendingMachine {
+  String vend() {
+    return "밀크 커피";
+  }
+
+  final void powerOn() {
+    System.out.println("전원 켜기");
+  }
+}
+
+class CoffeeVendingMachine extends VendingMachine {
+  @Override
+  String vend() {
+    return "아이스 아메리카노";
+  }
+}
+
+class Animal {
+  void cry() {
+    System.out.println("동물 울음");
+  }
+
+  void eat() {
+    System.out.println("동물이 먹는다");
+  }
+}
+
+class Rabbit extends Animal {
+  @Override
+  void cry() {
+    System.out.println("토끼 울음");
+  }
+
+  @Override
+  void eat() {
+    System.out.println("토끼가 먹는다");
+  }
+
+  void jump() {
+    System.out.println("토끼가 뛴다");
+  }
+}
+
+class Tiger extends Animal {
+  @Override
+  void cry() {
+    System.out.println("호랑이 울음");
+  }
+
+  @Override
+  void eat() {
+    System.out.println("호랑이가 먹는다");
+  }
+}
+
+class ZooKeeper {
+  void feed(Animal animal) {
+    animal.eat();
+  }
+}
+
 abstract class Player {
-    public abstract void attack();
-    public void levelUp() { System.out.println("레벨업"); }
+  abstract void attack();
+
+  void levelUp() {
+    System.out.println("레벨업");
+  }
 }
+
+class Warrior extends Player {
+  @Override
+  void attack() {
+    System.out.println("검 공격");
+  }
+}
+
+class Wizard extends Player {
+  @Override
+  void attack() {
+    System.out.println("마법 공격");
+  }
+}
+
 interface IConnectable {
-    void connect();
-    void disconnect();
+  void connect();
+
+  void disconnect();
+}
+
+class Keyboard implements IConnectable {
+  public void connect() {
+    System.out.println("키보드 연결");
+  }
+
+  public void disconnect() {
+    System.out.println("키보드 해제");
+  }
+}
+
+class Mouse implements IConnectable {
+  public void connect() {
+    System.out.println("마우스 연결");
+  }
+
+  public void disconnect() {
+    System.out.println("마우스 해제");
+  }
 }
 ```
 
-- 추상 클래스는 직접 new 불가. 참조·배열 타입으로는 가능. 구체 자식 Warrior·Wizard가 attack을 검·마법으로 구현하고 levelUp은 공통 사용
-- 추상 자식은 구현을 더 미룰 수 있지만 최종 구체 클래스는 남은 추상 메서드 구현 필요
-- 인터페이스는 기능의 약속. `implements IConnectable`인 Keyboard·Mouse가 public connect/disconnect 구현
-- 수업의 인터페이스 추상 메서드는 public abstract 생략 가능. 인터페이스 자체 new는 불가
-- Computer.connectDevice(IConnectable device)는 device.connect만 호출하면 실제 장치 동작 실행. 해제도 같은 방식
+FireCar는 부모의 기능을 물려받고 필요한 메서드를 재정의한다. 부모 생성자는 자식 초기화 전에 실행되며 super는 부모 쪽 생성자나 메서드에 접근한다. Animal 변수로 Rabbit이나 Tiger를 가리켜도 재정의한 메서드는 실제 객체의 구현을 실행한다. 다만 참조 타입에 없는 자식 전용 메서드는 바로 호출할 수 없다. 추상 클래스는 공통 상태와 아직 구현하지 않은 동작을 함께 표현하고, 인터페이스는 구현 클래스가 제공해야 할 기능의 약속을 표현한다. Keyboard와 Mouse는 IConnectable이라는 같은 타입으로 연결 동작을 요청할 수 있다.
 
-| 기준      | 추상 클래스                  | 인터페이스                 |
-| --------- | ---------------------------- | -------------------------- |
-| 목적      | 공통 상태·구현과 개별 동작   | 제공할 기능의 약속         |
-| 사용      | extends Player               | implements IConnectable    |
-| 여러 타입 | 부모 클래스 하나 상속        | 여러 인터페이스 구현 가능  |
-| 수업 선택 | 캐릭터 공통 레벨업+개별 공격 | 서로 다른 장치의 연결·해제 |
+**Main.java 실행 확인 결과**
 
-둘 다 다형성의 타입이 된다. **공통 기반 구현이 필요한지, 같은 기능 규약이 필요한지**로 선택한다.
+```text
+소방차 경적
+물 뿌리기
+c-123 컴퓨터 2000000 i5
+아이스 아메리카노
+전원 켜기
+토끼 울음
+토끼가 먹는다
+토끼가 뛴다
+호랑이 울음
+호랑이가 먹는다
+검 공격
+레벨업
+마법 공격
+레벨업
+키보드 연결
+키보드 해제
+마우스 연결
+마우스 해제
+```
+
+**실행 방법**
+
+JDK 21 환경에서 파일명을 `Main.java`로 저장한다. 같은 폴더에서 `javac -encoding UTF-8 Main.java`로 컴파일한 뒤 `java -Dfile.encoding=UTF-8 Main`을 실행한다. 글마다 Main 클래스가 있으므로 예제는 서로 다른 폴더에 저장한다.
