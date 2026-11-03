@@ -8,70 +8,50 @@ summary: 람다와 함수형 인터페이스로 동작을 전달하고 메서드
 
 [소스코드 보기](https://github.com/woong3e/sesac_lecture/commit/7d6e6ab3196dac952cd26982bed24198aaeffb6e)
 
-## ☘️ 먼저 설명해보세요
+## ☘️ 동작을 인수로 전달하는 람다
 
-1. 람다는 어떤 형태의 동작을 전달할까? → [답 확인](#%EF%B8%8F-%EB%9E%8C%EB%8B%A4%EC%99%80-%ED%95%A8%EC%88%98%ED%98%95-%EC%9D%B8%ED%84%B0%ED%8E%98%EC%9D%B4%EC%8A%A4)
-2. 메서드 참조는 어떤 람다를 줄일까? → [답 확인](#%EF%B8%8F-%EB%A9%94%EC%84%9C%EB%93%9C%EC%99%80-%EC%83%9D%EC%84%B1%EC%9E%90-%EC%B0%B8%EC%A1%B0)
-3. Stream으로 어떻게 거르고 모을까? → [답 확인](#%EF%B8%8F-stream%EA%B3%BC-%EA%B0%95%EC%9D%98-%EB%AA%A9%EB%A1%9D)
+메서드에 숫자 같은 데이터뿐 아니라 실행할 계산 방법도 전달할 수 있다. 수업의 Calculator는 정수 두 개를 받아 결과를 반환하는 operate 하나를 약속한다. calculate는 전달받은 Calculator의 operate를 호출하므로 덧셈·뺄셈·곱셈을 바꾸어 끼울 수 있다.
 
-## ☘️ 람다와 함수형 인터페이스
+람다는 추상 메서드가 하나인 함수형 인터페이스의 구현을 짧게 표현한다. 익명 클래스로 operate를 구현하던 코드를 매개변수와 동작만으로 적는다. `(a, b) -> a + b`처럼 식 하나면 중괄호와 return을 생략할 수 있다. 여러 문장을 쓰는 블록에서는 반환을 명시한다.
 
-람다는 **추상 메서드가 하나인 함수형 인터페이스** 구현을 간결하게 표현한다. @FunctionalInterface로 조건을 검사하며 추상 메서드를 더하면 컴파일 오류다.
+@FunctionalInterface는 추상 메서드가 하나라는 조건을 컴파일러가 검사하게 한다. 다른 추상 메서드를 추가하면 람다의 동작이 어느 약속을 구현하는지 정할 수 없어 조건에 맞지 않는다.
 
-```java
-calculate(10, 20, (a, b) -> a + b);
-calculate(10, 20, (a, b) -> a * b);
-```
+람다가 사용하는 바깥 지역 변수는 final이거나 초기화 후 다시 대입되지 않는 사실상 final이어야 한다. 수업은 bonus 5를 더하는 람다를 만든 뒤 bonus를 10으로 재대입하면 사용할 수 없음을 확인한다. 객체의 모든 내부 변경이 금지된다는 규칙과는 구분한다.
 
-calculate가 전달받은 Calculator.operate를 호출하므로 같은 흐름에 덧셈·곱셈을 바꿔 넣는다. 익명 클래스의 구현을 줄인 것으로, `(매개변수) -> { 코드 }`에서 타입 추론·단일 식의 중괄호/return 생략이 가능하다.
+## ☘️ 자주 쓰는 함수형 인터페이스
 
-바깥 지역 변수 bonus는 **final 또는 사실상 final**이어야 한다. 초기화 후 재대입하면 람다에서 사용할 수 없다. 나중에 실행될 수도 있는 동작이 참조하는 지역값을 고정한다.
+매번 인터페이스를 새로 선언하지 않도록 java.util.function은 흔한 입력·출력 형태를 제공한다.
 
-| 인터페이스             | 입력 → 반환 | 호출   |
-| ---------------------- | ----------- | ------ |
-| Consumer&lt;T&gt;      | T → 없음    | accept |
-| Supplier&lt;T&gt;      | 없음 → T    | get    |
-| Function&lt;T,R&gt;    | T → R       | apply  |
-| Predicate&lt;T&gt;     | T → boolean | test   |
-| UnaryOperator&lt;T&gt; | T → T       | apply  |
+- Consumer는 값을 받아 반환 없이 처리하고 accept로 호출한다.
+- Supplier는 입력 없이 값을 만들고 get으로 호출한다.
+- Function은 입력을 다른 결과로 바꾸며 apply로 호출한다.
+- Predicate는 조건을 검사해 boolean을 돌려주며 test로 호출한다.
+- UnaryOperator는 입력과 반환 타입이 같은 변환이며 apply로 호출한다.
 
-java.util.function을 쓰면 형태마다 직접 인터페이스를 만들 필요가 없다. 문자열 검사(Predicate) → trim·대문자 정규화(UnaryOperator) → 길이 계산(Function) → 출력(Consumer)로 나눴다. 공백뿐이면 Supplier의 GUEST를 사용한다. UnaryOperator는 입력·반환 타입이 같은 Function이다.
+수업의 문자열 흐름은 null과 공백 여부 검사 → trim과 대문자 변환 → 길이 계산·출력이다. 공백뿐인 입력에는 Supplier가 GUEST를 제공한다. 각 함수가 무엇을 받아 무엇을 돌려주는지 맞추면 계산을 역할별로 나눌 수 있다.
 
-## ☘️ 메서드와 생성자 참조
+**메서드와 생성자 참조**
 
-기존 메서드를 그대로 부르는 람다는 대상 인터페이스의 입력·반환이 맞을 때 ::로 줄인다.
+람다가 기존 메서드 하나를 그대로 호출한다면 `::`로 표현할 수 있다. Integer::parseInt는 정적 메서드, System.out::println은 특정 객체 메서드다. String::equals는 두 인수를 받아 첫 문자열의 equals에 둘째를 전달하는 형태다. BiPredicate는 두 입력과 boolean 결과, BiFunction은 두 입력과 결과 타입을 갖는다.
 
-- `Integer::parseInt` ↔ value → Integer.parseInt(value): 정적 메서드
-- `System.out::println` ↔ message → System.out.println(message): 특정 객체 메서드
-- `String::equals` ↔ (left,right) → left.equals(right): 타입의 인스턴스 메서드. 첫 인자가 호출 객체
-- BiPredicate&lt;T,U&gt;는 두 입력→boolean, BiFunction&lt;T,U,R&gt;는 두 입력→R
-- `Account::new`: Supplier&lt;Account&gt;면 인자 없음, Function&lt;String,Account&gt;면 이름 하나, BiFunction&lt;String,Integer,Account&gt;면 이름·잔액 생성자 선택
+Account::new는 대상 인터페이스에 따라 다른 생성자로 연결된다. Supplier면 인자 없는 생성자, Function이면 이름 하나, BiFunction이면 이름·잔액 생성자를 선택한다. 참조 표기만으로 아무 생성자나 호출되는 것이 아니라 요구된 입력·반환 타입이 맞아야 한다.
 
-같은 생성자 참조도 대상 함수형 인터페이스의 인자 개수·타입에 따라 생성자가 결정된다.
+## ☘️ Stream으로 거르고 변환하기
 
-## ☘️ Stream과 강의 목록
+Stream은 목록의 데이터를 조건에 따라 거르고 변환하고 모으는 처리 흐름이다. 원본.stream으로 시작해 중간 연산을 연결하고 최종 연산으로 결과를 만든다. 중간 연산은 최종 연산이 실행될 때 실제 처리가 진행되는 지연 특성이 있다.
 
-**원본.stream() → 중간 연산 → 최종 연산**으로 데이터를 처리한다. 중간은 처리 흐름을 연결하고, 최종 연산 시 실제 처리한다. 필터·정렬로 원본 List 자체를 바꾸지 않는다.
+filter는 조건을 만족하는 요소를 남기고 map은 각 값을 다른 값으로 바꾼다. sorted는 정렬, distinct는 중복 제거다. forEach·collect·count·anyMatch·allMatch·findFirst 등은 최종 결과나 처리를 만든다. count의 반환 타입은 long이며 mapToInt로 정수 스트림을 만들면 sum·average 같은 숫자 계산을 할 수 있다.
 
-- 중간: filter(조건 유지), map(값 변환), sorted(정렬), distinct(중복 제거), mapToInt(IntStream 변환)
-- 최종: forEach(출력), collect(수집), count(long 개수), anyMatch(하나라도), allMatch(전부), findFirst(Optional), sum(합계). average는 평균
-- 이름 3글자만 filter 후 대괄호로 map하면 신사임당 제외. 역순 정렬·collect로 새 List 생성
-- 수업 이름 목록의 이씨 count는 2L, 장보고 anyMatch는 true, 모두 3글자 allMatch는 false
-- findFirst는 없을 수 있어 Optional 반환. ifPresent는 있을 때만 Consumer 실행. 첫 조건 충족 강의는 Spring 완전 정복
-- **최종 연산 뒤 스트림 재사용 불가**: count 후 forEach하면 예외. 원본에서 새 stream 생성
+수업의 이름 목록에서 길이 세 글자만 남기면 신사임당은 제외되고, map으로 이름에 대괄호를 붙여 출력한다. 이씨 목록을 역순 정렬해 collect하면 새 리스트를 얻으며 원본 리스트 순서 자체는 바뀌지 않는다. 이씨 수는 2, 장보고 존재는 true, 모두 세 글자인지는 false다.
 
-OnlineCourse는 제목·카테고리·수강 시간·무료 여부이며 7개 목록을 처리했다.
+스트림은 최종 연산 후 재사용할 수 없다. 원본에서 count한 stream에 다시 forEach하면 IllegalStateException이 발생한다. 같은 데이터를 다시 처리하려면 원본에서 새 stream을 만든다.
 
-```java
-List<OnlineCourse> free = courses.stream()
-    .filter(OnlineCourse::isFree)
-    .sorted(Comparator.comparingInt(OnlineCourse::getDuration))
-    .collect(Collectors.toList());
-int total = courses.stream().filter(OnlineCourse::isFree)
-    .mapToInt(OnlineCourse::getDuration).sum();
-```
+## ☘️ 강의 목록 처리의 결과
 
-무료 강의는 SQL 첫걸음 80분 → 포토샵 마스터 90분 → 일러스트레이터 시작하기 110분, 총 280분이다.
+OnlineCourse는 제목·분류·수강 시간·무료 여부를 가진다. 일곱 강의 중 Programming이면서 200분 초과인 것은 Spring 완전 정복과 JPA 끝장내기다. filter를 두 번 연결해 조건을 나누고 map으로 제목만 꺼내 출력한다.
 
-- `map(OnlineCourse::getCategory).distinct()`: 중복 없는 **카테고리 이름** 목록
-- `collect(Collectors.groupingBy(OnlineCourse::getCategory))`: 카테고리→**원본 강의 목록** Map. Programming 3개, Design·Database 각 2개이며 키 순서 미보장
+findFirst는 결과가 없을 수도 있어 Optional을 돌려준다. ifPresent는 값이 있을 때만 처리한다. 해당 조건의 첫 강의는 Spring 완전 정복이다. 없는 결과를 있다고 가정해 바로 읽지 않는 흐름이다.
+
+무료 강의를 시간순으로 정렬하면 SQL 첫걸음 80분, 포토샵 마스터 90분, 일러스트레이터 시작하기 110분이다. mapToInt로 시간을 꺼내 sum하면 280분이다. 카테고리를 map한 뒤 distinct하면 중복 없는 분류 이름만 얻는다.
+
+groupingBy는 분류 이름을 키로, 해당 원본 강의 목록을 값으로 갖는 Map을 만든다. Programming은 3개, Design·Database는 각 2개다. 이름만 뽑는 distinct와 원본 객체들을 그룹으로 모으는 groupingBy는 결과 구조가 다르다. 그룹 Map의 키 출력 순서를 보장한다고 가정하지 않는다.
