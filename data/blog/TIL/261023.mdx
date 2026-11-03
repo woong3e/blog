@@ -1,7 +1,7 @@
 ---
-title: 261023 TIL
+title: jdbc
 date: '2026-10-23'
-tags: ['TIL', 'java', 'jdbc']
+tags: ['java', 'jdbc']
 draft: false
 summary: JDBC 연결부터 조회, 데이터 변경, DAO 분리까지 실습 흐름을 정리했다.
 ---
@@ -10,11 +10,15 @@ summary: JDBC 연결부터 조회, 데이터 변경, DAO 분리까지 실습 흐
 
 ## ☘️ 먼저 설명해보세요
 
-1. JDBC로 조회한 결과는 어떻게 읽을까? → [답 확인](#️-연결과-조회)
-2. PreparedStatement는 입력값을 어떻게 전달할까? → [답 확인](#️-매개변수와-데이터-변경)
-3. DAO로 분리하면 각 코드는 어떤 역할을 맡을까? → [답 확인](#️-dao로-역할-분리)
+1. JDBC로 조회한 결과는 어떻게 읽을까? → [답 확인](#️-chap01-연결과-chap02-조회)
+2. PreparedStatement는 입력값을 어떻게 전달할까? → [답 확인](#️-chap02-매개변수와-chap03-데이터-변경)
+3. DAO로 분리하면 각 코드는 어떤 역할을 맡을까? → [답 확인](#️-chap04-dao로-역할-분리)
 
-## ☘️ 연결과 조회
+**전체 흐름 먼저 보기**
+
+Java 프로그램은 JDBC 드라이버를 통해 DB에 연결한 다음 SQL을 보내고 결과를 받는다. 연결은 `Connection`, 실행할 문장은 `Statement` 또는 `PreparedStatement`, SELECT 결과는 `ResultSet`이 맡는다. 메뉴를 조회하는 경우라면 “연결 → SELECT 실행 → 결과를 한 행씩 읽기 → 자원 닫기” 순서다.
+
+## ☘️ chap01 연결과 chap02 조회
 
 **JDBC**는 Java에서 데이터베이스에 연결하고 SQL을 실행하는 API다. 실습은 드라이버 로딩 → `Connection` 획득 → SQL 실행 → 결과 처리 → 자원 해제 순서다.
 
@@ -32,7 +36,17 @@ while (rset.next()) {
 
 연결 설정은 properties에서 읽고 `JDBCTemplate`에 연결·종료를 모아 중복을 줄였다. 조회 후 `ResultSet` → `Statement` → `Connection` 순으로 닫는다. 파일 스트림은 try-with-resources로 닫고, JDBC 자원은 예제의 `finally`에서 닫는다. 연결이나 SQL 처리 중 예외가 나더라도 해제가 필요하다.
 
-## ☘️ 매개변수와 데이터 변경
+**chap01: 연결 설정을 분리하는 이유**
+
+처음에는 드라이버 클래스명과 URL을 사용해 `Class.forName(driver)`으로 드라이버를 로딩하고, `DriverManager.getConnection(url, prop)`으로 연결을 받았다. 다음 예제는 이 과정을 `JDBCTemplate.getConnection()`으로 묶고 설정을 properties에서 읽는다. 호출하는 쪽은 연결 방법을 반복하지 않고 `getConnection()`을 호출한 뒤 사용이 끝나면 `close(con)`을 호출한다.
+
+**chap02: 결과 행을 읽는 순서**
+
+`executeQuery()`가 결과를 주어도 처음부터 첫 행을 가리키지는 않는다. `while (rset.next())`가 다음 행으로 이동한 후 `getString("MENU_NAME")`, `getInt("MENU_PRICE")`로 그 행의 컬럼을 읽는다. 결과가 없으면 `next()`가 처음부터 false이므로 반복문은 실행되지 않는다. DTO를 사용하는 예제는 행마다 새 객체에 컬럼을 채워 리스트에 넣는다.
+
+`finally`에서 결과, 문장, 연결을 역순으로 닫는다. 설정 파일을 읽는 `FileReader`나 XML을 읽는 `FileInputStream`은 try-with-resources를 사용해 블록을 벗어날 때 닫는다.
+
+## ☘️ chap02 매개변수와 chap03 데이터 변경
 
 **Statement**는 완성된 SQL 문자열을 실행한다. 입력을 문자열에 직접 이어 붙이면 따옴표 등으로 SQL 구조가 바뀌는 SQL 인젝션이 발생할 수 있다. **PreparedStatement**는 SQL의 `?`에 값을 바인딩해 입력을 SQL 구문과 분리한다.
 
@@ -49,10 +63,26 @@ int result = pstmt.executeUpdate();
 
 수업에서는 메뉴 등록·수정·삭제에 값을 바인딩하고, 입력값을 DTO에 담아 전달했다. SQL을 XML properties에 분리해 `loadFromXML()`과 키로 가져오는 방법도 사용했다. 문자열 연결을 사용하는 예제와 바인딩 예제의 차이를 SQL 인젝션 실습으로 확인한다.
 
-## ☘️ DAO로 역할 분리
+**chap02: SQL 인젝션을 비교한 흐름**
+
+`Statement` 예제는 사원 번호와 이름을 SQL 문자열에 직접 이어 붙인다. 이름에 따옴표와 `OR 1=1` 같은 내용이 들어가면 그 내용이 값의 일부가 아니라 SQL 조건으로 해석될 수 있다. 실제 실습은 `EMP_ID = '210'`과 조작된 이름을 이어 붙여 조건이 달라지는 모습을 확인한다.
+
+같은 입력을 받는 `PreparedStatement` 예제는 `WHERE EMP_ID = ? AND EMP_NAME = ?`를 먼저 만들고 `setString(1, empId)`, `setString(2, empName)`으로 값을 넣는다. 이때 입력은 조건식 자체가 아니라 각 자리의 값으로 전달된다. `?`의 순서가 1부터라는 점이 중요하다.
+
+**chap03: 메뉴 등록·수정·삭제**
+
+등록은 이름·가격·카테고리 코드·판매 여부를 입력받아 INSERT의 네 자리에 순서대로 넣는다. 수정은 DTO에 메뉴 코드와 변경할 이름·가격을 담고, UPDATE의 세 번째 자리에 WHERE에 사용할 메뉴 코드를 넣는다. 삭제는 메뉴 코드로 대상을 지정한다. 세 작업 모두 `executeUpdate()`가 돌려준 행 수로 성공 여부를 출력한다. 값이 0이면 변경된 행이 없는 것이다.
+
+SQL을 Java 코드 밖의 XML properties에 두는 예제는 `prop.loadFromXML(queryStream)`으로 파일을 읽고 `prop.getProperty("updateMenu")`처럼 키로 SQL을 찾는다. 가져온 SQL의 `?`에도 같은 방식으로 값을 채운다.
+
+## ☘️ chap04 DAO로 역할 분리
 
 한 `main`에 카테고리 조회, 입력, 메뉴 등록 SQL을 모두 넣으면 DB 처리와 입력·출력이 뒤섞인다. **DAO**는 DB 접근과 CRUD를 담당하고, DTO는 데이터를 전달한다.
 
 수업의 흐름은 연결 생성 → `MenuDAO.selectAllCategory(con)`으로 카테고리 DTO 목록 조회 → 메뉴 정보 입력 → `MenuDTO` 생성 → `insertNewMenu(con, newMenu)` 호출 → 결과 행 수 확인 → 연결 종료다. DAO는 SQL을 XML에서 읽고 자체 `PreparedStatement`와 `ResultSet`을 닫으며, 전달받은 연결은 호출자가 닫는다.
 
-원본의 분리 전 예제는 조회한 카테고리 목록과 별도로 이름을 코드에 고정 매핑해 목록 변경에 취약하다. 분리 후에는 조회한 코드를 입력받는다. 다만 입력값 검증은 별도로 필요하며, `예`가 아닌 모든 답을 `N`으로 처리한다. 연결 실패 시 null 반환이나 조회 실패 후 null 리스트 순회도 예외를 일으킬 수 있으므로 실제 사용에서는 실패를 호출자에게 전달하고 처리해야 한다.
+원본의 분리 전 예제는 조회한 목록과 별도로 카테고리 이름을 코드에 고정 매핑한다. 분리 후에는 조회한 카테고리 코드를 입력받는다. 판매 여부 입력은 `예`면 `Y`, 그 외에는 `N`으로 처리한다.
+
+**chap04: DAO 안과 밖에서 하는 일**
+
++`Application`은 연결을 만들고 카테고리 목록을 DAO에 요청한다. 사용자가 메뉴 정보를 입력하면 `MenuDTO`를 만들고 DAO의 등록 메서드에 연결과 함께 넘긴다. `MenuDAO`는 XML에서 SQL을 꺼내 문장을 만들고, 조회에서는 각 행을 `CategoryDTO`로 바꿔 목록을 반환하며 등록에서는 변경 행 수를 반환한다. DAO는 자신이 만든 문장과 결과를 닫고, 연결을 만든 호출자는 사용을 마친 뒤 연결을 닫는다.

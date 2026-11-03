@@ -1,0 +1,59 @@
+---
+title: spring core
+date: '2026-10-26'
+tags: ['spring', 'spring core']
+draft: false
+summary: Spring 컨테이너, 의존성 주입, 빈과 AOP 수업 내용을 장별로 정리했다.
+---
+
+[chap01 소스코드](https://github.com/woong3e/sesac_lecture/commit/f7f74a4) · [chap02](https://github.com/woong3e/sesac_lecture/commit/a1c8ab7) · [chap03](https://github.com/woong3e/sesac_lecture/commit/eb9c9c9) · [chap04](https://github.com/woong3e/sesac_lecture/commit/c93a45a) · [chap05](https://github.com/woong3e/sesac_lecture/commit/0b963ce)
+
+## ☘️ 먼저 설명해보세요
+
+1. 스프링 컨테이너는 빈을 어떻게 등록할까? → [답 확인](#️-chap01-ioc-컨테이너)
+2. 의존하는 객체는 어떻게 주입할까? → [답 확인](#️-chap02-의존성-주입)
+3. AOP는 공통 기능을 어디에 적용할까? → [답 확인](#️-chap05-aop)
+
+## ☘️ chap01 IoC 컨테이너
+
+직접 `new`로 객체를 만들던 예제와 스프링 컨테이너에서 빈을 가져오는 예제를 비교했다. XML 설정에서는 `<bean>`의 id와 클래스, 생성자 인자로 객체를 등록하고 `GenericXmlApplicationContext`에서 `getBean("member", MemberDTO.class)`로 꺼낸다.
+
+Java 설정은 `@Configuration` 클래스의 `@Bean` 메서드 반환값을 빈으로 등록한다. `AnnotationConfigApplicationContext`에 설정 클래스를 전달한다. 수업의 section02 실행 코드는 section03 설정을 import하므로, 해당 예제의 설정 클래스를 사용하려던 의도와 다르다.
+
+`@ComponentScan`은 지정한 패키지의 `@Component` 등을 찾아 빈으로 등록한다. 이름을 지정하지 않은 `MemberDAO`는 `memberDAO`라는 이름으로 등록된다. `@Controller`, `@Service`, `@Repository`, `@Configuration`도 용도에 따라 사용한다.
+
+## ☘️ chap02 의존성 주입
+
+회원이 계좌를 사용하도록 직접 객체를 만들거나, XML의 생성자 인자·프로퍼티와 Java 설정의 `@Bean`을 통해 필요한 객체를 전달했다. Java 설정에서는 `member.setPersonalAccount(accountGenerator())`로 계좌를 연결했다.
+
+계층형 예제는 `MemoController` → `MemoService` → `MemoRepository` 순서로 호출하며 메모리 저장소 구현을 주입받는다. 각 객체를 만들고 연결하는 설정과 메서드 호출 흐름을 구분해서 본다.
+
+## ☘️ chap03 주입 어노테이션
+
+`@Autowired`로 같은 타입의 빈을 필드, setter, 생성자에 주입한다. 생성자가 하나면 `@Autowired`를 생략할 수 있다. 도서 예제는 `@Service`와 `@Repository`를 사용해 서비스와 DAO를 등록한다.
+
+같은 `Pokemon` 타입의 빈이 여러 개일 때 `@Primary`는 우선할 빈을 지정하고 `@Qualifier`는 이름으로 빈을 지정한다. 둘을 함께 쓰면 `@Qualifier`가 우선한다. 컬렉션 주입 예제에서는 같은 타입의 빈들을 목록으로 받는다.
+
+## ☘️ chap04 빈의 범위와 설정
+
+스프링 빈의 기본 범위인 **singleton**은 같은 빈을 다시 가져올 때 같은 객체를 사용한다. **prototype**은 `getBean()`을 호출할 때마다 새 객체를 만든다. 장바구니 예제로 객체가 같은지와 담긴 상품을 비교했다.
+
+`@Bean(initMethod = "openShop", destroyMethod = "closeShop")`으로 생성 후와 컨테이너 종료 전 메서드를 지정했다. 외부 properties는 `@PropertySource`로 등록하고 `@Value`로 값을 필드나 메서드 매개변수에 주입한다. 읽은 문자열은 대상 타입에 맞게 변환된다.
+
+## ☘️ chap05 AOP
+
+`@Aspect`는 공통 기능과 적용 위치를 정의한다. `@Pointcut`에 서비스 메서드 조건을 이름 붙이고 Advice에서 참조한다.
+
+```java
+@Pointcut("execution(* com.ohgiraffers.section01.aop.*Service.*(..))")
+public void serviceMethods() {}
+
+@Around("serviceMethods()")
+public Object logExecutionTime(ProceedingJoinPoint joinPoint) throws Throwable {
+    long startTime = System.nanoTime();
+    try { return joinPoint.proceed(); }
+    finally { System.out.println(System.nanoTime() - startTime); }
+}
+```
+
+`@Before`는 실행 전, `@AfterReturning`은 정상 반환 후, `@AfterThrowing`은 예외를 던진 뒤, `@After`는 종료 시 실행한다. 반환값과 예외를 받는 속성 이름은 Advice 매개변수 이름과 맞춘다. `@Around`에서는 `proceed()`를 호출해야 원래 메서드가 실행된다.
