@@ -3,86 +3,160 @@ title: 260915 TIL
 date: '2026-09-15'
 tags: ['TIL']
 draft: false
-summary: DOM 실습을 보완하고 이벤트 등록·제거, 이벤트 위임, 기본 동작 제어와 폼 검증을 정리했다.
+summary: '이벤트는 클릭·입력·제출 같은 일이 발생했다는 알림이다.'
 ---
 
-[소스코드 보기 1](https://github.com/woong3e/sesac_lecture/commit/44bada6a568d58ac4c0583b2f43d9ccc3becefc1) · [소스코드 보기 2](https://github.com/woong3e/sesac_lecture/commit/127fa89debba2cc8c1c840a7765f8071941c2410)
+[소스코드: 260915 javascript WEB](https://github.com/woong3e/sesac_lecture/commit/44bada6a568d58ac4c0583b2f43d9ccc3becefc1) · [소스코드: 260915 dom-prac,event-prac](https://github.com/woong3e/sesac_lecture/commit/127fa89debba2cc8c1c840a7765f8071941c2410)
 
-## ☘️ 먼저 설명해보세요
+이벤트는 클릭·입력·제출 같은 일이 발생했다는 알림이다. 리스너는 그 알림을 받았을 때 실행할 함수다. 이벤트가 어디서 시작했고 어느 요소가 처리 중인지 구분하면 중첩 버튼과 목록도 일관되게 다룰 수 있다.
 
-1. 핸들러를 어떻게 등록하고 지울까? → [답 확인](#%EF%B8%8F-%EB%93%B1%EB%A1%9D%EA%B3%BC-%EC%9D%B4%EB%B2%A4%ED%8A%B8-%EB%8C%80%EC%83%81)
-2. 부모 하나로 자식 클릭을 처리하려면? → [답 확인](#%EF%B8%8F-%EC%9C%84%EC%9E%84%EA%B3%BC-%EB%8D%B0%EC%9D%B4%ED%84%B0)
-3. 기본 동작과 전파는 어떻게 다를까? → [답 확인](#%EF%B8%8F-%EC%9E%85%EB%A0%A5%EA%B3%BC-%ED%8F%BC-%EA%B2%80%EC%A6%9D)
+## ☘️ 등록한 함수와 이벤트 대상
 
-## ☘️ 등록과 이벤트 대상
+addEventListener는 요소에 이벤트 종류와 함수를 연결한다. 함수 자체를 전달해야 하며 등록하는 자리에서 함수를 호출한 결과를 넘기면 의도와 다르다. removeEventListener는 등록할 때 사용한 같은 함수 참조가 필요하다. 모양이 같은 새 함수를 전달해도 기존 리스너가 제거되지 않는다.
 
-- HTML 이벤트 속성, DOM의 `onclick`, `addEventListener()`로 등록할 수 있다.
-- onclick에 새 함수를 대입하면 이전 함수를 덮어쓴다. addEventListener는 서로 다른 핸들러를 여러 개 등록 가능
-- `removeEventListener('click', handler)`는 **같은 함수 참조·이벤트 종류·capture 설정**이 필요. 닮은 화살표 함수를 새로 쓰면 제거되지 않음
-- 카운터는 클릭마다 횟수를 올리고, 중지 버튼에서 등록한 증가 함수를 제거
+이벤트 객체의 target은 실제 이벤트가 시작된 요소이고 currentTarget은 현재 실행 중인 리스너가 붙은 요소다. 버튼 안의 글자나 다른 태그를 누르면 target은 내부 요소일 수 있다. 함수가 처리할 기준이 어느 쪽인지 명확히 정한다.
 
-`target`은 이벤트가 시작된 요소, `currentTarget`은 지금 핸들러가 등록된 요소다. 버튼 속 글자를 클릭하면 둘이 다를 수 있다. `clientX/Y`는 뷰포트 기준 클릭 위치다.
+## ☘️ 전파와 이벤트 위임
 
-```js
-button.addEventListener('click', (event) => {
-  const clickedButton = event.currentTarget
-  clickedButton.textContent = '클릭됐다.'
-  setTimeout(() => {
-    clickedButton.textContent = 'Best Practice'
-  }, 2000)
-})
+이벤트는 상위 요소를 거쳐 대상으로 내려가는 캡처 단계와 대상에서 위로 올라가는 버블 단계를 가질 수 있다. 기본 클릭 리스너는 보통 버블 단계에서 실행된다. 자식과 부모 양쪽에 클릭 처리가 있으면 한 번 누른 것이 여러 핸들러를 실행할 수 있다.
+
+이벤트 위임은 목록 부모에 리스너 하나를 두고 target에서 실제 작업 버튼을 찾는 방식이다. closest는 자신부터 위로 올라가며 선택자에 맞는 요소를 찾는다. contains로 현재 목록 안의 버튼인지 확인하면 다른 영역까지 잘못 처리하는 것을 막을 수 있다. 항목이 나중에 추가되어도 부모의 리스너를 사용할 수 있다.
+
+stopPropagation은 이후 상위 요소로 전달되는 것을 막는다. preventDefault는 링크 이동이나 폼 제출 같은 기본 동작을 막는다. 전파를 막는 것과 기본 동작을 막는 것은 서로 대신할 수 없다.
+
+## ☘️ 입력과 폼 처리
+
+input 이벤트는 입력값이 바뀔 때, keydown은 키를 누를 때 사용한다. focus와 blur는 초점 진입·이탈을 나타낸다. 입력 길이는 현재 value를 읽어 계산하고 Enter 처리는 이벤트의 key를 확인한다.
+
+폼은 버튼 클릭보다 submit 이벤트에서 처리하면 클릭과 Enter 제출을 같은 경로로 다룰 수 있다. 기본 제출을 막은 뒤 입력을 검사하고 오류가 있으면 안내한다. 빈 문자열과 공백만 있는 문자열을 구분하려면 trim한 값으로 검사한다. 아래 코드는 카운터 해제·위임·모달·입력·검증을 별도 요소에서 확인하도록 구성했다.
+
+## ☘️ 이벤트 전달과 기본 동작 제어
+
+다음은 연결된 학습 코드의 핵심 동작을 한 파일에서 확인하도록 정리한 설명용 예제다. 원본 프로젝트 전체를 그대로 옮긴 것은 아니다. 필요한 선언과 실행 부분을 함께 두었으며, 아래 코드만 저장해 흐름을 따라갈 수 있다.
+
+**events-demo.html**
+
+```html
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <title>이벤트 흐름</title>
+    <style>
+      .selected {
+        background: gold;
+      }
+      .focused {
+        outline: 2px solid blue;
+      }
+      #backdrop {
+        position: fixed;
+        inset: 0;
+        background: #7778;
+      }
+      #modal {
+        margin: 100px auto;
+        padding: 20px;
+        background: white;
+        width: 280px;
+      }
+    </style>
+  </head>
+  <body>
+    <button id="count">증가 <strong>버튼</strong></button><button id="stop">중지</button>
+    <p id="counter">0</p>
+    <ul id="menus">
+      <li data-menu-id="1">
+        <span>아메리카노</span><button class="select-menu"><strong>선택</strong></button>
+      </li>
+      <li data-menu-id="2"><span>카페라떼</span><button class="select-menu">선택</button></li>
+    </ul>
+    <p id="selection"></p>
+    <button id="open">모달 열기</button>
+    <div id="backdrop" hidden>
+      <div id="modal">
+        <p>내부 클릭으로는 닫히지 않습니다.</p>
+        <a href="https://example.invalid" id="notice">이동을 막는 링크</a>
+      </div>
+    </div>
+    <input id="message" aria-label="메시지" />
+    <p id="length">0</p>
+    <p id="message-result"></p>
+    <form id="signup">
+      <input id="username" aria-label="이름" /><input
+        id="password"
+        type="password"
+        aria-label="비밀번호"
+      /><input id="terms" type="checkbox" /><label for="terms">약관 동의</label
+      ><button>검증</button>
+    </form>
+    <p id="signup-result"></p>
+    <script>
+      const countButton = document.getElementById('count')
+      let count = 0
+      const increase = (event) => {
+        document.getElementById('counter').textContent = ++count
+        console.log(event.target.tagName, event.currentTarget.tagName)
+      }
+      countButton.addEventListener('click', increase)
+      document.getElementById('stop').onclick = () =>
+        countButton.removeEventListener('click', increase)
+      const menus = document.getElementById('menus')
+      menus.addEventListener('click', (event) => {
+        const button = event.target.closest('.select-menu')
+        if (!button || !menus.contains(button)) return
+        const item = button.closest('li')
+        for (const menu of menus.children) menu.classList.remove('selected')
+        item.classList.add('selected')
+        document.getElementById('selection').textContent =
+          item.dataset.menuId + ': ' + item.querySelector('span').textContent
+      })
+      const backdrop = document.getElementById('backdrop')
+      document.getElementById('open').onclick = () => {
+        backdrop.hidden = false
+      }
+      backdrop.onclick = () => {
+        backdrop.hidden = true
+      }
+      document.getElementById('modal').onclick = (event) => event.stopPropagation()
+      document.getElementById('notice').onclick = (event) => {
+        event.preventDefault()
+        event.currentTarget.textContent = '이동 차단됨'
+      }
+      const message = document.getElementById('message'),
+        length = document.getElementById('length')
+      message.oninput = () => {
+        length.textContent = message.value.length
+      }
+      message.onkeydown = (event) => {
+        if (event.key === 'Enter' && message.value.trim()) {
+          document.getElementById('message-result').textContent = message.value.trim()
+          message.value = ''
+          length.textContent = 0
+        }
+      }
+      message.onfocus = () => message.classList.add('focused')
+      message.onblur = () => message.classList.remove('focused')
+      document.getElementById('signup').onsubmit = (event) => {
+        event.preventDefault()
+        const name = document.getElementById('username').value.trim(),
+          password = document.getElementById('password').value
+        document.getElementById('signup-result').textContent =
+          name.length < 2
+            ? '이름 두 글자 이상'
+            : password.length < 6
+              ? '비밀번호 여섯 글자 이상'
+              : !document.getElementById('terms').checked
+                ? '약관 동의 필요'
+                : '회원가입 검증에 성공했습니다.'
+      }
+    </script>
+  </body>
+</html>
 ```
 
-일반 함수 핸들러의 this는 currentTarget, 화살표 함수는 바깥 this다. 나중에는 currentTarget이 null일 수 있어 비동기 콜백에서 쓸 요소는 미리 저장한다.
+같은 함수 참조를 addEventListener와 removeEventListener에 넘겨야 등록한 함수를 해제할 수 있다. target은 실제로 누른 요소, currentTarget은 현재 리스너가 붙은 요소다. 목록에 리스너 하나를 두고 closest로 항목 버튼을 찾으면 나중에 추가된 항목에도 같은 처리 흐름을 적용할 수 있다. contains 검사는 목록 바깥 요소를 잘못 처리하지 않도록 범위를 확인한다. preventDefault는 링크 이동이나 폼 전송을 막고, stopPropagation은 상위 요소로 이벤트가 전달되는 것을 막는다. 둘은 다른 동작이다. input은 값이 바뀔 때, keydown은 키를 누를 때, submit은 폼을 제출할 때 발생한다.
 
-## ☘️ 위임과 데이터
+**실행 방법**
 
-전파는 **캡처링 → 타깃 → 버블링**이다. click처럼 버블링하는 이벤트는 부모에서 처리할 수 있어, 나중에 추가된 항목에도 위임이 적용된다. 모든 이벤트가 버블링하는 것은 아니다.
-
-```js
-productList.addEventListener('click', (event) => {
-  const item = event.target.closest('.product-item')
-  if (!item || !productList.contains(item)) return
-  const price = Number(item.dataset.price)
-  infoPanel.textContent = `${item.dataset.productId}: ${price.toLocaleString('ko-KR')}원`
-})
-```
-
-- `closest()`는 자신부터 부모 방향으로 탐색. 결과를 사용해야 자식 strong 등을 눌러도 처리됨
-- `contains()`는 실제 목록 내부인지 확인. 다시 target.matches('li')만 검사하면 중첩 클릭 누락
-- `data-product-id` → `dataset.productId`, `data-menu-id` → `dataset.menuId`
-- dataset 값은 문자열. 계산 전 Number 변환, `dataset.selected = 'true'`로 설정, `delete`로 제거
-- 메뉴·상품의 단일 선택: 기존 selected 클래스들을 제거하고 선택 항목에 추가. 음료 목록은 highlight 토글
-
-## ☘️ 입력과 폼 검증
-
-- `preventDefault()`: 취소 가능한 기본 동작 차단(링크 이동·폼 제출)
-- `stopPropagation()`: 요소 간 전파 차단(모달 내부 클릭이 배경 닫기로 이어지는 것 방지)
-- 둘은 별개다. 모달 내부의 링크 이동을 막으려면 링크 기본 동작도 따로 제어
-- `dblclick`, `mousedown`, `event.button`: 마우스 동작·버튼 확인
-- `keydown` / `keyup`: 키 누름·뗌. `key`는 Enter·a 같은 값, `code`는 KeyA 같은 물리 위치
-- `input`: 붙여넣기까지 포함한 입력값 변경. 코드로 value를 비우면 자동 발생하지 않아 글자 수도 직접 초기화
-- `focus` / `blur`: 이름 입력 스타일 변경 / `checked`: 관심사 선택 수·약관 동의 확인
-
-```js
-form.addEventListener('submit', (event) => {
-  event.preventDefault()
-  if (nameInput.value.trim().length < 2) {
-    showError('이름 두 글자 이상')
-    return
-  }
-  if (passwordInput.value.length < 6) {
-    showError('비밀번호 여섯 글자 이상')
-    return
-  }
-  if (!terms.checked) {
-    showError('약관 동의 필요')
-    return
-  }
-  signupResult.textContent = '회원가입 검증에 성공했습니다.'
-})
-```
-
-showError는 안내 표시를 줄여 쓴 표현이다. 버튼 click 대신 **폼 submit**을 처리해야 Enter 제출도 포함한다. 오류는 안내 후 return, 성공 시에도 실습은 기본 제출을 막으며 실제 회원 저장까지 하지는 않는다.
-
-참고: [MDN removeEventListener](https://developer.mozilla.org/en-US/docs/Web/API/EventTarget/removeEventListener) · [MDN currentTarget](https://developer.mozilla.org/en-US/docs/Web/API/Event/currentTarget) · [MDN preventDefault](https://developer.mozilla.org/en-US/docs/Web/API/Event/preventDefault) · [MDN stopPropagation](https://developer.mozilla.org/en-US/docs/Web/API/Event/stopPropagation) · [MDN input event](https://developer.mozilla.org/en-US/docs/Web/API/Element/input_event) · [MDN dataset](https://developer.mozilla.org/en-US/docs/Web/API/HTMLElement/dataset)
+`events-demo.html`로 저장하고 브라우저에서 연다. 버튼을 누르거나 입력값을 바꾸며 아래의 화면 변화를 확인한다.
