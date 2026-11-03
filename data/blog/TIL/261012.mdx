@@ -3,66 +3,211 @@ title: 261012 TIL
 date: '2026-10-12'
 tags: ['TIL', 'java']
 draft: false
-summary: 생성자와 오버로딩, 값과 참조값의 전달, final·static·싱글톤과 변수 종류를 정리하고 객체 배열로 회원을 관리하는 역할 분담을 학습했다.
+summary: '객체를 전달하고 보관하는 프로그램에서는 값의 복사와 객체 공유를 구분해야 한다.'
 ---
 
-[소스코드 보기](https://github.com/woong3e/sesac_lecture/commit/442efb693df17392000d81741b36215923564988)
+[소스코드: 261012 Java object and object array practices](https://github.com/woong3e/sesac_lecture/commit/442efb693df17392000d81741b36215923564988)
 
-## ☘️ 먼저 설명해보세요
+객체를 전달하고 보관하는 프로그램에서는 값의 복사와 객체 공유를 구분해야 한다. 생성자·오버로딩·static·싱글턴·객체 배열은 모두 어떤 값이 어디에 보관되고 누가 공유하는지와 관련된다.
 
-1. 값·참조·final은 무엇을 제한할까? → [답 확인](#%EF%B8%8F-%EC%B4%88%EA%B8%B0%ED%99%94%EC%99%80-%EA%B0%92-%EC%A0%84%EB%8B%AC)
-2. static과 싱글톤은 어떻게 다를까? → [답 확인](#%EF%B8%8F-%EB%B3%80%EC%88%98%EC%99%80-%EA%B0%9D%EC%B2%B4-%EA%B3%B5%EC%9C%A0)
-3. 객체 배열과 회원 관리는 어떻게 나눌까? → [답 확인](#%EF%B8%8F-%EB%B0%B0%EC%97%B4%EA%B3%BC-%EA%B3%84%EC%B8%B5-%EC%97%AD%ED%95%A0)
+## ☘️ 생성자 연결과 오버로딩
 
-## ☘️ 초기화와 값 전달
+this를 이용한 생성자 호출은 같은 클래스의 다른 생성자에 초기화를 맡긴다. 공통 초기화 코드를 한곳에 두면 여러 생성 방식에서 값 설정이 어긋나는 것을 줄일 수 있다. 생성자 호출은 해당 생성자의 첫 문장이어야 한다.
 
-- `this(...)`: 같은 클래스의 다른 생성자 호출로 초기화 중복 제거. 수업에서는 첫 문장에 작성. 세 문자열 생성자를 호출한 뒤 네 번째 가입일 필드를 설정
-- `this.id`: 현재 객체의 필드이며 생성자 호출과 다름
-- 오버로딩: 같은 이름, 매개변수 **개수·타입·타입 순서**가 다름. 반환 타입·접근제한자·매개변수 이름만 다른 것은 불가
-- 메서드 시그니처: 이름과 매개변수 타입 나열. add(int,int)·add(double,double)처럼 인자에 맞는 메서드 선택. 생성자도 오버로딩 가능
+오버로딩은 같은 메서드 이름을 매개변수 타입·개수·순서로 구분한다. 반환 타입만 바꿔서는 호출을 구분할 수 없다. 호출 인수에 따라 어떤 메서드가 선택되는지 확인한다. 가변 인수는 여러 값을 배열처럼 받으며 매개변수 목록의 마지막에 둔다.
 
-**Java 인자 전달은 항상 값 복사다.** 정수는 값, 배열·객체는 참조값을 복사한다.
+## ☘️ 값 전달과 공유 상태
+
+Java는 메서드 인수의 값을 복사해 전달한다. 기본형은 숫자 등의 값이 복사되고 참조형은 객체를 가리키는 참조 값이 복사된다. 따라서 매개변수가 같은 배열의 요소를 바꾸면 호출자도 변경을 보지만 매개변수 자체에 새 배열을 대입해도 호출자의 변수는 그대로다.
+
+지역 변수는 호출 범위 안에서, 인스턴스 필드는 객체마다, static 필드는 클래스 단위로 보관된다. 학생 객체 두 개의 개별 값과 공유 카운터가 다르게 움직이는 이유다. 공유할 필요가 없는 값을 static으로 두면 서로 독립적이어야 할 객체가 영향을 줄 수 있다.
+
+## ☘️ 하나의 객체와 여러 객체 보관
+
+싱글턴은 생성자를 외부에 공개하지 않고 정해진 접근 메서드로 하나의 객체를 제공하는 방식이다. 미리 생성하는 방식과 처음 필요할 때 만드는 방식이 있다. 단순 지연 생성은 여러 스레드가 동시에 접근할 때 별도 고려가 필요하며 아래는 단일 스레드에서 참조 동일성을 확인한다.
+
+객체 배열은 각 칸에 객체 참조를 저장한다. 배열 생성만으로 각 객체까지 만들어지지 않아 처음 칸은 null일 수 있다. 필요한 객체를 별도로 만들어 넣어야 한다.
+
+회원 관리에서는 서비스가 등록·조회 흐름을, 저장소가 배열 보관을 담당한다. 배열 길이와 실제 저장 개수를 따로 관리하고 가득 찬 경우를 검사한다. 저장소를 분리하면 사용하는 쪽이 배열의 위치 계산을 직접 반복하지 않아도 된다.
+
+## ☘️ 생성자·공유 필드·객체 보관의 흐름
+
+다음은 연결된 학습 코드의 핵심 동작을 한 파일에서 확인하도록 정리한 설명용 예제다. 원본 프로젝트 전체를 그대로 옮긴 것은 아니다. 필요한 선언과 실행 부분을 함께 두었으며, 아래 코드만 저장해 흐름을 따라갈 수 있다.
+
+**Main.java**
 
 ```java
-void changeNumber(int n) { n = 99; }
-void changeArray(int[] arr) { arr[0] = 99; }
-// 호출자의 int 20은 유지, 배열 첫 값은 99로 변경
+import java.util.Arrays;
+import java.util.Date;
+
+public class Main {
+  public static void main(String[] args) {
+    User user = new User("user01", "예제 사용자", new Date(0));
+    System.out.println(user.info());
+    Calculator calculator = new Calculator();
+    System.out.println(calculator.add(20, 30));
+    System.out.println(calculator.add(20.5, 30.5));
+    System.out.println(calculator.add(40, 50, 60));
+    int number = 20;
+    int[] numbers = {10, 20, 30};
+    change(number, numbers);
+    System.out.println(number + " / " + Arrays.toString(numbers));
+    Student one = new Student();
+    one.increase();
+    Student two = new Student();
+    System.out.println(one.personal + " / " + two.personal + " / " + Student.shared);
+    System.out.println(EagerSingleton.getInstance() == EagerSingleton.getInstance());
+    System.out.println(LazySingleton.getInstance() == LazySingleton.getInstance());
+    Car[] cars = {new Car("차1", 100), new Car("차2", 200), new Car("차3", 300)};
+    Car fastest = cars[0];
+    for (Car car : cars) if (car.maxSpeed > fastest.maxSpeed) fastest = car;
+    System.out.println(fastest.name);
+    MemberService service = new MemberService();
+    service.register(new Member("user01", "예제 사용자"));
+    service.find("user01");
+    service.find("missing");
+  }
+
+  static void change(int number, int[] numbers) {
+    number = 99;
+    numbers[0] = 99;
+  }
+}
+
+class User {
+  private final String id, name;
+  private Date enrollDate;
+
+  User(String id, String name) {
+    this.id = id;
+    this.name = name;
+    this.enrollDate = null;
+  }
+
+  User(String id, String name, Date date) {
+    this(id, name);
+    this.enrollDate = date;
+  }
+
+  String info() {
+    return id + ": " + name + ", " + (enrollDate != null ? enrollDate.getTime() : null);
+  }
+}
+
+class Calculator {
+  int add(int a, int b) {
+    return a + b;
+  }
+
+  double add(double a, double b) {
+    return a + b;
+  }
+
+  int add(int a, int b, int c) {
+    return a + b + c;
+  }
+}
+
+class Student {
+  int personal;
+  static int shared;
+
+  void increase() {
+    personal++;
+    shared++;
+  }
+}
+
+class EagerSingleton {
+  private static final EagerSingleton INSTANCE = new EagerSingleton();
+
+  private EagerSingleton() {}
+
+  static EagerSingleton getInstance() {
+    return INSTANCE;
+  }
+}
+
+class LazySingleton {
+  private static LazySingleton instance;
+
+  private LazySingleton() {}
+
+  static LazySingleton getInstance() {
+    if (instance == null) instance = new LazySingleton();
+    return instance;
+  }
+}
+
+class Car {
+  final String name;
+  final int maxSpeed;
+
+  Car(String name, int speed) {
+    this.name = name;
+    maxSpeed = speed;
+  }
+}
+
+class Member {
+  final String id, name;
+
+  Member(String id, String name) {
+    this.id = id;
+    this.name = name;
+  }
+}
+
+class MemberRepository {
+  private static final Member[] members = new Member[10];
+  private static int count;
+
+  static boolean store(Member[] incoming) {
+    if (count + incoming.length > members.length) return false;
+    for (Member member : incoming) members[count++] = member;
+    return true;
+  }
+
+  static Member[] findAll() {
+    return members;
+  }
+}
+
+class MemberService {
+  void register(Member member) {
+    System.out.println(MemberRepository.store(new Member[] {member}));
+  }
+
+  void find(String id) {
+    for (Member member : MemberRepository.findAll())
+      if (member != null && id.equals(member.id)) {
+        System.out.println(member.name);
+        return;
+      }
+    System.out.println("회원 없음");
+  }
+}
 ```
 
-배열 자체가 복사된 것은 아니다. 매개변수 arr에 다른 배열을 재대입해도 호출자 변수가 가리키는 배열은 그대로다.
+this로 다른 생성자를 호출하면 공통 초기화 코드를 한곳으로 모을 수 있다. 오버로딩은 같은 이름의 메서드를 매개변수 타입이나 개수로 구분한다. 메서드가 객체 참조의 복사본을 받아 필드를 바꾸면 같은 객체가 바뀌지만 매개변수에 새 객체를 대입해도 호출자의 변수 자체는 바뀌지 않는다. static 필드는 클래스가 공유하므로 객체마다 따로 만들어지는 필드와 구분한다. 싱글턴은 생성자를 감추고 한 객체를 반환하는 접근 메서드를 제공한다. 지연 생성 방식의 동시 접근 문제는 이 단일 스레드 예제로 검증한 범위에 포함되지 않는다. 저장소는 고정 길이 배열을 사용하므로 저장 개수와 배열 용량을 별도로 관리한다.
 
-- final 인스턴스 필드: 객체마다 초기화 후 재대입 불가. 선언 시 값이 없다면 생성 완료 전 초기화
-- static final: 클래스가 공유하는 상수. `MathConstant.PI`처럼 접근, 대문자·밑줄 명명
-- final 참조는 내부 변경까지 막지 않음. final Member[]에 회원 저장은 가능하지만 새 배열 대입은 불가
+**Main.java 실행 확인 결과**
 
-## ☘️ 변수와 객체 공유
+```text
+user01: 예제 사용자, 0
+50
+51.0
+150
+20 / [99, 20, 30]
+1 / 0 / 1
+true
+true
+차3
+true
+예제 사용자
+회원 없음
+```
 
-| 종류               | 소속과 초기화                                                          |
-| ------------------ | ---------------------------------------------------------------------- |
-| 지역 변수·매개변수 | 메서드·블록 범위. 지역 변수는 읽기 전 초기화, 매개변수는 인자로 초기화 |
-| 인스턴스 변수      | 객체마다 존재. 별도 값 없으면 기본값                                   |
-| static 변수        | 클래스가 공유. 접근 범위는 접근제한자로 결정                           |
+**실행 방법**
 
-Student의 개인 사물함을 +1 하고 공용 사물함도 +1 한 뒤 두 번째 학생을 만들면, 개인 값은 각각 1·0, 공용 값은 둘 다 1이다. static은 메모리 위치보다 **클래스 소속**이라는 의미로 이해한다. private static이 어디서나 보이는 것은 아니다.
-
-싱글톤은 객체 하나를 공유하도록 생성·접근을 제어하는 패턴이다. private 생성자로 외부 new를 막고 static 필드와 getInstance()로 같은 참조를 반환한다. 두 반환값의 ==는 true다.
-
-- 이른 초기화: 클래스 초기화 시 미리 생성
-- 게으른 초기화: getInstance 호출 시 없으면 생성. 수업의 순차 실행에서는 최초 한 번 생성
-- static은 멤버 소속, 싱글톤은 객체 생성·공유 설계
-
-## ☘️ 배열과 계층 역할
-
-`new Car[3]`은 자동차 3대가 아닌 **null 참조 3칸**이다. 각 칸에 new Car로 객체를 연결한 뒤 순회한다. 향상된 for도 참조값을 복사하며, 빈 칸에서 메서드 호출하면 NullPointerException이다.
-
-가장 빠른 차는 첫 요소를 후보로 두고 인덱스 1부터 더 빠른 참조로 교체한다. 수업은 차arr3(300)이 결과이며, 객체 복사가 아니다. 빈 배열·null이 없는 전제의 예제다.
-
-회원 관리는 Application(메뉴) → MemberService(기능) → MemberRepository(보관)로 나눴다. Member는 번호·아이디·비밀번호·이름·나이 데이터다.
-
-- 등록은 사용자 입력이 아닌 미리 만든 세 회원 전달. Repository의 static 초기화 블록은 한 번 실행해 10칸 배열 생성
-- count는 등록 수·다음 위치. members[count++]로 저장. 3→6→9 뒤 네 번째 등록은 용량 확인에서 실패. 중복 id 검사는 없음
-- findAllMembers는 배열 **참조 그대로** 반환. 전체 조회는 null 검사 후 getInformation으로 아이디·이름·나이 출력
-- 검색은 null 검사 후 id.equals(input) 비교. 찾으면 isFound=true·break, 끝까지 없으면 실패 안내
-- nextInt 뒤 nextLine으로 개행을 소비해야 검색 입력이 정상 대기
-
-Spring의 Controller(요청·응답) → Service(업무) → Repository(저장·조회)를 이해하는 기반이다. 현재는 Spring 없이 Service 직접 생성·Repository static 호출이며, Spring에서는 객체 관리·주입을 사용하고 Service의 콘솔 입출력도 요청·응답 계층으로 분리한다.
+JDK 21 환경에서 파일명을 `Main.java`로 저장한다. 같은 폴더에서 `javac -encoding UTF-8 Main.java`로 컴파일한 뒤 `java -Dfile.encoding=UTF-8 Main`을 실행한다. 글마다 Main 클래스가 있으므로 예제는 서로 다른 폴더에 저장한다.
