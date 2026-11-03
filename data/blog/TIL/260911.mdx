@@ -3,73 +3,151 @@ title: 260911 TIL
 date: '2026-09-11'
 tags: ['TIL']
 draft: false
-summary: Date와 ES6 문법을 실습하고 DOM 선택 메서드와 살아 있는 컬렉션의 차이를 정리했다.
+summary: 'ES6 문법은 배열·객체에서 값을 꺼내거나 새 값으로 조합하는 표현을 간결하게 만든다.'
 ---
 
-[소스코드 보기 1](https://github.com/woong3e/sesac_lecture/commit/d6871a95b9f568a516c69ffca1b441f3149506db) · [소스코드 보기 2](https://github.com/woong3e/sesac_lecture/commit/d3d2fcbc7d15d4c2a883554f7b1a411197942a9a) · [소스코드 보기 3](https://github.com/woong3e/sesac_lecture/commit/e7560d86f15b4491c16749c844b83528618c7e7e)
+[소스코드: 260911 javascript](https://github.com/woong3e/sesac_lecture/commit/d6871a95b9f568a516c69ffca1b441f3149506db) · [소스코드: WIP](https://github.com/woong3e/sesac_lecture/commit/d3d2fcbc7d15d4c2a883554f7b1a411197942a9a) · [소스코드: 260911 js DOM](https://github.com/woong3e/sesac_lecture/commit/e7560d86f15b4491c16749c844b83528618c7e7e)
 
-## ☘️ 먼저 설명해보세요
+ES6 문법은 배열·객체에서 값을 꺼내거나 새 값으로 조합하는 표현을 간결하게 만든다. 짧은 문법 자체보다 원본이 바뀌는지, 새 배열이 만들어지는지, 함수가 값을 반환하는지를 구분해야 한다. 이어서 같은 배열 변환 문법을 DOM 목록을 고정하는 데 적용한다.
 
-1. 화살표 함수는 어떤 this를 쓸까? → [답 확인](#%EF%B8%8F-%EB%82%A0%EC%A7%9C%EC%99%80-%EA%B0%9D%EC%B2%B4)
-2. Spread와 Rest는 어떻게 다를까? → [답 확인](#%EF%B8%8F-es6%EB%A1%9C-%EA%B0%92-%EB%8B%A4%EB%A3%A8%EA%B8%B0)
-3. DOM 목록은 언제 변할까? → [답 확인](#%EF%B8%8F-dom-%EC%84%A0%ED%83%9D%EA%B3%BC-%EB%AA%A9%EB%A1%9D)
+## ☘️ 날짜와 함수의 this
 
-## ☘️ 날짜와 객체
+Date는 날짜와 시간을 표현한다. 현재 시각으로 생성할 수도 있고 문자열로 정해진 시각을 넣을 수도 있다. 월을 숫자로 읽는 getMonth는 0부터 시작하지만 표시용 월은 1부터 시작한다. toLocaleString의 언어 형식과 timeZone의 시간대는 다른 설정이다. 한국어로 표시한다고 자동으로 한국 시각이 되는 것은 아니다.
 
-- `new Date()`: 생성 시점의 날짜·시간. `getFullYear()`는 연도, `getDate()`는 일, `getMonth() + 1`은 표시할 월
-- `toLocaleString('ko-KR')`: 한국어 형식. 한국 시간대 고정은 별도로 `{ timeZone: 'Asia/Seoul' }` 지정
-- `Student`의 constructor로 이름·점수를 초기화하고 `getInfo()`로 출력했다. `new`로 만든 학생끼리는 별도 객체이며, 클래스는 `new` 없이 호출할 수 없다.
+화살표 함수는 식 하나를 바로 반환할 수 있다. 중괄호로 함수 본문을 열면 반환할 값을 return으로 명시해야 한다. map은 콜백의 반환값을 모으므로 return을 빠뜨리면 각 결과가 undefined가 될 수 있다.
+
+화살표 함수는 자기 this를 만들지 않고 바깥 범위의 this를 사용한다. theater.showMovieList를 호출하면 일반 메서드의 this가 theater이고 내부 forEach의 화살표 함수도 이를 읽는다. 메서드 자체를 화살표 함수로 바꾸면 같은 연결을 보장하지 않는다.
+
+## ☘️ 펼치기·모으기·구조 분해
+
+Spread는 배열의 값을 새 배열 안이나 호출 인수 자리에 펼친다. Rest는 매개변수 자리에서 남은 인수를 배열로 모은다. 기호가 같아도 사용 위치에 따라 방향이 다르다. 아래 팀 명단은 배열을 합친 뒤 인수로 펼치고 첫 사람과 나머지를 나누어 받는다.
+
+Spread는 얕은 복사다. 바깥 배열은 새로 만들어져도 내부 객체는 같은 참조일 수 있다. 객체도 바뀔 필드가 속한 단계까지 새로 만들어야 원본과 분리된다. 상품 가격 갱신에서는 배열만 새로 만드는 데 그치지 않고 바꿀 상품 객체도 펼쳐 새 객체로 만든다.
+
+구조 분해는 배열에서는 위치로, 객체에서는 키로 값을 꺼낸다. 다른 변수명을 지정할 수 있고 undefined일 때 적용할 기본값도 정할 수 있다. null에는 이 기본값이 적용되지 않는다. map은 변환, filter는 선택, reduce는 여러 값을 한 결과로 누적할 때 사용한다.
+
+## ☘️ DOM 목록을 배열로 고정하는 이유
+
+DOM은 HTML을 브라우저가 객체로 표현한 구조다. querySelector는 첫 요소 또는 null, querySelectorAll은 선택 시점의 정적 NodeList를 반환한다. getElementsByClassName은 현재 클래스 조건이 반영되는 HTMLCollection을 반환한다.
+
+살아 있는 목록을 앞에서부터 순회하면서 해당 클래스를 없애면 목록이 즉시 줄어들어 다음 요소가 현재 인덱스로 당겨진다. 그 상태에서 인덱스를 증가시키면 일부 요소를 건너뛸 수 있다. 먼저 Spread로 배열에 담으면 순회할 목록 구성이 고정된다. 요소 자체를 복제한 것은 아니므로 클래스 변경은 원래 화면에도 적용된다.
+
+## ☘️ ES6 문법과 DOM 목록의 완결된 예제
+
+다음은 연결된 학습 코드의 핵심 동작을 한 파일에서 확인하도록 정리한 설명용 예제다. 원본 프로젝트 전체를 그대로 옮긴 것은 아니다. 필요한 선언과 실행 부분을 함께 두었으며, 아래 코드만 저장해 흐름을 따라갈 수 있다.
+
+**js-es6.js**
 
 ```js
+const now = new Date('2026-09-11T09:00:00+09:00')
+console.log(now.toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' }))
+class Student {
+  constructor(name, score) {
+    this.name = name
+    this.score = score
+  }
+  getInfo() {
+    return `${this.name}: ${this.score}점`
+  }
+}
+console.log(new Student('박지성', 80).getInfo())
+const prices = [1000, 2000, 3000]
+console.log(prices.map((price) => price * 2))
 const theater = {
   store: '청량리역점',
   titles: ['오딧세이', '옵세션'],
   showMovieList() {
-    this.titles.forEach((title) => console.log(`${this.store}: ${title}`))
+    this.titles.forEach((title) => console.log(this.store + ': ' + title))
   },
 }
 theater.showMovieList()
+for (const character of 'DOM') console.log(character)
+const original = [{ name: '박지성' }],
+  copied = [...original]
+console.log(original === copied, original[0] === copied[0])
+const frontTeam = ['유관순', '홍길동'],
+  backTeam = ['장보고', '신사임당']
+const allMembers = [...frontTeam, ...backTeam, '이순신']
+function printTeam(leader, ...members) {
+  console.log(leader, members)
+}
+printTeam(...allMembers)
+const user = { name: '홍길동', role: 'student', skills: ['JavaScript', 'React', 'CSS'] }
+const { name: userName, role, nickname = '이름 없음' } = user
+const [mainSkill, ...otherSkills] = user.skills
+console.log(userName, role, nickname, mainSkill, otherSkills)
+const products = [
+  { id: 1, name: '키보드', price: 50000, stock: 3 },
+  { id: 2, name: '마우스', price: 30000, stock: 0 },
+  { id: 3, name: '모니터', price: 200000, stock: 2 },
+]
+const addedProducts = [...products, { id: 4, name: '스피커', price: 80000, stock: 4 }]
+const updatedProducts = addedProducts.map((product) =>
+  product.id === 1 ? { ...product, price: 55000 } : product
+)
+const availableProducts = updatedProducts.filter((product) => product.stock > 0)
+const getTotal = (...values) => values.reduce((sum, value) => sum + value, 0)
+console.log(products.length, addedProducts.length, products[0].price, updatedProducts[0].price)
+console.log(availableProducts.map(({ name }) => name))
+console.log(getTotal(...updatedProducts.map(({ price }) => price)), Math.max(...prices))
 ```
 
-일반 메서드의 `this`는 호출한 theater, 내부 화살표 콜백은 그 바깥 this를 사용한다. 메서드 자체를 화살표 함수로 바꾸면 같은 this가 아니다. `price => price * 2`는 식을 반환하지만 `{}` 본문은 명시적 return이 필요하다.
+**selector-demo.html**
 
-## ☘️ ES6로 값 다루기
-
-**이터러블**은 값을 순서대로 꺼낼 수 있는 배열·문자열 등이다. `for...of`로 값 순회, `break`로 중단한다. 일반 객체는 바로 순회할 수 없어 `Object.keys/values/entries()`로 배열을 얻는다.
-
-- Spread: `[...cart, '모니터']`, `{ ...order, status: '결제 완료' }`처럼 펼친다. 같은 키는 뒤의 값이 우선
-- Rest: `function getTotal(...prices)`처럼 여러 인수를 배열로 모은다.
-- 호출할 때 `getTotal(...prices)`, `Math.max(...prices)`로 배열을 인수에 펼친다. 50000·30000·200000의 합은 280000, 최대는 200000
-- Spread는 **얕은 복사**: 바깥 배열은 다르지만 내부 객체 참조는 공유한다.
-
-```js
-const original = [{ name: '박지성' }]
-const copied = [...original]
-original === copied // false
-original[0] === copied[0] // true
-const [leader, assistant = '미정'] = ['박지성']
-const { name: learnerName, job = '학생' } = { name: '박지성' }
-const names = products.map(({ name }) => name)
+```html
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <title>DOM 목록 확인</title>
+  </head>
+  <body>
+    <h1 id="title">DOM 선택</h1>
+    <p class="text">첫 번째</p>
+    <p class="text">두 번째</p>
+    <p class="text">세 번째</p>
+    <button id="remove" type="button">클래스 제거</button>
+    <pre id="result"></pre>
+    <script>
+      const title = document.getElementById('title')
+      const first = document.querySelector('.text')
+      const fixed = document.querySelectorAll('.text')
+      const live = document.getElementsByClassName('text')
+      document.getElementById('remove').addEventListener('click', () => {
+        const snapshot = [...live]
+        snapshot.forEach((element) => element.classList.remove('text'))
+        title.textContent = '선택한 요소의 클래스 제거 완료'
+        document.getElementById('result').textContent =
+          `첫 요소: ${first.textContent}\n정적 목록: ${fixed.length}\n실시간 목록: ${live.length}\n배열: ${snapshot.length}`
+      })
+    </script>
+  </body>
+</html>
 ```
 
-구조 분해는 배열의 **위치**, 객체의 **키**로 꺼낸다. `name: learnerName`은 변수명 변경이다. 기본값은 값이 없거나 undefined일 때만 적용하며 null에는 적용하지 않는다. 함수 매개변수에도 사용할 수 있다.
+날짜는 출력이 흔들리지 않도록 고정된 시각을 넣고 한국 시간대로 표시한다. theater의 일반 메서드 안에서 만든 화살표 함수는 그 메서드의 this를 사용한다. Spread로 팀 명단을 합친 뒤 호출 인수로 펼치고, printTeam의 Rest가 나머지를 배열로 모은다. 상품 예제는 원본 배열을 바꾸지 않고 추가·가격 변경·재고 선택을 순서대로 수행한다. 첫 가격은 원본 50000, 새 목록 55000이며 재고가 있는 이름은 키보드·모니터·스피커다. 마지막 합계는 수량을 곱한 매출이 아니라 모든 상품의 단가 합계 365000이다.
 
-## ☘️ DOM 선택과 목록
+두 번째 파일은 브라우저에서 실행한다. 버튼을 누르면 text 클래스가 모두 제거된다. 살아 있는 목록은 길이가 0으로 바뀌지만 정적 목록과 배열은 처음 담은 요소 세 개를 계속 가리킨다. 이 배열은 요소의 복사본이 아니므로 각 요소의 클래스 변경은 화면에도 그대로 반영된다.
 
-- `querySelector(선택자)`: 첫 요소 또는 null
-- `getElementById(id)`: 해당 요소 또는 null
-- `querySelectorAll(선택자)`: 선택 시점의 정적 NodeList
-- `getElementsByClassName(클래스)`: 변경이 반영되는 HTMLCollection
+**js-es6.js 실행 확인 결과**
 
-살아 있는 목록을 앞에서부터 순회하며 클래스를 지우면 인덱스가 당겨져 일부 요소를 건너뛴다.
-
-```js
-const texts = document.getElementsByClassName('text')
-const snapshot = [...texts]
-snapshot.forEach((element) => element.classList.remove('text'))
-// texts.length: 0, snapshot.length: 처음 요소 수
+```text
+2026. 9. 11. 오전 9:00:00
+박지성: 80점
+[ 2000, 4000, 6000 ]
+청량리역점: 오딧세이
+청량리역점: 옵세션
+D
+O
+M
+false true
+유관순 [ '홍길동', '장보고', '신사임당', '이순신' ]
+홍길동 student 이름 없음 JavaScript [ 'React', 'CSS' ]
+3 4 50000 55000
+[ '키보드', '모니터', '스피커' ]
+365000 3000
 ```
 
-배열로 고정한 것은 **목록 구성**이며 DOM 요소를 복제한 것은 아니다. 모든 NodeList가 정적인 것도 아니므로 반환 메서드를 확인한다.
+**실행 방법**
 
-참고: [MDN Spread syntax](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Spread_syntax) · [MDN Destructuring](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Destructuring) · [MDN Arrow functions](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Functions/Arrow_functions) · [MDN querySelectorAll](https://developer.mozilla.org/en-US/docs/Web/API/Document/querySelectorAll) · [MDN HTMLCollection](https://developer.mozilla.org/en-US/docs/Web/API/HTMLCollection) · [MDN toLocaleString](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date/toLocaleString)
+Node.js를 설치한 환경에서 `js-es6.js`로 저장하고 `node js-es6.js`를 실행한다. 별도 패키지는 필요 없다. DOM 예제는 별도의 selector-demo.html로 저장해 브라우저에서 연다.
