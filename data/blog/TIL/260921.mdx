@@ -3,74 +3,167 @@ title: 260921 TIL
 date: '2026-09-21'
 tags: ['TIL']
 draft: false
-summary: useMemo·useCallback의 참조 유지, useRef와 커스텀 Hook을 실습하고 중첩 콜백을 Promise 체인으로 연결했다.
+summary: 'React의 렌더링은 컴포넌트 함수를 다시 실행한다.'
 ---
 
-[소스코드 보기 1](https://github.com/woong3e/sesac_lecture/commit/dfe17e521bd5da866d0e6c613af52c44e8372e86) · [소스코드 보기 2](https://github.com/woong3e/sesac_lecture/commit/f14e20630e1ca342c8dedacfaaa2f1631afa83d2) · [소스코드 보기 3](https://github.com/woong3e/sesac_lecture/commit/aff4664d25da1541a37d6323fe439f86bf8f5ece) · [소스코드 보기 4](https://github.com/woong3e/sesac_lecture/commit/93fbb79ae35c5368272400aef5429d2e6921884a)
+[소스코드: 260921](https://github.com/woong3e/sesac_lecture/commit/dfe17e521bd5da866d0e6c613af52c44e8372e86) · [소스코드: useMemo 의 사용 이유 설명](https://github.com/woong3e/sesac_lecture/commit/f14e20630e1ca342c8dedacfaaa2f1631afa83d2) · [소스코드: 260921](https://github.com/woong3e/sesac_lecture/commit/aff4664d25da1541a37d6323fe439f86bf8f5ece) · [소스코드: React Hooks와 Promise 실습](https://github.com/woong3e/sesac_lecture/commit/93fbb79ae35c5368272400aef5429d2e6921884a)
 
-## ☘️ 먼저 설명해보세요
+React의 렌더링은 컴포넌트 함수를 다시 실행한다. 그때 매번 계산할 값과 이전 값을 재사용할 대상을 구분해야 한다. 동시에 타이머나 Promise처럼 나중에 끝나는 작업은 함수의 위아래 순서만으로 결과 시점을 판단할 수 없다.
 
-1. useMemo와 useCallback은 무엇을 기억할까? → [답 확인](#%EF%B8%8F-%EA%B3%84%EC%82%B0%EA%B3%BC-%EC%B0%B8%EC%A1%B0)
-2. ref와 커스텀 Hook은 언제 쓸까? → [답 확인](#%EF%B8%8F-%EA%B0%92-%EC%9C%A0%EC%A7%80%EC%99%80-%EB%A1%9C%EC%A7%81-%EC%9E%AC%EC%82%AC%EC%9A%A9)
-3. Promise 체인은 무엇으로 이어질까? → [답 확인](#%EF%B8%8F-%EB%B9%84%EB%8F%99%EA%B8%B0%EC%99%80-promise)
+## ☘️ 계산 결과와 함수 참조 기억하기
 
-## ☘️ 계산과 참조
+useMemo는 계산 함수의 결과를 기억한다. 의존 값이 같으면 이전 결과를 사용하고 바뀌면 다시 계산한다. 상품 검색에서는 적용한 검색어가 같을 때 필터 결과를 재사용할 수 있다. 입력 중인 문자열과 적용한 검색어를 나누면 버튼을 누르기 전에는 검색 결과가 바뀌지 않는다.
 
-- `useMemo(() => hardCalculator(hardNumber), [hardNumber])`: 의존성이 같으면 **계산 결과** 재사용. easyNumber만 바뀌어도 컴포넌트 자체는 렌더링됨
-- `useCallback(() => console.log(number), [number])`: 실행 결과가 아니라 **함수 참조** 재사용
-- 객체·함수를 렌더링마다 새로 만들면 내용이 같아도 참조가 달라 Effect 의존성이 변경됨
-- location 객체는 `useMemo(() => ({ country: isKorea ? '한국' : '외국' }), [isKorea])`로 참조 유지
-- 사각형 스타일 함수는 `[size]`로 유지해 테마 변경 때 자식 Effect 재실행을 줄임. 자식 렌더링 생략과는 별개
+객체나 함수는 같은 내용을 다시 작성해도 새 참조가 된다. Effect의 의존 값으로 새 객체를 매번 넘기면 관련 없는 상태 변화에도 다시 실행될 수 있다. useMemo로 국가 객체를, useCallback으로 사각형 스타일 생성 함수를 기억하면 실제로 필요한 값이 바뀔 때만 새 참조를 만든다.
 
-**실습 오류도 기억하기**
+useCallback은 함수의 실행 결과가 아니라 함수 자체를 기억한다. 함수를 즉시 실행하거나 미래에 예약하는 기능이 아니다. Square는 전달받은 함수 참조가 달라졌을 때 Effect에서 스타일을 다시 계산한다. 값이 달라져도 함수를 갱신하지 않으면 오래된 값을 읽을 수 있으므로 의존성도 정확히 적는다.
 
-hardCalculator는 반복문 첫 회에 return해 실제로 무거운 계산이 아니었다. 호출 로그와 실제 성능 측정은 구분한다.
+## ☘️ ref와 사용자 정의 훅
 
-검색은 inputText(입력 중)와 query(검색 적용)를 분리했다. 원본 filter는 return이 빠져 항상 빈 결과였다.
+지역 변수는 다음 렌더링에서 다시 초기화된다. ref는 렌더링 사이에 값을 보관하지만 current를 바꾸어도 그 이유만으로 다시 렌더링하지 않는다. 화면에 보여야 하는 값은 state로, 렌더링과 독립적인 참조나 기록은 ref로 관리한다. DOM ref의 current에는 연결된 입력 요소가 들어가므로 focus를 호출할 수 있다.
 
-```jsx
-const searchProducts = useCallback((nextQuery) => setQuery(nextQuery), [])
-const filteredProducts = useMemo(() => {
-  const normalized = query.trim().toLowerCase()
-  return PRODUCTS.filter((product) => product.name.toLowerCase().includes(normalized))
-}, [query])
+사용자 정의 훅은 여러 훅의 흐름을 함수로 묶은 것이다. useDelayTimer는 준비 상태를 false로 바꾸고 지정 시간이 지나면 true로 바꾼다. delay가 바뀌거나 화면에서 사라지면 이전 타이머를 정리한다. 함수 하나로 묶었다고 호출한 컴포넌트들이 상태를 공유하는 것은 아니다.
+
+## ☘️ Promise로 나중의 결과 이어 받기
+
+Promise는 아직 끝나지 않은 작업의 성공값이나 실패를 표현한다. 대기 상태에서 resolve하면 성공, reject하면 실패로 결정된다. then은 성공 결과를 다음 처리에 전달하고 catch는 앞에서 전파된 실패를 처리한다. finally는 성공·실패 공통 정리에 사용한다.
+
+then에서 다음 Promise를 return해야 연결된 다음 단계가 그 완료를 기다린다. 아래 예제는 1초마다 값을 받아 10·20·30을 출력하고 다음 작업은 허용 범위를 넘어서 실패한다. catch가 메시지를 출력한 뒤 finally가 종료를 알린다. React 예제와 별도의 Node.js 파일이므로 서로 연결해 실행할 필요는 없다.
+
+## ☘️ 계산 재사용·함수 참조·ref를 구분하기
+
+다음은 연결된 학습 코드의 핵심 동작을 한 파일에서 확인하도록 정리한 설명용 예제다. 원본 프로젝트 전체를 그대로 옮긴 것은 아니다. 필요한 선언과 실행 부분을 함께 두었으며, 아래 코드만 저장해 흐름을 따라갈 수 있다.
+
+**index.html**
+
+```html
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>React 동작 확인</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="text/babel">
+      const { useState, useEffect, useMemo, useCallback, useRef } = React
+      const PRODUCTS = [
+        { id: 1, name: '키보드' },
+        { id: 2, name: '마우스' },
+        { id: 3, name: '모니터' },
+      ]
+      function useDelayTimer(delay) {
+        const [isReady, setIsReady] = useState(false)
+        useEffect(() => {
+          setIsReady(false)
+          const timer = setTimeout(() => setIsReady(true), delay)
+          return () => clearTimeout(timer)
+        }, [delay])
+        return isReady
+      }
+      function SearchNotice({ onSearch }) {
+        useEffect(() => {
+          console.log('검색 함수 참조 변경')
+        }, [onSearch])
+        return <p>검색 버튼을 눌러 적용하세요.</p>
+      }
+      function Square({ genSquareStyle }) {
+        const [style, setStyle] = useState({})
+        useEffect(() => {
+          setStyle(genSquareStyle())
+        }, [genSquareStyle])
+        return <div style={style}>사각형</div>
+      }
+      function App() {
+        const [inputText, setInputText] = useState(''),
+          [query, setQuery] = useState(''),
+          [clickCount, setClickCount] = useState(0)
+        const [delay, setDelay] = useState(1000),
+          [isKorea, setIsKorea] = useState(true),
+          [size, setSize] = useState(100)
+        const [isDark, setIsDark] = useState(false)
+        const inputRef = useRef(null),
+          countRef = useRef(0)
+        let variable = 0
+        const isReady = useDelayTimer(delay)
+        const location = useMemo(() => ({ country: isKorea ? '한국' : '외국' }), [isKorea])
+        const genSquareStyle = useCallback(
+          () => ({ backgroundColor: 'tomato', width: size + 'px', height: size + 'px' }),
+          [size]
+        )
+        const searchProducts = useCallback((nextQuery) => setQuery(nextQuery), [])
+        const filteredProducts = useMemo(() => {
+          console.log('상품 목록 다시 계산')
+          const normalized = query.trim().toLowerCase()
+          return PRODUCTS.filter((product) => product.name.toLowerCase().includes(normalized))
+        }, [query])
+        useEffect(() => {
+          inputRef.current.focus()
+        }, [])
+        useEffect(() => {
+          console.log('국가 변경:', location.country)
+        }, [location])
+        return (
+          <main style={{ backgroundColor: isDark ? '#ddd' : 'white' }}>
+            <input
+              ref={inputRef}
+              aria-label="검색어"
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+            />
+            <button onClick={() => searchProducts(inputText)}>검색</button>
+            <SearchNotice onSearch={searchProducts} />
+            <ul>
+              {filteredProducts.map((product) => (
+                <li key={product.id}>{product.name}</li>
+              ))}
+            </ul>
+            <button onClick={() => setClickCount((prev) => prev + 1)}>횟수: {clickCount}</button>
+            <button
+              onClick={() => {
+                countRef.current++
+                console.log('ref:', countRef.current)
+              }}
+            >
+              ref 증가
+            </button>
+            <button
+              onClick={() => {
+                variable++
+                console.log('지역 변수:', variable)
+              }}
+            >
+              지역 변수 증가
+            </button>
+            <button onClick={() => setIsKorea((prev) => !prev)}>국가: {location.country}</button>
+            <button onClick={() => setDelay(delay === 1000 ? 3000 : 1000)}>
+              대기 시간: {delay}ms
+            </button>
+            <p>{isReady ? '준비 완료' : '기다리는 중'}</p>
+            <input
+              aria-label="크기"
+              type="range"
+              min="100"
+              max="300"
+              value={size}
+              onChange={(e) => setSize(Number(e.target.value))}
+            />
+            <button onClick={() => setIsDark((prev) => !prev)}>테마</button>
+            <Square genSquareStyle={genSquareStyle} />
+          </main>
+        )
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(<App />)
+    </script>
+  </body>
+</html>
 ```
 
-공백·대소문자를 정리하고 결과를 반환한다. 검색 함수는 query를 읽지 않으므로 의존성에 필요 없으며, setter 참조는 안정적이다.
-
-## ☘️ 값 유지와 로직 재사용
-
-| 방식        | 렌더링 사이 유지 | 변경 시 렌더링 |
-| ----------- | ---------------- | -------------- |
-| 지역 변수   | 다시 초기화      | 요청 안 함     |
-| state       | 유지             | setter로 요청  |
-| ref.current | 유지             | 요청 안 함     |
-
-화면 데이터는 state, 타이머 id·DOM 참조 등은 ref로 관리한다. 원본처럼 ref를 JSX에 출력해도 ref 변경만으로 즉시 화면이 바뀌지 않는다.
-
-`const usernameRef = useRef(null)`을 input의 ref에 연결하면 DOM 생성 후 current에 요소가 들어간다. 마운트 Effect에서 `usernameRef.current?.focus()`를 호출하고 로그인 후 입력을 비워 다시 포커스했다.
-
-```jsx
-function useDelayReady(delay) {
-  const [isReady, setIsReady] = useState(false)
-  useEffect(() => {
-    setIsReady(false)
-    const id = setTimeout(() => setIsReady(true), delay)
-    return () => clearTimeout(id)
-  }, [delay])
-  return isReady
-}
-```
-
-useDelayTimer·useDelayReady로 상태 로직을 재사용했다. 원본의 cleanup 초기화는 setup으로 옮겨, 새 대기 시작 시 false·정리 시 타이머 해제로 구분했다. 3000ms는 3초다. 커스텀 Hook은 use로 시작하고 컴포넌트·Hook 최상위에서 호출하며, **호출마다 독립 상태**를 갖는다.
-
-## ☘️ 비동기와 Promise
-
-햄버거 주문의 setTimeout을 예약해도 다음 감자튀김 주문은 기다리지 않는다. 순서가 필요한 +10 작업은 중첩 콜백 대신 Promise로 이어 썼다.
-
-- 상태: pending(대기) → fulfilled(성공) 또는 rejected(실패)
-- `resolve`: 성공값 / `reject`: 실패 이유
-- `then`: 성공 처리 / `catch`: 실패 처리 / `finally`: 공통 마무리
+**promise.js**
 
 ```js
 function addAfterOneSecond(number) {
@@ -78,30 +171,48 @@ function addAfterOneSecond(number) {
     setTimeout(() => {
       const result = number + 10
       if (result > 30) {
-        reject(new Error('30 초과'))
+        reject(new Error('30을 초과했습니다.'))
         return
       }
       resolve(result)
     }, 1000)
   })
 }
+console.log('작업 시작')
 addAfterOneSecond(0)
-  .then((n) => {
-    console.log(n)
-    return addAfterOneSecond(n)
+  .then((number) => {
+    console.log(number)
+    return addAfterOneSecond(number)
   })
-  .then((n) => {
-    console.log(n)
-    return addAfterOneSecond(n)
+  .then((number) => {
+    console.log(number)
+    return addAfterOneSecond(number)
   })
-  .then((n) => {
-    console.log(n)
-    return addAfterOneSecond(n)
+  .then((number) => {
+    console.log(number)
+    return addAfterOneSecond(number)
   })
   .catch((error) => console.log(error.message))
   .finally(() => console.log('작업 종료'))
 ```
 
-10 → 20 → 30 출력 후 40에서 실패한다. 원본은 Error 객체를 출력했고, message로 메시지만 얻는다. **다음 Promise를 return해야 기다림과 결과 전달이 이어진다.** 빠뜨리면 다음 핸들러에 undefined가 전달될 수 있다.
+useMemo는 의존 값이 같으면 이전 계산 결과를 재사용하고 useCallback은 이전 함수 참조를 재사용한다. 함수 실행을 예약하거나 자동으로 한 번만 실행하는 기능은 아니다. Square가 부모의 매번 새로 생긴 함수를 의존 값으로 받으면 다른 상태만 바뀌어도 Effect가 다시 실행될 수 있어 함수 참조를 안정적으로 유지한다. ref.current는 렌더링 사이에 남는 값을 보관하지만 변경 자체로 화면을 다시 그리지 않는다. 입력 DOM에 연결한 ref는 focus 호출에 사용한다. useDelayTimer는 대기·실행·정리 로직을 묶은 사용자 정의 훅이며 호출한 컴포넌트마다 독립된 상태를 가진다.
 
-참고: [React useMemo](https://react.dev/reference/react/useMemo) · [React useCallback](https://react.dev/reference/react/useCallback) · [React useRef](https://react.dev/reference/react/useRef) · [React 커스텀 Hook](https://react.dev/learn/reusing-logic-with-custom-hooks) · [MDN Promise](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise) · [MDN filter](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/filter)
+**Promise의 순서**
+
+addAfter는 1초 뒤 결과를 결정한다. then에서 다음 Promise를 반환해야 다음 then이 그 작업의 완료를 기다린다. 10에서 시작해 20, 30으로 이어지고 다음 요청의 40은 실패 조건을 만나 reject된다. 실패는 뒤의 catch로 전달되며 finally는 성공 여부와 관계없이 마지막 정리를 실행한다. Promise를 반환하지 않고 비동기 함수를 호출하기만 하면 바깥 연결은 기다릴 대상을 받지 못한다. 네트워크 없이 타이머만 사용하는 예제이며 전체 종료까지 약 4초가 걸린다.
+
+**promise.js 실행 확인 결과**
+
+```text
+작업 시작
+10
+20
+30
+30을 초과했습니다.
+작업 종료
+```
+
+**실행 방법**
+
+아래 전체 코드를 index.html로 저장하고 브라우저에서 연다. React 18·React DOM 18·Babel을 CDN에서 가져오므로 인터넷 연결이 필요하다. Babel은 브라우저에서 JSX를 변환하는 실습용 구성이다. 파일을 여러 조각으로 나누어 붙일 필요가 없다. promise.js는 별도로 Node.js에서 실행한다.
