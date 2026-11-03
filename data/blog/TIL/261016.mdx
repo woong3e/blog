@@ -3,66 +3,173 @@ title: 261016 TIL
 date: '2026-10-16'
 tags: ['TIL', 'java']
 draft: false
-summary: try-catch-finally와 사용자 정의 예외, 오버라이딩의 예외 선언 규칙을 학습했다. 파일·바이트·문자 스트림과 자원 반납, 버퍼·UTF-8·Properties를 실습하고 enum의 타입 안전성과 초기화 과정을 정리했다.
+summary: '예외 처리는 실패했을 때 어떤 안내를 하고 어디까지 이어갈지 정하는 과정이다.'
 ---
 
-[소스코드 보기](https://github.com/woong3e/sesac_lecture/commit/1b121d95028a0f1eefee181f062dc606e156b145)
+[소스코드: 261016 Java exception handling, file IO, and enum exercises](https://github.com/woong3e/sesac_lecture/commit/1b121d95028a0f1eefee181f062dc606e156b145)
 
-## ☘️ 먼저 설명해보세요
+예외 처리는 실패했을 때 어떤 안내를 하고 어디까지 이어갈지 정하는 과정이다. 파일 입출력에서는 실패 처리와 함께 열어 둔 자원을 닫는 일도 필요하다. 문자 인코딩과 스트림의 종류를 맞춰야 저장한 내용을 다시 읽을 수 있다.
 
-1. 예외 타입과 catch 순서는 왜 중요할까? → [답 확인](#%EF%B8%8F-%EC%98%88%EC%99%B8-%EC%B2%98%EB%A6%AC)
-2. 스트림·인코딩·버퍼는 어떻게 연결될까? → [답 확인](#%EF%B8%8F-%ED%8C%8C%EC%9D%BC%EA%B3%BC-%EC%9E%85%EC%B6%9C%EB%A0%A5)
-3. enum은 언제 초기화될까? → [답 확인](#%EF%B8%8F-%EC%84%A4%EC%A0%95%EA%B3%BC-enum)
+## ☘️ 예외 발생과 처리 후 흐름
 
-## ☘️ 예외 처리
+throw는 예외를 실제로 발생시키고 throws는 메서드가 그 예외를 호출자에게 전달할 수 있음을 선언한다. try에서 예외가 나면 나머지 문장을 건너뛰고 해당 타입을 처리하는 catch로 이동한다. 더 구체적인 예외를 앞에서 잡아야 뒤의 처리 순서가 의미를 가진다.
 
-try는 실패 가능 작업, catch는 해당 예외 대응, finally는 정상·예외 여부와 관계없는 마무리다. getMessage는 메시지, printStackTrace는 예외·호출 경로를 출력한다.
+finally는 정상·실패와 관계없이 마무리할 작업에 사용한다. 예외를 잡아 처리하면 이후 코드로 이어갈 수 있지만 다시 던지면 호출자에게 전달된다. 사용자 정의 예외는 실패의 의미를 이름과 메시지로 표현하는 방법이다.
 
-구매 검사에서 throw가 발생하면 메서드의 다음 문장은 건너뛰고 catch로 이동한다. 처리 후 finally와 try-catch 다음의 종료 안내로 이어진다.
+## ☘️ 파일과 스트림의 역할
 
-- PriceNegativeException·MoneyNegativeException·NotEnoughMoneyException을 Exception 상속으로 정의하고 생성자에서 super(message) 호출
-- 검사 순서는 가격 음수 → 보유금 음수 → 잔액 부족. 동시에 음수여도 먼저 검사한 가격 예외 발생
-- catch는 **자식 타입 먼저, 부모 Exception 나중**. 거꾸로면 뒤 catch에 도달할 수 없어 컴파일 오류. 한 예외가 모든 catch를 거치는 것은 아님
-- NegativeException도 Exception을 직접 상속하며 이름이 비슷한 다른 음수 예외의 부모가 아님
+파일 경로를 나타내는 객체를 만든다고 실제 파일 내용이 생기지는 않는다. 디렉터리 생성·파일 쓰기·읽기는 각각 수행해야 한다. InputStream과 OutputStream은 바이트, Reader와 Writer는 문자를 다룬다. 텍스트를 바이트로 저장하고 다시 읽을 때 인코딩이 같아야 한글이 깨지지 않는다.
 
-**검사 예외**는 컴파일러가 catch/throws를 확인한다(Exception 직접 상속 예외·IOException). 컴파일 때 발생한다는 뜻이 아니다. **비검사 예외**는 처리 선언을 강제하지 않지만 catch 가능하다(빈 deque의 pop에서 NoSuchElementException).
+버퍼는 작은 단위로 반복하는 입출력을 모아 처리한다. BufferedReader의 readLine은 줄 끝 표시를 제외한 한 줄을 반환하며 더 읽을 내용이 없으면 null이다. 반복 종료 조건을 빈 문자열과 혼동하지 않는다.
 
-오버라이딩은 부모보다 넓은 **검사 예외**를 선언할 수 없다. 부모 throws IOException이면 자식은 생략·같은 IOException·하위 FileNotFoundException 가능, 상위 Exception 불가다. 부모 타입 호출자의 대응 약속을 유지하기 위해서다.
+try-with-resources는 AutoCloseable 자원을 작업 후 닫는다. 중간에 예외가 나도 닫는 흐름이 적용된다. 아래 예제는 독립된 임시 폴더에서 UTF-8 파일을 쓰고 읽은 뒤 자신이 만든 파일을 정리한다.
 
-## ☘️ 파일과 입출력
+## ☘️ 설정 파일과 enum
 
-File은 경로·정보를 다루며 **new File만으로 실제 파일은 생기지 않는다.** createNewFile은 생성 시 true·기존 파일이면 false(IOException 처리 필요), delete는 성공 여부를 반환한다. 상대 경로는 실행 작업 폴더 기준이다.
+Properties는 문자열 키와 값으로 설정을 저장하고 읽는다. 코드의 동작과 환경별 값을 분리할 때 사용할 수 있다. 파일을 읽는 시점에 키가 없는 경우의 기본값도 고려한다.
 
-- 바이트: FileInputStream·FileOutputStream. 바이너리 포함 바이트 처리
-- 문자: FileReader·FileWriter. 문자·문자열·문자 배열 처리
-- read(): int 반환, 끝이면 -1. 바이트 입력은 0~255이며 한글의 각 바이트를 char로 바꾸면 깨질 수 있음
-- 출력 기본은 덮어쓰기, 두 번째 인자 true는 이어쓰기. 반복 실행하면 내용 누적
-- 스트림은 자원이므로 닫기 필요. finally의 null 확인+close 또는 **try-with-resources 자동 반납** 사용
+enum은 허용할 값의 집합을 타입으로 표현한다. 아무 문자열이나 받는 대신 정해진 상수만 사용하게 한다. 각 상수는 필드와 생성자를 가진 객체가 될 수 있고 name은 상수 이름, 별도 필드는 표시 이름처럼 다른 의미를 담는다. 아래 출력에서 상수가 준비되는 시점과 특정 값을 사용하는 시점을 나누어 확인한다.
+
+## ☘️ 예외 처리·파일 자원·enum 초기화
+
+다음은 연결된 학습 코드의 핵심 동작을 한 파일에서 확인하도록 정리한 설명용 예제다. 원본 프로젝트 전체를 그대로 옮긴 것은 아니다. 필요한 선언과 실행 부분을 함께 두었으며, 아래 코드만 저장해 흐름을 따라갈 수 있다.
+
+**Main.java**
 
 ```java
-try (BufferedWriter writer = new BufferedWriter(
-        new OutputStreamWriter(new FileOutputStream("note.txt"), StandardCharsets.UTF_8))) {
-    writer.write("안녕하세요");
-    writer.newLine();
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.io.Reader;
+import java.io.Writer;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Properties;
+
+public class Main {
+  public static void main(String[] args) throws Exception {
+    try {
+      checkEnoughMoney(30000, 5000);
+    } catch (PriceNegativeException e) {
+      System.out.println("가격 오류: " + e.getMessage());
+    } catch (MoneyNegativeException e) {
+      System.out.println("보유금 오류: " + e.getMessage());
+    } catch (NotEnoughMoneyException e) {
+      System.out.println("잔액 부족: " + e.getMessage());
+    } finally {
+      System.out.println("구매 검사 종료");
+    }
+    Path directory = Files.createTempDirectory("til-io-");
+    Path textFile = directory.resolve("message.txt");
+    try (BufferedWriter writer =
+        new BufferedWriter(
+            new OutputStreamWriter(Files.newOutputStream(textFile), StandardCharsets.UTF_8))) {
+      writer.write("하이");
+      writer.newLine();
+      writer.write("반가워");
+    }
+    try (BufferedReader reader =
+        new BufferedReader(
+            new InputStreamReader(Files.newInputStream(textFile), StandardCharsets.UTF_8))) {
+      String line;
+      while ((line = reader.readLine()) != null) System.out.println(line);
+    }
+    Properties settings = new Properties();
+    settings.setProperty("app.name", "fullstack-course");
+    settings.setProperty("app.language", "ko");
+    Path settingsFile = directory.resolve("application.properties");
+    try (Writer writer = Files.newBufferedWriter(settingsFile, StandardCharsets.UTF_8)) {
+      settings.store(writer, "settings");
+    }
+    Properties loaded = new Properties();
+    try (Reader reader = Files.newBufferedReader(settingsFile, StandardCharsets.UTF_8)) {
+      loaded.load(reader);
+    }
+    System.out.println(loaded.getProperty("app.name"));
+    for (Subjects subject : Subjects.values())
+      System.out.print((subject.ordinal() + 1) + "." + subject.name() + " ");
+    System.out.println();
+    UserRole admin = UserRole.ADMIN;
+    UserRole guest = UserRole.GUEST;
+    System.out.println(admin.getDescription() + " / " + guest.name());
+    Files.delete(textFile);
+    Files.delete(settingsFile);
+    Files.delete(directory);
+  }
+
+  static void checkEnoughMoney(int price, int money)
+      throws PriceNegativeException, MoneyNegativeException, NotEnoughMoneyException {
+    if (price < 0) throw new PriceNegativeException("가격 음수");
+    if (money < 0) throw new MoneyNegativeException("보유금 음수");
+    if (money < price) throw new NotEnoughMoneyException("돈이 부족합니다.");
+    System.out.println("구매 가능");
+  }
+}
+
+class PriceNegativeException extends Exception {
+  PriceNegativeException(String message) {
+    super(message);
+  }
+}
+
+class MoneyNegativeException extends Exception {
+  MoneyNegativeException(String message) {
+    super(message);
+  }
+}
+
+class NotEnoughMoneyException extends Exception {
+  NotEnoughMoneyException(String message) {
+    super(message);
+  }
+}
+
+enum Subjects {
+  JAVA,
+  MYSQL,
+  JDBC,
+  HTML,
+  CSS
+}
+
+enum UserRole {
+  GUEST("게스트"),
+  CONSUMER("구매자"),
+  PRODUCER("판매자"),
+  ADMIN("관리자");
+  private final String description;
+
+  UserRole(String description) {
+    this.description = description;
+    System.out.println("생성: " + description);
+  }
+
+  String getDescription() {
+    return description;
+  }
 }
 ```
 
-InputStreamReader는 바이트→문자 입력, OutputStreamWriter는 문자→바이트 출력이다. 인코딩은 문자·바이트의 대응 규칙이며 **저장과 읽기의 문자셋을 맞춘다.** FileReader/Writer의 기본 문자셋에 의존하기보다 수업처럼 UTF-8 명시가 분명하다.
+try에서 예외가 나면 맞는 catch로 이동하고 finally는 정상 여부와 관계없이 실행된다. try-with-resources는 작업이 끝날 때 스트림을 닫는다. 문자를 파일에 쓸 때와 읽을 때 모두 UTF-8을 지정해 인코딩을 맞춘다. 버퍼는 작은 단위의 잦은 입출력을 완화하고 Properties는 이름과 값 형태의 설정을 저장한다. 예제는 새 임시 폴더 안에만 파일을 만들고 사용한 파일을 정리한다. enum 상수는 미리 정해진 객체들이며 초기화 시점의 출력과 이후 값을 사용하는 출력을 나누어 읽는다.
 
-BufferedReader/Writer는 Reader/Writer를 감싸 데이터를 모아 실제 입출력 횟수를 줄인다. flush는 하위 스트림에 내보내기, close는 자원 종료이며 BufferedWriter는 닫힐 때 남은 내용을 내보낸다.
+**Main.java 실행 확인 결과**
 
-- readLine(): 줄바꿈 제외 한 줄, 끝은 null(read의 -1과 구분)
-- 키보드: `new BufferedReader(new InputStreamReader(System.in))`으로 바이트 입력을 문자·줄 단위로 연결
+```text
+잔액 부족: 돈이 부족합니다.
+구매 검사 종료
+하이
+반가워
+fullstack-course
+1.JAVA 2.MYSQL 3.JDBC 4.HTML 5.CSS
+생성: 게스트
+생성: 구매자
+생성: 판매자
+생성: 관리자
+관리자 / GUEST
+```
 
-## ☘️ 설정과 enum
+**실행 방법**
 
-**Properties**는 문자열 키·값 설정을 관리한다. setProperty → store(writer, 주석) → 새 Properties에 load(reader) → getProperty 순서로 저장·조회했다. application.properties는 app.name=fullstack-course 같은 형식이며 주석·저장 시각을 포함한다. 이름·버전·언어를 읽고 쓸 때 모두 UTF-8을 사용했다.
-
-**enum**은 사용할 상수를 타입으로 묶는다. int 과목 상수는 숫자 중복·임의 100도 전달 가능하지만 Subjects 매개변수는 정해진 열거형 값만 받게 한다. int 예제의 100은 컴파일되지만 빈 과목명이 나온다.
-
-- Subjects.JAVA와 HTML은 다른 상수, ==로 비교 가능
-- values(): 선언 순서의 상수 배열 / name(): 상수명 / ordinal(): 0부터 선언 위치
-- JAVA~CSS 순회에 ordinal+1로 1~5 출력. 순서 바꾸면 ordinal도 달라짐
-- 필드·생성자·메서드를 둘 수 있음. UserRole의 ADMIN("관리자")는 생성자로 description 저장
-- 외부 new UserRole은 불가. **처음 ADMIN을 참조할 때 GUEST→CONSUMER→PRODUCER→ADMIN 전체가 순서대로 초기화**되어 생성자 메시지 4회
-- 이후 GUEST는 기존 상수라 생성자 재실행 없음. 특정 상수를 참조할 때마다 새 객체를 만든다는 뜻이 아님
+JDK 21 환경에서 파일명을 `Main.java`로 저장한다. 같은 폴더에서 `javac -encoding UTF-8 Main.java`로 컴파일한 뒤 `java -Dfile.encoding=UTF-8 Main`을 실행한다. 글마다 Main 클래스가 있으므로 예제는 서로 다른 폴더에 저장한다.
