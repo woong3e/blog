@@ -1,4 +1,4 @@
-﻿---
+---
 title: 261020 TIL
 date: '2026-10-20'
 tags: ['TIL', 'sql']
@@ -6,13 +6,13 @@ draft: false
 summary: SQL 조회·조인·집계의 차이와 데이터 변경 시 주의할 점을 짧게 정리했다.
 ---
 
-[소스코드 보기](https://github.com/woong3e/sesac_lecture/commit/22ac321e1e4680165e13cad1f2b79274cd2a1bb2)
+[소스코드 보기: 조회와 DML](https://github.com/woong3e/sesac_lecture/commit/22ac321e1e4680165e13cad1f2b79274cd2a1bb2) · [트랜잭션부터 인덱스까지](https://github.com/woong3e/sesac_lecture/commit/6e6fe0c57da78599aa4ebd10ad5744a824d34e5f)
 
 ## ☘️ 먼저 설명해보세요
 
 1. WHERE와 HAVING은 언제 쓸까? → [답 확인](#️-조회와-집계)
 2. JOIN과 UNION은 어떻게 다를까? → [답 확인](#️-조인과-서브쿼리)
-3. UPDATE와 REPLACE는 어떻게 다를까? → [답 확인](#️-데이터-변경)
+3. 트랜잭션과 제약 조건은 어떤 역할을 할까? → [답 확인](#️-트랜잭션과-테이블-정의)
 
 ## ☘️ 조회와 집계
 
@@ -138,3 +138,56 @@ DELETE FROM tbl_menu WHERE menu_code = 22;
 **UPDATE·DELETE는 실행 전 같은 WHERE로 대상을 조회한다.** WHERE를 빼면 모든 행이 대상이 된다. REPLACE는 일부 컬럼만 고치는 UPDATE와 동작이 다르다.
 
 `SET`에 바꿀 컬럼과 값을 쓴다. 예제의 22번은 수업에서 조회한 메뉴 코드이므로 실제 실행 시 조회 결과로 확인한다. `REPLACE INTO tbl_menu VALUES (17, '참기름', 5000, 10, 'Y')`는 기본 키·UNIQUE 키 충돌 시 삭제 후 삽입하며, 일반 INSERT는 중복 오류가 날 수 있다.
+
+## ☘️ 트랜잭션과 테이블 정의
+
+**트랜잭션은 모두 성공하거나 모두 취소해야 하는 작업 묶음이다.** MySQL은 기본적으로 autocommit이 켜져 있다. 수업에서는 `SET autocommit = OFF`와 `START TRANSACTION`으로 작업을 시작하고, INSERT·UPDATE·DELETE 결과를 확인한 뒤 `ROLLBACK`으로 취소하고 autocommit을 다시 켰다. `COMMIT`은 변경을 확정하며, 확정한 작업은 이후 ROLLBACK으로 되돌릴 수 없다.
+
+```sql
+START TRANSACTION;
+UPDATE tbl_menu SET menu_name = '수정 메뉴' WHERE menu_name = '열무김치라떼';
+SELECT * FROM tbl_menu;
+ROLLBACK; -- 확정하려면 COMMIT
+```
+
+**DDL은 테이블 구조를 정의한다.** `CREATE TABLE IF NOT EXISTS`는 테이블이 없을 때 생성하고 `DESCRIBE`는 컬럼 정의를 확인한다. `AUTO_INCREMENT` 기본 키에 NULL을 넣으면 번호가 자동으로 생성된다.
+
+- `ALTER TABLE ... ADD`: 컬럼 추가 / `DROP COLUMN`: 컬럼 삭제
+- `CHANGE COLUMN 기존명 새이름 타입`: 이름과 정의 변경 / `MODIFY 컬럼명 타입`: 이름을 유지하고 정의 변경
+- `DROP TABLE IF EXISTS`: 테이블 구조와 데이터 삭제
+- `TRUNCATE TABLE`: 구조는 남기고 모든 행을 비운다. 수업 예제에서는 자동 증가 번호도 초기화된다.
+
+## ☘️ 제약 조건과 형변환
+
+**제약 조건은 저장할 수 있는 값을 제한한다.**
+
+- `NOT NULL`: NULL 불가. `UNIQUE`: 중복 불가. 컬럼 또는 테이블 수준에서 지정할 수 있다.
+- `PRIMARY KEY`: 행을 식별하며 NULL과 중복을 허용하지 않는다.
+- `FOREIGN KEY`: 다른 테이블의 키를 참조한다. 참조 값이 없으면 거부되며, NULL 허용 여부는 해당 컬럼 정의에 따른다.
+- `ON UPDATE` / `ON DELETE`: 참조 대상이 변경·삭제될 때의 동작. `SET NULL`은 자식 값을 NULL로 바꾸고, `CASCADE`는 변경을 전파하거나 자식 행도 삭제한다. `SET NULL`을 쓰려면 자식 컬럼이 NULL을 허용해야 한다.
+- `CHECK`: `age >= 19`, `gender IN ('남', '여')`처럼 허용 조건을 지정한다.
+- `DEFAULT`: 컬럼을 생략하거나 `DEFAULT`를 지정할 때 쓸 기본값이다. 수업에서는 국가명, 현재 날짜와 시간을 기본값으로 설정했다.
+
+```sql
+CREATE TABLE user_foreignkey2 (
+  user_no INT PRIMARY KEY,
+  grade_code INT,
+  FOREIGN KEY (grade_code) REFERENCES user_grade(grade_code)
+    ON UPDATE SET NULL ON DELETE SET NULL
+);
+```
+
+**형변환**은 `CAST(값 AS 타입)` 또는 `CONVERT(값, 타입)`으로 명시한다. 예를 들어 `CAST(AVG(menu_price) AS SIGNED INTEGER)`와 `CONVERT(AVG(menu_price), SIGNED)`는 평균을 부호 있는 정수로 변환한다. 날짜 문자열은 `CAST('2026-10-21' AS DATE)`, 가격 문자열은 `CONCAT(CAST(menu_price AS CHAR(5)), '원')`처럼 사용한다. 길이를 지정한 문자 변환은 값이 길면 잘릴 수 있다.
+
+MySQL은 연산할 때 암시적으로 변환하기도 한다. `'1' + '2'`는 숫자 덧셈으로 평가되고, `3 > 'MAY'`처럼 숫자와 문자열을 비교할 때도 변환이 일어나므로 의도한 타입을 명시하는 편이 안전하다.
+
+## ☘️ 인덱스
+
+**인덱스는 조건에 맞는 행을 찾는 데 사용할 수 있는 자료구조다.** 수업에서는 `phone_name`으로 조회하는 계획을 `EXPLAIN`으로 확인하고, 인덱스를 만든 뒤 목록 조회와 삭제를 연습했다. 인덱스 생성이 모든 조회에서 사용됨을 보장하지는 않는다.
+
+```sql
+EXPLAIN SELECT * FROM phone WHERE phone_name = 'iPhone';
+CREATE INDEX idx_phone_name ON phone(phone_name);
+SHOW INDEX FROM phone;
+DROP INDEX idx_phone_name ON phone;
+```
