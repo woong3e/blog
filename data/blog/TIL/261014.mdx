@@ -8,75 +8,48 @@ summary: Object의 동등성 비교와 문자열 처리, StringBuilder, Wrapper�
 
 [소스코드 보기](https://github.com/woong3e/sesac_lecture/commit/4fb848eed72af4bd575be11a7bcfd9adc2d950ad)
 
-## ☘️ 먼저 설명해보세요
+## ☘️ 객체 비교와 문자열 가공
 
-1. 객체와 문자열은 어떻게 비교할까? → [답 확인](#%EF%B8%8F-%EA%B0%9D%EC%B2%B4%EC%99%80-%EB%AC%B8%EC%9E%90%EC%97%B4)
-2. 숫자·날짜는 어떻게 변환할까? → [답 확인](#%EF%B8%8F-wrapper%EC%99%80-%EC%8B%9C%EA%B0%84)
-3. 제네릭은 어떤 실수를 막을까? → [답 확인](#%EF%B8%8F-%ED%83%80%EC%9E%85-%EC%95%88%EC%A0%84%EC%84%B1%EA%B3%BC-%EC%A0%9C%ED%95%9C)
+Object는 Java 클래스의 공통 부모다. toString은 객체를 문자열로 표현하고 equals는 동등성을 판단한다. 기본 객체 비교의 동일성과 업무상 같은 데이터라는 동등성은 다를 수 있다. 수업의 Book은 번호·제목·저자·가격을 기준으로 equals와 hashCode를 재정의하고 toString으로 내용을 확인한다.
 
-## ☘️ 객체와 문자열
+서로 다른 Book 객체라도 필드가 같으면 equals는 true일 수 있지만 `==`는 같은 객체를 가리키는지를 비교한다. equals가 같은 두 객체는 hashCode도 같아야 해시 기반 컬렉션에서 일관되게 다룰 수 있다. 같은 해시값이라는 이유만으로 모든 객체가 같은 것은 아니다.
 
-API는 제공된 클래스·메서드를 사용하는 규칙이다. 모든 Java 클래스는 직접·간접으로 Object를 상속한다.
+**String 가공**
 
-- toString: 기본 클래스명·해시 표현 대신 필드 상태를 보이도록 재정의. 객체를 문자열에 연결할 때도 호출
-- 참조형 ==: 같은 객체인지 / Object 기본 equals도 동일성 비교
-- Book의 재정의 equals: 번호·제목·저자·가격이 같으면 true. null·다른 클래스 제외 후 기본형은 ==, 문자열은 Objects.equals로 null까지 처리
-- equals가 true인 객체는 같은 hashCode 필요. 두 메서드를 같은 필드 기준으로 재정의. 해시값 같음만으로 동등하지는 않음
+수업은 상품 문자열의 앞뒤 공백을 trim으로 제거하고 대문자로 바꾼 뒤, indexOf로 대괄호 위치를 찾고 substring으로 상품 코드를 꺼냈다. indexOf는 없으면 -1을 반환하고 substring의 끝 위치는 포함하지 않는다. replace는 특정 내용을 바꾼 새 문자열을 만든다.
 
-**String은 불변**이다. 같은 리터럴은 풀에서 재사용하지만 new String은 새 객체다. 내용 비교는 equals, null 가능 입력은 `"JAVA".equals(input)`처럼 호출한다. str2 += " mysql"은 새 결과를 재대입하므로 함께 가리키던 str1은 유지된다.
+split은 구분자로 나눈 문자열 배열을 반환한다. 직원 문자열의 연속 구분자 사이 빈 항목은 isEmpty로 확인해 정보 없음으로 표시했다. split의 구분자는 정규식이므로 파일명의 점을 문자 그대로 나누려면 수업처럼 역슬래시로 이스케이프해야 한다. 문자열 자체의 역슬래시도 이스케이프하므로 두 단계 표기를 구분한다. 줄바꿈·탭·따옴표 같은 특별한 문자 역시 이스케이프 표기를 사용한다.
 
-- trim: 앞뒤 공백 / toUpperCase·toLowerCase: 대소문자
-- indexOf: 처음 위치, 없으면 -1 / substring(start,end): end 직전까지
-- replace: 치환 결과 / split: 구분자로 문자열 배열 / isEmpty: 길이 0
-- 상품 코드: 여는 괄호 indexOf+1부터 닫는 괄호 직전 substring. 괄호가 있다는 전제
-- `"100/홍길동/서울//교육부".split("/")`: 연속 구분자 사이 빈 문자열은 isEmpty로 검사해 정보 없음 표시
-- split 구분자는 정규식. 점 자체는 `split("\\.")`로 분리. Java의 `\`가 정규식의 역슬래시 하나가 됨
-- 이스케이프: `\n` 줄바꿈, `\t` 탭, `\"` 따옴표, `\` 역슬래시
+String은 불변이다. 같은 리터럴은 문자열 풀에서 재사용할 수 있지만 new String은 별도 객체다. 내용을 비교하려면 equals를 쓰며 null일 수 있는 변수에서 바로 호출하면 오류가 난다. 수업은 고정 문자열 쪽에서 equals를 호출해 null에도 false를 얻었다. str2에 문자열을 더해 재대입하면 새 문자열을 가리키고 str1이 가리키던 기존 내용은 바뀌지 않는다.
 
-**StringBuilder는 가변**이라 반복 조립에 적합하다. append는 자신을 반환해 체이닝 가능, toString으로 최종 문자열을 얻는다. delete(start,end)는 end 직전 삭제, insert는 삽입, reverse는 역순이다. 같은 객체 내용이 바뀐다.
+## ☘️ StringBuilder와 Wrapper
 
-실습은 str += i와 append를 nanoTime 차이로 비교했다. 길이가 같아도 조립 방식은 다르며 실행 시간은 환경에 따라 달라 고정 수치로 외우지 않는다.
+StringBuilder는 내부 내용을 바꿀 수 있어 여러 번 문자열을 조립하는 데 쓴다. append는 뒤에 추가하고 자신을 반환하므로 호출을 이어 붙일 수 있다. delete는 시작부터 끝 직전까지 제거하고 insert는 지정 위치에 삽입하며 reverse는 순서를 뒤집는다. 마지막에 toString으로 String을 얻는다.
 
-## ☘️ Wrapper와 시간
+수업은 숫자 0~9999를 String의 +=와 StringBuilder의 append로 각각 연결하고 nanoTime 차이를 비교했다. 결과 길이가 같아도 구성 방식이 다르며 실제 실행 시간은 환경과 실행 조건에 따라 달라진다. 출력 수치 하나를 고정 성능 차이로 외우지 않는다.
 
-- Wrapper: int→Integer, double→Double처럼 기본형을 객체로 다룸
-- 파싱: 문자열→숫자. Integer.parseInt·Double.parseDouble은 static이며 기본형 반환
-- 문자열끼리 +는 연결이므로 계산 전 파싱. 숫자→문자열은 String.valueOf
-- 박싱: 기본형→Wrapper / 언박싱: Wrapper→기본형. 자동 변환도 가능
-- Wrapper 참조는 null 가능. **null 언박싱에서 예외**, 기본형은 null 저장 불가. 강의의 반대 주석은 오류
-- Wrapper 값은 equals로 비교하되 호출 변수 null 확인. ==는 참조라 객체 재사용 영향을 받음
+Wrapper는 int를 Integer, double을 Double처럼 객체 형태로 다루는 클래스다. 문자열 키·몸무게를 그냥 더하면 글자 연결이므로 Double.parseDouble로 변환한 뒤 BMI를 계산한다. parse 메서드는 문자열을 기본형 값으로 바꾸며, 반대로 String.valueOf는 숫자를 문자열로 만든다.
 
-**java.time**: LocalDate는 날짜, LocalTime은 시간, LocalDateTime은 둘 다. 시간대는 없으며 필요한 경우 ZonedDateTime·ZoneId 사용을 소개했다.
+기본형을 Wrapper로 감싸는 것이 박싱, 다시 기본형으로 꺼내는 것이 언박싱이다. 자동 변환도 지원한다. Wrapper 변수에는 null이 가능하며 null을 언박싱하면 NullPointerException이다. 원본의 “Wrapper는 null 불가” 주석은 반대다. Wrapper 값 비교는 equals를 사용하되 호출 변수의 null 가능성을 확인한다. `==`는 참조 비교여서 내부 객체 재사용에 영향을 받을 수 있다.
 
-- 불변이라 plus/minus 계산 결과를 받아야 함. minusMinutes 호출만으로 원본 변경 안 됨
-- getYear, getMonth(OCTOBER), getMonthValue(10), getDayOfWeek로 일부 추출
-- isBefore·isAfter·isEqual로 앞뒤·동일 시각 비교. 같은 날짜여도 현재 시각의 초·나노초까지 다르면 동일하지 않음
-- format: 날짜·시간→문자열 / parse: 문자열→해당 날짜·시간 타입
-- DateTimeFormatter 패턴: **HH 24시간 / hh 12시간 / MM 월 / mm 분**. 수업의 hh는 13시를 01시로 보여 HH로 정리
+## ☘️ 날짜와 시간의 계산·표시
+
+LocalDate는 날짜, LocalTime은 시간, LocalDateTime은 둘을 함께 담는다. 이 타입들은 시간대가 없고, 시간대가 필요하면 수업에서 소개한 ZonedDateTime·ZoneId를 별도로 고려한다. 열차 출발 날짜와 시간을 따로 만든 뒤 LocalDateTime으로 합쳤다.
+
+java.time 객체는 불변이므로 minusMinutes(20)은 원본을 바꾸지 않고 계산된 새 값을 돌려준다. 반환값을 받아 도착 마감 시각으로 사용한다. getYear·getMonth·getMonthValue·getDayOfWeek로 일부 정보를 읽으며 getMonth는 월 이름, getMonthValue는 숫자 월이다.
+
+isBefore·isAfter·isEqual로 앞뒤와 같은 시각인지 비교한다. 같은 날짜여도 시·분·초·나노초가 다르면 같지 않다. format은 날짜를 문자열로, parse는 문자열을 날짜로 바꾼다. DateTimeFormatter의 MM은 월, mm은 분이며 HH는 24시간, hh는 12시간이다. 원본의 13시 출발에 hh를 사용하면 01시로 표시되므로 표시 목적에 맞는 패턴을 골라야 한다. 문자열 20261225는 yyyyMMdd 패턴으로 LocalDate로 읽었다.
+
+## ☘️ 제네릭으로 저장 타입 제한하기
+
+NormalBox는 Object를 보관해 여러 타입을 넣지만 꺼낼 때 캐스트가 필요하다. 숫자를 넣고 String으로 캐스트하면 컴파일이 되더라도 실행 시 ClassCastException이다. 제네릭은 사용할 때 타입을 정해 이런 잘못된 저장을 컴파일 단계에서 막는다.
 
 ```java
-DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
-String text = departure.format(formatter);
-LocalDate date = LocalDate.parse("2026-10-14");
+GenericBox<String> stringBox = new GenericBox<>();
+stringBox.setContent("하이");
+String strContent = stringBox.getContent();
 ```
 
-## ☘️ 타입 안전성과 제한
+수업의 GenericBox는 content와 메서드 타입을 T로 선언한다. String으로 사용하면 저장·반환 모두 String이 되어 꺼낼 때 별도 캐스트가 필요 없다. T는 관례적 이름이며 E는 요소, K·V는 키·값을 나타내는 데 자주 쓴다. 생성자의 다이아몬드는 앞의 타입으로 추론한다. 타입 인자는 참조형이므로 int 대신 Integer다.
 
-NormalBox의 Object는 어떤 값도 저장하지만 꺼낼 때 캐스트해야 하며, 숫자를 String으로 잘못 변환하면 **실행 때** 실패한다.
-
-```java
-class GenericBox<T> {
-    private T content;
-    public void setContent(T content) { this.content = content; }
-    public T getContent() { return content; }
-}
-GenericBox<String> box = new GenericBox<>();
-box.setContent("문자열");
-String text = box.getContent(); // 캐스트 불필요
-```
-
-제네릭은 타입을 매개변수화해 재사용하며 잘못된 저장을 **컴파일 때** 막는다. T(Type)·E(Element)·K(Key)·V(Value)는 관례 이름이다. 생성자의 &lt;&gt;는 타입 추론, 타입 인자는 참조형이므로 int 대신 Integer를 쓴다.
-
-`RabbitFarm<T extends Rabbit>`은 Rabbit·그 하위 타입만 받는다. Bunny·DrunkenBunny는 가능, 같은 Animal 계열이어도 Rabbit 하위가 아닌 Snake는 불가다. 수업에서는 Mammal이 Animal 인터페이스를 구현하고 Rabbit이 Mammal을 상속한다.
-
-Bunny로 지정하면 getAnimal 결과도 Bunny로 다루며 실제 Bunny의 cry가 실행된다. **제네릭은 저장·반환 타입, 오버라이딩은 실제 동작**을 정한다.
+RabbitFarm의 `T extends Rabbit`은 Rabbit과 그 하위 타입만 허용한다. Bunny·DrunkenBunny는 가능하지만 Snake는 같은 Animal 계열이어도 Rabbit의 하위가 아니라 불가능하다. 수업에서 Animal은 인터페이스, Mammal은 이를 구현한 클래스다. 타입 인자는 보관·반환 타입을 정하고, 반환 객체의 cry는 실제 객체의 오버라이딩 구현으로 실행된다.
