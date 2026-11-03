@@ -3,79 +3,194 @@ title: 261008 TIL
 date: '2026-10-08'
 tags: ['TIL', 'java']
 draft: false
-summary: 향상된 for문과 배열 정렬, 중복 없는 난수 생성부터 클래스·객체, DTO, 캡슐화와 추상화, 생성자까지 정리했다.
+summary: '배열 정렬은 값의 위치를 바꾸는 절차이고 객체 설계는 데이터와 그 데이터를 다루는 동작을 묶는 과정이다.'
 ---
 
-[소스코드 보기](https://github.com/woong3e/sesac_lecture/commit/816c577868a80cb04ed45a692d9c49d8118c3f7e)
+[소스코드: 261008](https://github.com/woong3e/sesac_lecture/commit/816c577868a80cb04ed45a692d9c49d8118c3f7e)
 
-## ☘️ 먼저 설명해보세요
+배열 정렬은 값의 위치를 바꾸는 절차이고 객체 설계는 데이터와 그 데이터를 다루는 동작을 묶는 과정이다. 두 경우 모두 내부 상태를 어떤 규칙으로 변경하는지 명확해야 한다.
 
-1. 배열 수정과 정렬은 어떻게 할까? → [답 확인](#%EF%B8%8F-%EB%B0%B0%EC%97%B4%EA%B3%BC-%EC%A0%95%EB%A0%AC)
-2. 캡슐화와 추상화는 무엇을 나눌까? → [답 확인](#%EF%B8%8F-%EA%B0%9D%EC%B2%B4%EC%99%80-%EC%97%AD%ED%95%A0)
-3. 생성자는 언제 자동으로 생길까? → [답 확인](#%EF%B8%8F-%EC%83%9D%EC%84%B1%EC%9E%90)
+## ☘️ 교환과 정렬의 과정
 
-## ☘️ 배열과 정렬
+두 값을 교환할 때 한쪽에 먼저 덮어쓰면 원래 값을 잃는다. 임시 변수에 하나를 보관한 뒤 다른 값을 옮기고 마지막에 임시값을 넣는다. 선택 정렬은 아직 정렬하지 않은 구간에서 가장 작은 값을 찾아 현재 위치와 교환한다. 한 회차가 끝날 때 앞쪽 한 칸이 확정된다.
 
-int[]의 향상된 for는 값을 반복 변수에 복사한다. `for (int value : arr) value += 10;`은 원본을 바꾸지 않는다. 수정은 `arr[i] += 10`으로 한다.
+버블 정렬은 이웃한 값을 비교해 순서가 반대면 교환한다. 한 번 끝까지 지나가면 큰 값이 뒤로 이동하므로 다음 회차의 비교 범위를 줄일 수 있다. 아래 두 정렬은 같은 함수를 이름만 바꾼 것이 아니라 비교 대상과 확정되는 위치가 다르다.
 
-- 값 교환: `temp = a; a = b; b = temp;`로 원래 a 보존
-- 선택 정렬: 남은 범위의 최소 위치를 찾아 앞과 교환. 회차마다 **앞쪽 최소값 확정**, 바깥 반복 length-1
-- 버블 정렬: 이웃 비교·교환. 회차마다 **뒤쪽 최대값 확정**, 다음 회차에서 범위를 줄임. j+1 접근 범위 주의
-- `Arrays.sort(arr)`: 원본 int[]를 오름차순 정렬. toString으로 결과 확인
+로또 번호는 범위 안의 난수를 뽑고 이미 뽑은 값인지 검사한다. 중복을 허용하지 않는 조건과 정렬해서 보여 주는 작업은 별개다. seed를 고정한 예제 결과를 실제 매번 달라지는 추첨과 혼동하지 않는다.
 
-**중복 없는 로또**: 1~45 난수 → 이미 저장한 범위만 검사 → 중복 없을 때 저장·index 증가 → 6개가 되면 정렬한다.
+## ☘️ 클래스와 캡슐화
+
+클래스는 객체의 필드와 메서드를 정의하고 new는 실제 객체를 만든다. 객체별로 보관할 값은 필드, 그 값을 다루는 규칙은 메서드로 둔다. private 필드는 외부에서 직접 접근할 수 없게 하고 getter·setter를 통해 허용한 읽기와 변경을 제공한다.
+
+setter의 목적은 단순 대입만이 아니다. Children의 나이에 음수를 넣지 못하게 검사하면 잘못된 상태를 막을 수 있다. 외부에서 필드를 직접 바꾸도록 열어 두면 이 검사 경로를 건너뛸 수 있다.
+
+## ☘️ 생성자와 객체의 협력
+
+생성자는 객체를 만들 때 초기 상태를 정한다. 직접 생성자를 하나라도 작성하면 매개변수 없는 생성자가 자동으로 추가되지 않는다. 필요한 생성 형태를 명시해야 한다. this는 현재 객체를 가리켜 매개변수와 필드 이름이 같을 때 구분한다.
+
+Car는 시동과 속도 규칙을, CarRacer는 운전 요청을 담당한다. 운전자가 자동차 내부 필드를 직접 조작하지 않고 메서드로 요청하면 시동을 걸어야 가속할 수 있다는 조건을 자동차 안에 모을 수 있다. 역할 분리는 파일 개수를 늘리는 것이 아니라 상태 변경 규칙의 위치를 정하는 일이다.
+
+## ☘️ 정렬·객체·캡슐화를 연결하기
+
+다음은 연결된 학습 코드의 핵심 동작을 한 파일에서 확인하도록 정리한 설명용 예제다. 원본 프로젝트 전체를 그대로 옮긴 것은 아니다. 필요한 선언과 실행 부분을 함께 두었으며, 아래 코드만 저장해 흐름을 따라갈 수 있다.
+
+**Main.java**
 
 ```java
-int[] lotto = new int[6];
-int index = 0;
-while (index < lotto.length) {
-    int number = (int) (Math.random() * 45) + 1;
-    boolean duplicate = false;
-    for (int i = 0; i < index; i++) {
-        if (lotto[i] == number) { duplicate = true; break; }
+import java.util.Arrays;
+import java.util.Random;
+
+public class Main {
+  public static void main(String[] args) {
+    int[] values = {2, 5, 4, 6, 1, 3};
+    for (int value : values) value += 10;
+    System.out.println(Arrays.toString(values));
+    for (int i = 0; i < values.length - 1; i++) {
+      int min = i;
+      for (int j = i + 1; j < values.length; j++) if (values[j] < values[min]) min = j;
+      int temp = values[i];
+      values[i] = values[min];
+      values[min] = temp;
     }
-    if (!duplicate) lotto[index++] = number;
+    System.out.println(Arrays.toString(values));
+    int[] bubble = {2, 7, 3, 6, 1, 4};
+    for (int end = bubble.length - 1; end > 0; end--)
+      for (int j = 0; j < end; j++)
+        if (bubble[j] > bubble[j + 1]) {
+          int temp = bubble[j];
+          bubble[j] = bubble[j + 1];
+          bubble[j + 1] = temp;
+        }
+    System.out.println(Arrays.toString(bubble));
+    int[] lotto = new int[6];
+    int index = 0;
+    Random random = new Random(1);
+    while (index < lotto.length) {
+      int number = random.nextInt(45) + 1;
+      boolean duplicate = false;
+      for (int i = 0; i < index; i++)
+        if (lotto[i] == number) {
+          duplicate = true;
+          break;
+        }
+      if (!duplicate) lotto[index++] = number;
+    }
+    Arrays.sort(lotto);
+    System.out.println(Arrays.toString(lotto));
+    Children child = new Children();
+    child.setAge(-10);
+    System.out.println(child.getAge());
+    User empty = new User(), named = new User("user02", "예제 사용자");
+    System.out.println(empty.info() + " / " + named.info());
+    CarRacer racer = new CarRacer();
+    racer.stepAccelerator();
+    racer.startUp();
+    racer.stepAccelerator();
+    racer.turnOff();
+    racer.stepBrake();
+    racer.turnOff();
+  }
 }
-Arrays.sort(lotto);
-```
 
-난수는 매번 생성하고, 중복이면 저장 위치를 유지한다. index는 저장 개수이자 다음 위치다.
+class Children {
+  private int age;
 
-## ☘️ 객체와 역할
-
-- 클래스: 데이터·기능 정의 / 필드: name·age·hobby 등 / 객체: new Member() / 참조 변수: 객체를 가리키는 값 저장
-- 선언 `Member member;`와 생성 `new Member()`는 별개. 연결 후 점으로 필드·메서드 접근
-- DTO(Data Transfer Object): 데이터를 묶어 전달. MemberDTO는 번호·이름·나이·성별·키·활성 여부와 getter/setter 제공. boolean getter는 isActivated
-- 캡슐화: 내부 상태를 감추고 메서드로 접근·검증. private 필드와 getter/setter만 있다고 검증이 자동인 것은 아님
-
-접근 범위는 public(모두), protected(같은 패키지·다른 패키지 상속 규칙), 생략(같은 패키지), private(클래스 내부)다. 최상위 클래스에는 public 또는 생략만 가능하다.
-
-```java
-public void setAge(int age) {
+  public void setAge(int age) {
     if (age >= 0) this.age = age;
-    else { System.out.println("나이는 음수일 수 없습니다."); this.age = 0; }
+    else {
+      System.out.println("나이는 음수일 수 없습니다.");
+      this.age = 0;
+    }
+  }
+
+  public int getAge() {
+    return age;
+  }
+}
+
+class User {
+  private String id, name;
+
+  public User() {}
+
+  public User(String id, String name) {
+    this.id = id;
+    this.name = name;
+  }
+
+  public String info() {
+    return id + ": " + name;
+  }
+}
+
+class Car {
+  private boolean isOn;
+  private int speed;
+
+  public void startUp() {
+    isOn = true;
+  }
+
+  public void go() {
+    if (!isOn) System.out.println("시동을 먼저 걸어주세요");
+    else {
+      speed += 10;
+      System.out.println("속도: " + speed);
+    }
+  }
+
+  public void stop() {
+    if (isOn) speed = 0;
+  }
+
+  public void turnOff() {
+    if (speed > 0) System.out.println("먼저 멈춰주세요");
+    else {
+      isOn = false;
+      System.out.println("시동 종료");
+    }
+  }
+}
+
+class CarRacer {
+  private final Car car = new Car();
+
+  public void startUp() {
+    car.startUp();
+  }
+
+  public void stepAccelerator() {
+    car.go();
+  }
+
+  public void stepBrake() {
+    car.stop();
+  }
+
+  public void turnOff() {
+    car.turnOff();
+  }
 }
 ```
 
-Children.setAge(-10)은 경고 후 0, MemberDTO setter는 값 그대로 저장한다. `this.age`는 필드, age는 매개변수다.
+선택 정렬은 아직 정렬하지 않은 구간에서 가장 작은 값을 찾아 앞과 교환한다. 버블 정렬은 이웃한 두 값을 비교하며 큰 값을 뒤로 보낸다. 두 방법 모두 배열 내부 값을 바꾸므로 입력 배열을 복사해 각각 정렬한다. Children은 필드를 private으로 두고 setter에서 허용하는 나이인지 검사한다. User의 생성자는 객체가 만들어질 때 초기값을 정하며 this는 현재 객체를 가리킨다. CarRacer는 Car를 받아 자동차의 동작을 호출한다. 역할을 나누면 운전자가 자동차의 내부 상태를 직접 바꿀 필요가 줄어든다.
 
-**추상화**는 필요한 특징·기능으로 객체를 표현한다. Application(메뉴) → CarRacer(운전 요청) → Car(상태·동작)로 나눴다. CarRacer가 Car를 가진 has-a 관계다.
+**Main.java 실행 확인 결과**
 
-- 가속: racer.stepAccelerator() → myCar.go(). 시동 ON이면 속도 +10, OFF면 안내
-- stop: 시동 ON·양수 속도면 0 / turnOff: 주행 중이면 먼저 정지 안내 후 시동 유지
-- 사용하는 쪽은 속도를 직접 바꾸지 않고 기능 요청. 캡슐화는 접근·상태 보호, 추상화는 역할·기능 표현에 초점
-
-## ☘️ 생성자
-
-new로 객체를 만들 때 초기 상태를 설정한다. **클래스명과 같고 반환 타입이 없다.** void를 쓰면 일반 메서드가 된다.
-
-```java
-public User() { }
-public User(String id, String pwd, String name) {
-    this.id = id; this.pwd = pwd; this.name = name;
-}
+```text
+[2, 5, 4, 6, 1, 3]
+[1, 2, 3, 4, 5, 6]
+[1, 2, 3, 4, 6, 7]
+[5, 16, 29, 34, 38, 45]
+나이는 음수일 수 없습니다.
+0
+null: null / user02: 예제 사용자
+시동을 먼저 걸어주세요
+속도: 10
+먼저 멈춰주세요
+시동 종료
 ```
 
-인자 없는 생성은 필드 기본값을 유지, 매개변수 생성은 전달값으로 초기화한다. String·enrollDate 같은 참조형은 별도 초기화 없으면 null, int는 0, boolean은 false다. 세 문자열 생성자도 enrollDate는 null로 남는다.
+**실행 방법**
 
-**생성자를 하나도 선언하지 않았을 때만** 컴파일러가 기본 생성자를 추가한다. 매개변수 생성자를 만들고 new User()도 쓰려면 인자 없는 생성자를 직접 작성한다. 매개변수 구성이 다르면 여러 생성자를 둘 수 있다.
+JDK 21 환경에서 파일명을 `Main.java`로 저장한다. 같은 폴더에서 `javac -encoding UTF-8 Main.java`로 컴파일한 뒤 `java -Dfile.encoding=UTF-8 Main`을 실행한다. 글마다 Main 클래스가 있으므로 예제는 서로 다른 폴더에 저장한다.
