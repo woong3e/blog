@@ -3,57 +3,300 @@ title: spring core
 date: '2026-10-26'
 tags: ['spring', 'spring core']
 draft: false
-summary: Spring 컨테이너, 의존성 주입, 빈과 AOP 수업 내용을 장별로 정리했다.
+summary: '객체가 많아지면 누가 객체를 만들고 어떤 구현을 서로 연결할지 관리하는 코드도 늘어난다.'
 ---
 
-[chap01 소스코드](https://github.com/woong3e/sesac_lecture/commit/f7f74a4) · [chap02](https://github.com/woong3e/sesac_lecture/commit/a1c8ab7) · [chap03](https://github.com/woong3e/sesac_lecture/commit/eb9c9c9) · [chap04](https://github.com/woong3e/sesac_lecture/commit/c93a45a) · [chap05](https://github.com/woong3e/sesac_lecture/commit/0b963ce)
+[소스코드: Update 08_spring/chap01-ioc-container lecture materials](https://github.com/woong3e/sesac_lecture/commit/f7f74a4fed0994c6ad6199fc786778ab38550cec) · [소스코드: Update 08_spring/chap02-dependency-injection lecture materials](https://github.com/woong3e/sesac_lecture/commit/a1c8ab71a41689d9e74a005e9053971bd563716d) · [소스코드: Update 08_spring/chap03-di-annotation lecture materials](https://github.com/woong3e/sesac_lecture/commit/eb9c9c90ed6695b2ea384170e913fcefe0e4dcc7) · [소스코드: Update 08_spring/chap04-bean lecture materials](https://github.com/woong3e/sesac_lecture/commit/c93a45ab59445f7b2a1e6588d2179d18e7794e8a) · [소스코드: Update 08_spring/chap05-aop lecture materials](https://github.com/woong3e/sesac_lecture/commit/0b963ce3fb3a5836021141e802404d9086ccb91e)
 
-## ☘️ 먼저 설명해보세요
+객체가 많아지면 누가 객체를 만들고 어떤 구현을 서로 연결할지 관리하는 코드도 늘어난다. Spring의 핵심 기능은 객체의 생성·연결·수명을 컨테이너에서 관리하게 하는 것이다. 업무 메서드를 실행하는 코드와 객체를 준비하는 설정을 나누어 이해한다.
 
-1. 스프링 컨테이너는 빈을 어떻게 등록할까? → [답 확인](#️-chap01-ioc-컨테이너)
-2. 의존하는 객체는 어떻게 주입할까? → [답 확인](#️-chap02-의존성-주입)
-3. AOP는 공통 기능을 어디에 적용할까? → [답 확인](#️-chap05-aop)
+## ☘️ 컨테이너와 빈 등록
 
-## ☘️ chap01 IoC 컨테이너
+컨테이너는 설정에 따라 객체를 만들고 보관한다. 이 관리 대상 객체를 빈이라고 한다. ApplicationContext는 빈을 등록·조회하는 대표 인터페이스다. 생성과 연결의 주도권을 사용하는 코드 바깥으로 옮기는 방식을 IoC, 제어의 역전이라고 부른다.
 
-직접 `new`로 객체를 만들던 예제와 스프링 컨테이너에서 빈을 가져오는 예제를 비교했다. XML 설정에서는 `<bean>`의 id와 클래스, 생성자 인자로 객체를 등록하고 `GenericXmlApplicationContext`에서 `getBean("member", MemberDTO.class)`로 꺼낸다.
+XML에서는 bean의 클래스와 생성자 인수를 적는다. Java 설정에서는 @Configuration 클래스의 @Bean 메서드가 반환한 객체를 등록한다. 컴포넌트 스캔은 지정 범위에서 @Component와 관련 표식이 붙은 클래스를 찾아 등록한다. @Service·@Repository·@Controller는 역할을 드러내는 등록 표식이다. 타입이 존재한다는 이유만으로 모든 객체가 자동 등록되는 것은 아니다.
 
-Java 설정은 `@Configuration` 클래스의 `@Bean` 메서드 반환값을 빈으로 등록한다. `AnnotationConfigApplicationContext`에 설정 클래스를 전달한다. 수업의 section02 실행 코드는 section03 설정을 import하므로, 해당 예제의 설정 클래스를 사용하려던 의도와 다르다.
+아래 XML과 Java 설정은 별도 컨텍스트로 실행된다. XML 컨텍스트의 Member와 Java 설정의 Member를 같은 객체라고 가정하지 않는다. 빈의 공유 범위도 해당 컨테이너를 기준으로 이해해야 한다.
 
-`@ComponentScan`은 지정한 패키지의 `@Component` 등을 찾아 빈으로 등록한다. 이름을 지정하지 않은 `MemberDAO`는 `memberDAO`라는 이름으로 등록된다. `@Controller`, `@Service`, `@Repository`, `@Configuration`도 용도에 따라 사용한다.
+## ☘️ 의존성 주입과 후보 선택
 
-## ☘️ chap02 의존성 주입
+의존성은 객체가 작업할 때 사용하는 다른 객체다. MemoService가 저장을 위해 MemoRepository를 사용하면 저장소에 의존한다. 의존성 주입은 서비스 내부에서 저장소를 고정 생성하지 않고 바깥에서 전달하는 것이다. 생성자 주입은 필요한 객체가 매개변수에 드러나고 생성 시점에 준비된다.
 
-회원이 계좌를 사용하도록 직접 객체를 만들거나, XML의 생성자 인자·프로퍼티와 Java 설정의 `@Bean`을 통해 필요한 객체를 전달했다. Java 설정에서는 `member.setPersonalAccount(accountGenerator())`로 계좌를 연결했다.
+서비스가 인터페이스를 받으면 설정에서 실제 MemoryMemoRepository를 선택할 수 있다. 사용하는 동작과 만드는 방법을 분리하는 이유다. setter 주입은 생성 후 메서드로 연결하고 필드 주입은 필드에 직접 연결한다. 생성자가 하나인 등록 클래스는 생성자 주입에서 @Autowired를 생략할 수 있다.
 
-계층형 예제는 `MemoController` → `MemoService` → `MemoRepository` 순서로 호출하며 메모리 저장소 구현을 주입받는다. 각 객체를 만들고 연결하는 설정과 메서드 호출 흐름을 구분해서 본다.
+같은 타입의 빈이 여러 개이면 후보 선택이 필요하다. @Primary는 기본 우선 후보를, @Qualifier는 특정 후보를 지정한다. 아래는 같은 String 타입의 파이리와 피카츄를 등록하고 명시한 피카츄를 받는다. 실제 학습 코드의 Pokemon 구현 관계를 후보 선택 자체에 집중하도록 줄인 부분이다.
 
-## ☘️ chap03 주입 어노테이션
+## ☘️ 빈 범위·생명주기·설정값
 
-`@Autowired`로 같은 타입의 빈을 필드, setter, 생성자에 주입한다. 생성자가 하나면 `@Autowired`를 생략할 수 있다. 도서 예제는 `@Service`와 `@Repository`를 사용해 서비스와 DAO를 등록한다.
+기본 singleton 범위는 같은 컨테이너에서 같은 빈을 공유한다. prototype은 조회할 때 새 객체를 만든다. 장바구니가 서로 달라야 하는지 같은 값을 공유해야 하는지에 따라 범위를 판단한다. singleton 객체에 변경 가능한 사용자별 상태를 넣으면 서로 영향을 줄 수 있다.
 
-같은 `Pokemon` 타입의 빈이 여러 개일 때 `@Primary`는 우선할 빈을 지정하고 `@Qualifier`는 이름으로 빈을 지정한다. 둘을 함께 쓰면 `@Qualifier`가 우선한다. 컬렉션 주입 예제에서는 같은 타입의 빈들을 목록으로 받는다.
+초기화 메서드는 빈이 준비될 때, 종료 메서드는 컨테이너가 닫힐 때 필요한 작업을 수행한다. 아래 Owner는 가게 열기와 닫기로 시점을 보여 준다. prototype은 생성 이후의 정리까지 singleton과 똑같이 관리된다고 가정하지 않는다.
 
-## ☘️ chap04 빈의 범위와 설정
+@PropertySource는 설정 파일을 읽고 @Value는 그 안의 값을 주입한다. 문자열 가격도 대상 타입이 int이면 변환이 필요하다. 속성 파일의 인코딩을 명시하고 필수 키가 실제로 준비되어 있는지 확인한다.
 
-스프링 빈의 기본 범위인 **singleton**은 같은 빈을 다시 가져올 때 같은 객체를 사용한다. **prototype**은 `getBean()`을 호출할 때마다 새 객체를 만든다. 장바구니 예제로 객체가 같은지와 담긴 상품을 비교했다.
+## ☘️ AOP로 공통 작업 붙이기
 
-`@Bean(initMethod = "openShop", destroyMethod = "closeShop")`으로 생성 후와 컨테이너 종료 전 메서드를 지정했다. 외부 properties는 `@PropertySource`로 등록하고 `@Value`로 값을 필드나 메서드 매개변수에 주입한다. 읽은 문자열은 대상 타입에 맞게 변환된다.
+로그나 시간 측정은 여러 업무에 반복되지만 업무 계산 자체와는 다른 관심사다. AOP는 적용할 메서드 범위와 그 앞뒤에 실행할 공통 작업을 분리한다. Aspect는 공통 처리 묶음, Pointcut은 적용 범위, Advice는 실행할 처리다.
 
-## ☘️ chap05 AOP
+Before는 실행 전, AfterReturning은 정상 반환 후, AfterThrowing은 예외가 밖으로 전달될 때, After는 종료 시 처리한다. Around는 실행 전후를 감싸고 proceed로 실제 대상 메서드를 진행한다. proceed를 호출하지 않으면 원래 업무가 실행되지 않을 수 있다. 결과를 반환하고 예외를 전달하는 의미도 유지해야 한다.
 
-`@Aspect`는 공통 기능과 적용 위치를 정의한다. `@Pointcut`에 서비스 메서드 조건을 이름 붙이고 Advice에서 참조한다.
+Spring의 AOP는 보통 컨테이너가 제공한 프록시를 통해 적용된다. 직접 new로 만든 객체나 같은 객체 내부의 호출은 외부에서 프록시를 통과한 호출과 다를 수 있다. 아래 main은 컨테이너에서 받은 MemoService를 호출해 로그와 업무 결과가 이어지는 것을 확인한다.
+
+## ☘️ 빈 등록·주입·수명·AOP의 전체 연결
+
+서로 다른 학습 프로젝트에 나뉜 빈 등록과 주입, 범위, 생명주기, AOP 동작을 작은 프로젝트 하나로 정리했다. Member의 계좌는 연결 관계만 보도록 문자열로 줄였고 저장소는 메모리를 사용한다. 이는 원본 계좌 업무 로직 전체를 옮긴 예제가 아니다.
+
+**src/main/java/example/Main.java**
 
 ```java
-@Pointcut("execution(* com.ohgiraffers.section01.aop.*Service.*(..))")
-public void serviceMethods() {}
+package example;
 
-@Around("serviceMethods()")
-public Object logExecutionTime(ProceedingJoinPoint joinPoint) throws Throwable {
-    long startTime = System.nanoTime();
-    try { return joinPoint.proceed(); }
-    finally { System.out.println(System.nanoTime() - startTime); }
+import java.util.ArrayList;
+import java.util.List;
+import org.aspectj.lang.ProceedingJoinPoint;
+import org.aspectj.lang.annotation.After;
+import org.aspectj.lang.annotation.AfterReturning;
+import org.aspectj.lang.annotation.AfterThrowing;
+import org.aspectj.lang.annotation.Around;
+import org.aspectj.lang.annotation.Aspect;
+import org.aspectj.lang.annotation.Before;
+import org.aspectj.lang.annotation.Pointcut;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.EnableAspectJAutoProxy;
+import org.springframework.context.annotation.Primary;
+import org.springframework.context.annotation.PropertySource;
+import org.springframework.context.annotation.Scope;
+import org.springframework.context.support.ClassPathXmlApplicationContext;
+
+public class Main {
+  public static void main(String[] args) {
+    try (ClassPathXmlApplicationContext context =
+        new ClassPathXmlApplicationContext("context.xml")) {
+      System.out.println(context.getBean("xmlMember", Member.class).name);
+    }
+    try (AnnotationConfigApplicationContext context =
+        new AnnotationConfigApplicationContext(Config.class)) {
+      Member member = context.getBean(Member.class);
+      System.out.println(member.name + ": " + member.account);
+      MemoService service = context.getBean(MemoService.class);
+      service.add("첫 메모");
+      System.out.println(service.findAll());
+      Cart first = context.getBean("cart", Cart.class),
+          second = context.getBean("cart", Cart.class);
+      first.items.add("붕어빵");
+      System.out.println(first == second);
+      System.out.println(context.getBean("sharedCart") == context.getBean("sharedCart"));
+      System.out.println(context.getBean("selectedPokemon", String.class));
+      System.out.println(context.getBean("product", String.class));
+    }
+  }
+
+  public static class Member {
+    public final String name, account;
+
+    public Member(String name, String account) {
+      this.name = name;
+      this.account = account;
+    }
+  }
+
+  public static class Cart {
+    public final List<String> items = new ArrayList<>();
+  }
+
+  public interface MemoRepository {
+    void save(String value);
+
+    List<String> findAll();
+  }
+
+  public static class MemoryMemoRepository implements MemoRepository {
+    private final List<String> values = new ArrayList<>();
+
+    public void save(String value) {
+      values.add(value);
+    }
+
+    public List<String> findAll() {
+      return new ArrayList<>(values);
+    }
+  }
+
+  public static class MemoService {
+    private final MemoRepository repository;
+
+    public MemoService(MemoRepository repository) {
+      this.repository = repository;
+    }
+
+    public void add(String value) {
+      repository.save(value);
+    }
+
+    public List<String> findAll() {
+      return repository.findAll();
+    }
+  }
+
+  public static class Owner {
+    public void openShop() {
+      System.out.println("가게 열기");
+    }
+
+    public void closeShop() {
+      System.out.println("가게 닫기");
+    }
+  }
+
+  @Configuration
+  @EnableAspectJAutoProxy
+  @PropertySource(value = "classpath:demo.properties", encoding = "UTF-8")
+  public static class Config {
+    @Bean
+    public Member member() {
+      return new Member("예제 사용자", "설명용 계좌");
+    }
+
+    @Bean
+    public MemoRepository repository() {
+      return new MemoryMemoRepository();
+    }
+
+    @Bean
+    public MemoService service(MemoRepository repository) {
+      return new MemoService(repository);
+    }
+
+    @Bean
+    @Scope("prototype")
+    public Cart cart() {
+      return new Cart();
+    }
+
+    @Bean
+    public Cart sharedCart() {
+      return new Cart();
+    }
+
+    @Bean(initMethod = "openShop", destroyMethod = "closeShop")
+    public Owner owner() {
+      return new Owner();
+    }
+
+    @Bean
+    @Primary
+    public String charmander() {
+      return "파이리";
+    }
+
+    @Bean
+    public String pikachu() {
+      return "피카츄";
+    }
+
+    @Bean
+    public String selectedPokemon(@Qualifier("pikachu") String pokemon) {
+      return pokemon;
+    }
+
+    @Bean
+    public String product(
+        @Value("${product.name}") String name, @Value("${product.price}") int price) {
+      return name + ": " + price;
+    }
+
+    @Bean
+    public LoggingAspect loggingAspect() {
+      return new LoggingAspect();
+    }
+  }
+
+  @Aspect
+  public static class LoggingAspect {
+    @Pointcut("execution(* example.Main.MemoService.*(..))")
+    public void serviceMethods() {}
+
+    @Before("serviceMethods()")
+    public void before() {
+      System.out.println("메서드 실행 전");
+    }
+
+    @AfterReturning("serviceMethods()")
+    public void success() {
+      System.out.println("정상 반환 후");
+    }
+
+    @AfterThrowing("serviceMethods()")
+    public void failure() {
+      System.out.println("예외 발생 후");
+    }
+
+    @After("serviceMethods()")
+    public void after() {
+      System.out.println("메서드 종료");
+    }
+
+    @Around("serviceMethods()")
+    public Object around(ProceedingJoinPoint point) throws Throwable {
+      long started = System.nanoTime();
+      try {
+        return point.proceed();
+      } finally {
+        System.out.println("시간 측정 완료: " + (System.nanoTime() >= started));
+      }
+    }
+  }
 }
 ```
 
-`@Before`는 실행 전, `@AfterReturning`은 정상 반환 후, `@AfterThrowing`은 예외를 던진 뒤, `@After`는 종료 시 실행한다. 반환값과 예외를 받는 속성 이름은 Advice 매개변수 이름과 맞춘다. `@Around`에서는 `proceed()`를 호출해야 원래 메서드가 실행된다.
+**src/main/resources/context.xml**
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.springframework.org/schema/beans https://www.springframework.org/schema/beans/spring-beans.xsd">
+  <bean id="xmlMember" class="example.Main$Member"><constructor-arg index="0" value="예제 사용자" /><constructor-arg index="1" value="XML" /></bean>
+</beans>
+```
+
+**src/main/resources/demo.properties**
+
+```text
+product.name=붕어빵
+product.price=1000
+```
+
+XML 컨텍스트는 context.xml의 생성자 인수를 읽어 Member를 만든다. Java 설정 컨텍스트는 @Bean 메서드의 반환 객체를 관리한다. MemoService는 생성자에서 MemoRepository를 받아 자신의 처리에 사용하므로 저장소 생성 방법을 알 필요가 없다. cart는 prototype으로 조회할 때마다 다른 객체이며 sharedCart는 같은 컨텍스트에서 같은 객체다. Owner의 초기화 메서드는 빈 준비 시, 종료 메서드는 컨텍스트를 닫을 때 호출된다.
+
+기본 우선 후보는 @Primary의 파이리지만 selectedPokemon은 @Qualifier로 피카츄를 명시해 받는다. @Value는 properties의 문자열을 읽고 price는 int로 변환한다. AOP는 MemoService 호출을 가로채 업무 앞뒤에 로그를 붙인다. Around의 proceed가 실제 업무를 실행하고 finally는 정상·예외 모두에서 시간 측정 정리를 수행한다. 같은 호출의 Before·AfterReturning·After 출력은 실행 경계를 구분한다. 예외가 나면 AfterReturning 대신 AfterThrowing의 대상이 된다. 현재 main은 정상 경로를 실행한다.
+
+실행 확인 출력:
+
+```text
+예제 사용자
+가게 열기
+예제 사용자: 설명용 계좌
+메서드 실행 전
+정상 반환 후
+메서드 종료
+시간 측정 완료: true
+메서드 실행 전
+정상 반환 후
+메서드 종료
+시간 측정 완료: true
+[첫 메모]
+false
+true
+피카츄
+붕어빵: 1000
+가게 닫기
+```
+
+실행 결과에서 XML 회원 출력 뒤 가게 열기가 나타나고, 서비스 호출마다 실행 전·정상 반환·종료·시간 측정 로그가 이어졌다. 메모 목록은 [첫 메모], prototype 참조 비교는 false, singleton 비교는 true, 선택 후보는 피카츄, 설정값은 붕어빵: 1000이었다. 컨텍스트 종료 시 가게 닫기가 출력됐다.
+
+**실행 방법**
+
+JDK 21과 Gradle 환경에서 표시한 파일을 저장하고 프로젝트 루트에서 `gradle run`을 실행한다. 라이브러리를 처음 받을 때 인터넷이 필요하다. Spring 버전은 학습 프로젝트의 설정을 따른다.
