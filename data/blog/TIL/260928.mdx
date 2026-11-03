@@ -8,15 +8,11 @@ summary: Props Drilling을 Zustand로 줄이고, 상태 영속화와 비동기 �
 
 [소스코드 보기 1](https://github.com/woong3e/sesac_lecture/commit/0cd3e931b8b641e8a3d27fcef88462d7b4fe0e5c) · [소스코드 보기 2](https://github.com/woong3e/sesac_lecture/commit/02620ee4cd8c4fd8b3b6b92bc1fff66d41e7d8ce)
 
-## ☘️ 먼저 설명해보세요
+## ☘️ 공유 상태와 Zustand store
 
-1. Zustand는 상태를 어떻게 공유할까? → [답 확인](#%EF%B8%8F-%EA%B3%B5%EC%9C%A0-%EC%83%81%ED%83%9C%EC%99%80-store)
-2. 새로고침 뒤 상태를 유지하려면? → [답 확인](#%EF%B8%8F-%EB%B0%B0%EC%97%B4%EA%B3%BC-%EC%98%81%EC%86%8D%ED%99%94)
-3. 서버 요청과 CRUD는 어떻게 관리할까? → [답 확인](#%EF%B8%8F-%EB%B9%84%EB%8F%99%EA%B8%B0%EC%99%80-%EC%84%9C%EB%B2%84-%EB%8D%B0%EC%9D%B4%ED%84%B0)
+서로 떨어진 컴포넌트가 같은 값을 써야 할 때 부모가 state를 갖고 props로 전달할 수 있다. 하지만 중간 컴포넌트가 직접 쓰지도 않는 값을 계속 전달하면 연결 단계가 길어진다. 이를 Props Drilling이라고 한다. 수업은 page → Child → GrandChild로 count와 setter를 전달하는 구조를 외부 store를 사용하는 구조와 비교했다.
 
-## ☘️ 공유 상태와 store
-
-Props Drilling은 사용하지 않는 중간 컴포넌트도 props를 계속 전달하는 상황이다. page → Child → GrandChild의 count·setter 전달을 외부 store 구독으로 바꿨다.
+Zustand의 store는 여러 컴포넌트가 함께 사용할 상태와 상태 변경 함수를 보관하는 공간이다. create로 상태를 읽을 Hook을 만들고 필요한 컴포넌트가 그 Hook을 사용한다.
 
 ```js
 export const useStore = create((set) => ({
@@ -28,52 +24,34 @@ export const useStore = create((set) => ({
 }))
 ```
 
-- create로 상태·액션을 가진 Hook 생성. 필요한 컴포넌트가 같은 store 사용
-- set은 최상위 얕은 병합. text만 바꿔도 count·액션 유지
-- 이전 값으로 계산할 때 함수형 set, 새 값 지정은 객체 전달
-- 전체 store 대신 `useStore(state => state.count)`처럼 필요한 값만 구독
-- Client Component 지시문은 `'use client'`. 원본 `'usec client'`는 오타
+count와 text는 데이터이고 increase 등은 변경 동작인 액션이다. set은 전달한 최상위 항목을 기존 상태와 얕게 합친다. text만 바꿔도 count와 다른 액션이 지워지지 않는다. 이전 값으로 계산할 때는 현재 state를 받는 함수를 전달한다. 필요한 값만 선택해 구독하면 관련 없는 변경에 대한 반응을 줄일 수 있다.
 
-## ☘️ 배열과 영속화
+상태가 바뀌면 그 상태를 구독한 화면도 새 값을 표시한다. 중간 Child가 count를 다시 전달할 필요가 없다. 원본 GrandChild의 `'usec client'`는 `'use client'` 오타이며 유효한 클라이언트 지시문이 아니다.
 
-사용자(useUserStore)·장바구니(useCartStore)·모달/사이드바(useUIStore)로 관심사를 나눴다.
+## ☘️ 관심사별 store와 저장 상태 복원
 
-```js
-// store 액션의 핵심
-addItem: item => set(state => ({ items: [...state.items, item] })),
-removeItem: id => set(state => ({ items: state.items.filter(item => item.id !== id) })),
-clearCart: () => set({ items: [] }),
-```
+고급 실습은 사용자, 장바구니, 모달·사이드바 상태를 별도 store로 나눴다. 각각 어떤 데이터를 관리하고 어떤 액션을 제공하는지 한곳에서 확인할 수 있다. 장바구니 추가는 기존 배열을 펼친 새 배열, 전체 삭제는 빈 배열을 전달한다.
 
-원본 filter는 중괄호 안에 return이 없어 전부 삭제됐다. 식을 바로 반환하거나 return을 명시한다.
+개별 삭제의 원본 filter는 중괄호 안에서 비교만 하고 return하지 않는다. filter는 반환값이 참인 항목만 남기므로 이 코드는 모든 항목을 제거한다. 비교 결과를 반환해야 지정 id만 제외할 수 있다. 사용자 화면은 login·logout을 호출하지만 store의 두 구현은 주석 처리되어 있어 이름만 맞춘 것으로는 동작하지 않는다.
 
-메모리 store는 새로고침 시 초기화된다. `persist(상태 생성 함수, { name: 'theme-storage' })`로 테마를 기본 localStorage에 저장하고 light·dark를 토글했다.
+**영속화(persist)**
 
-서버는 localStorage를 알 수 없어 첫 화면이 다를 수 있다. 실습은 isMounted=false로 같은 로딩 화면 → 마운트 Effect에서 true → 테마 표시 순서다. **마운트와 저장 상태 복원 완료는 별개**이며 비동기 저장소는 복원 상태도 확인해야 한다.
+메모리에만 둔 상태는 새로고침으로 앱이 다시 시작되면 초기화된다. persist는 테마 상태를 브라우저 저장소에 저장하고 다시 읽는 데 사용한다. 수업의 theme-storage는 localStorage에서 구분하는 이름이고 테마는 light와 dark 사이를 전환한다.
 
-## ☘️ 비동기와 서버 데이터
+서버에는 브라우저의 localStorage가 없으므로 처음 만든 화면과 브라우저가 복원한 화면이 다를 수 있다. 이 차이는 hydration, 즉 서버가 만든 화면에 브라우저 동작을 연결하는 단계에서 문제가 된다. 실습은 첫 렌더링에는 같은 로딩 화면을 보여 주고 마운트 Effect 후 테마를 표시한다. 마운트가 끝난 것과 비동기 저장소의 복원이 끝난 것은 별개의 상태다.
 
-Zustand fetchUser는 loading 켜기 → 요청 → user 저장 → finally에서 loading 끄기다. Effect에서 액션을 호출하고 상태로 화면을 나눴다. 원본은 ok 검사·화면 에러가 빠졌고, 호출부 login/logout은 store에서 주석 처리되어 이름·구현 일치도 확인해야 한다.
+## ☘️ 비동기 액션과 TanStack Query
 
-TanStack Query는 API 데이터의 요청 상태·캐시를 관리한다. Providers에 QueryClientProvider를 두고 `useState(() => new QueryClient())`로 클라이언트를 유지했다.
+사용자 요청 액션은 loading을 true로 설정 → fetch 요청 → JSON 읽기 → user 저장 → finally에서 loading을 false로 바꾸는 순서다. 화면은 Effect에서 액션을 호출하고 로딩 여부와 user 유무를 표시한다. 원본은 HTTP 성공 여부 검사와 오류 state가 없어 네트워크 실패가 콘솔에만 남는 부분이 있다.
 
-```jsx
-const { data, isLoading, isFetching, isError, error, refetch } = useQuery({
-  queryKey: ['users'],
-  queryFn: fetchUsers,
-})
-```
+TanStack Query는 서버 데이터 요청의 결과와 진행 상태, 캐시를 관리한다. 캐시는 이전 결과를 보관해 다시 사용하는 저장 공간이다. QueryClient는 그 데이터를 관리하고 QueryClientProvider는 하위 컴포넌트에 공급한다. 수업은 useState의 초기화 함수로 QueryClient를 한 번 마련해 렌더링마다 새 객체를 만들지 않게 했다.
 
-- queryKey: 캐시 식별 / queryFn: 데이터 반환 또는 오류 throw
-- isLoading: 실습의 데이터 없는 최초 로딩 / isFetching: 기존 데이터가 있어도 재요청 중이면 true
-- refetch(): 같은 쿼리 재요청. 사용자 목록·상세는 별도 키로 구분
+useQuery에 queryKey와 queryFn을 전달한다. queryKey는 어떤 데이터를 보관하는지 구분하는 이름이고 queryFn은 데이터를 반환하거나 실패를 던지는 함수다. 목록과 특정 사용자는 서로 다른 키로 구분해야 한다. isLoading으로 최초 로딩을 표시하고, 기존 데이터가 있더라도 요청 중이면 isFetching으로 최신 데이터 확인을 표시한다. isError와 error로 실패를 보여 주고 refetch로 같은 요청을 다시 실행한다.
 
-**게시글 CRUD**는 별도의 useState 예제다. json-server의 db.json을 쓰고 postAPI에 통신을 분리했다.
+## ☘️ 게시글 CRUD의 요청 흐름
 
-- 목록: `GET /posts` / 등록: `POST /posts`
-- 수정: `PATCH /posts/ID` / 삭제: `DELETE /posts/ID`
-- 등록·수정 본문: Content-Type application/json + JSON.stringify
-- API 함수에서 response.ok 확인·오류 throw, 화면에서 try-catch
-- 변경 후 loadPosts()로 재조회. 이 실습은 Query mutation과 연결된 구조가 아님
+CRUD는 생성·조회·수정·삭제다. 수업의 게시글 실습은 json-server의 posts를 대상으로 postAPI에 통신을 모으고 화면은 useState로 관리한다. 이 예제는 Query의 mutation에 연결된 구조가 아니다.
 
-참고: [Zustand create](https://zustand.docs.pmnd.rs/reference/apis/create) · [Zustand persist와 상태 복원](https://zustand.docs.pmnd.rs/reference/integrations/persisting-store-data) · [TanStack Query 쿼리](https://tanstack.com/query/v5/docs/framework/react/guides/queries)
+조회는 GET, 등록은 POST, 일부 수정은 PATCH, 삭제는 DELETE를 사용한다. 등록·수정은 Content-Type을 application/json으로 지정하고 JSON.stringify로 객체를 요청 본문 문자열로 만든다. 각 API 함수는 response.ok가 아니면 오류를 던져 화면의 catch가 처리하게 한다.
+
+목록 로딩은 loading 시작과 이전 오류 초기화 → getPosts → posts 저장 → 성공·실패 뒤 loading 종료 순서다. 등록·수정·삭제 성공 후 loadPosts를 다시 호출하므로 서버에 반영된 최신 목록을 화면에 보여 준다. 삭제는 사용자 확인 후 실행한다. 원본 삭제 실패 문구는 “게시글 수정 실패”로 되어 있어 실제 작업과 안내가 맞지 않는 보완점이 있다.
