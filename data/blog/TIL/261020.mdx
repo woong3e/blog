@@ -8,186 +8,79 @@ summary: SQL 조회·조인·집계의 차이와 데이터 변경 시 주의할 
 
 [소스코드 보기: 조회와 DML](https://github.com/woong3e/sesac_lecture/commit/22ac321e1e4680165e13cad1f2b79274cd2a1bb2) · [트랜잭션부터 인덱스까지](https://github.com/woong3e/sesac_lecture/commit/6e6fe0c57da78599aa4ebd10ad5744a824d34e5f)
 
-## ☘️ 먼저 설명해보세요
+## ☘️ 테이블에서 원하는 데이터 조회하기
 
-1. WHERE와 HAVING은 언제 쓸까? → [답 확인](#️-조회와-집계)
-2. JOIN과 UNION은 어떻게 다를까? → [답 확인](#️-조인과-서브쿼리)
-3. 트랜잭션과 제약 조건은 어떤 역할을 할까? → [답 확인](#️-트랜잭션과-테이블-정의)
+관계형 데이터베이스는 데이터를 테이블로 보관한다. 열(컬럼)은 이름·가격 같은 항목, 행은 메뉴 하나 같은 개별 데이터다. SQL은 이 데이터를 조회하고 변경하며 저장 구조를 정의하는 언어다. 수업은 메뉴·분류 테이블로 기본 문법을 익히고 직원·부서·직급 데이터로 관계 조회를 연습했다.
 
-## ☘️ 조회와 집계
+**SELECT와 조건**
 
-**조회는 행을 고르고, 집계는 행을 묶어 계산한다.**
+SELECT에는 가져올 열을, FROM에는 읽을 테이블을 쓴다. 여러 열은 쉼표로 나열하며 `*`는 모든 열이다. AS로 결과 열에 별칭을 붙일 수 있다. 수업에서는 숫자 계산, NOW로 현재 시각, CONCAT으로 문자열 연결도 조회했다.
 
-- `SELECT`: 볼 컬럼 / `FROM`: 테이블 / `WHERE`: 행 조건
-- `SELECT *`: 모든 컬럼. 테이블 없이 `SELECT 6 + 3`, `NOW()`, `CONCAT('홍', '길동')`처럼 계산·함수 조회도 가능. `AS`는 결과 별칭
-- `ORDER BY`: 정렬. `ASC`는 오름차순, `DESC`는 내림차순
-- `DISTINCT`: 중복 제거. 여러 컬럼이면 값의 조합을 기준으로 판단
-- `LIMIT 1, 4`: 첫 행을 건너뛰고 최대 4행 조회
+WHERE는 조건이 참인 행을 남긴다. `=`, `<>`, `>`, `<`, `>=`, `<=`로 비교하며 AND는 둘 다, OR는 하나 이상을 만족하는 조건이다. AND가 OR보다 먼저 처리되므로 의도한 묶음에 괄호를 쓴다.
 
-**조건 고르기**
+BETWEEN은 양 끝을 포함한다. 수업의 10000~25000 조건에서 미만·초과만 원하면 별도의 `<`와 `>`로 표현해야 한다. NOT BETWEEN은 그 범위 밖이다. LIKE는 문자열 패턴을 찾고 `%마늘%`는 어느 위치든 마늘을 포함하는 이름, 앞이나 뒤의 % 하나는 끝 또는 시작 조건을 만든다. IN은 괄호 안 후보 중 하나인지 검사하고 NOT IN은 후보 제외다.
 
-- `=`, `<>`, `>`, `<=`: 같음·다름·크기 비교. `AND`는 모두 만족, `OR`는 하나 이상 만족
-- `BETWEEN 10000 AND 25000`: 양 끝을 포함한 범위. `NOT BETWEEN`은 범위 밖
-- `LIKE '%마늘%'`: 마늘 포함. `'마늘%'`는 시작, `'%마늘'`은 끝. `%`는 0개 이상의 문자
-- `IN (4, 5, 6)`: 목록에 포함. `NOT IN`, `NOT LIKE`는 해당 조건 제외
-- `IS NULL` / `IS NOT NULL`: NULL 여부. `= NULL`로 검사하지 않는다.
+NULL은 값이 없거나 알 수 없다는 상태다. 일반 등호 대신 IS NULL·IS NOT NULL로 확인한다. 숫자 0이나 빈 문자열과 같은 값으로 취급하지 않는다.
 
-`AND`가 `OR`보다 먼저 계산된다. `1 OR 0 AND 0`은 1, `(1 OR 0) AND 0`은 0이므로 의도한 묶음에 괄호를 쓴다.
+**정렬·중복·개수 제한**
 
-**정렬 기억하기**
+ORDER BY의 ASC는 오름차순이며 생략할 수 있다. DESC는 내림차순이다. 가격 내림차순 뒤 이름 오름차순을 쓰면 가격이 같은 행만 이름으로 다시 정렬한다. 계산식의 별칭도 정렬 기준으로 쓸 수 있다. ORDER BY가 없으면 원하는 순서가 유지된다고 가정하지 않는다.
 
-`ORDER BY menu_price DESC, menu_name ASC`는 가격 내림차순 → 같은 가격끼리 이름 오름차순이다. 계산식에 붙인 별칭도 정렬 기준으로 쓸 수 있다.
+FIELD는 값이 지정한 목록에서 몇 번째인지 반환하므로 N을 먼저, Y를 나중으로 정렬하는 데 사용했다. NULL 위치는 IS NULL의 참·거짓을 첫 기준으로 정하고 값 자체를 둘째 기준으로 정렬했다.
 
-- `FIELD('B', 'A', 'B', 'C')`는 2. `ORDER BY FIELD(orderable_status, 'N', 'Y')`로 N → Y 순서를 지정한다(값이 N·Y인 경우).
-- `ORDER BY ref_category_code IS NULL, ref_category_code`: NULL 아닌 행부터 정렬. `IS NULL DESC`면 NULL 먼저
-- `DISTINCT category_code, orderable_status`: 두 값이 모두 같은 조합만 중복 제거
-- `ORDER BY menu_price DESC LIMIT 5`: 비싼 메뉴 최대 5개. `LIMIT`은 정렬 뒤에 작성
+DISTINCT는 선택한 열의 중복 조합을 제거한다. 열 두 개면 한 열만 같은 것으로는 제거하지 않는다. LIMIT 5는 다섯 행, LIMIT 1,4는 한 행을 건너뛴 다음 네 행이다. 원하는 상위 데이터를 제한하려면 정렬 기준도 함께 지정한다.
 
-**그룹으로 계산하기**
+## ☘️ 여러 행을 집계하고 테이블 연결하기
 
-```sql
-SELECT category_code, COUNT(*) AS menu_count
-FROM tbl_menu
-WHERE orderable_status = 'Y'
-GROUP BY category_code
-HAVING COUNT(*) >= 3;
-```
+GROUP BY는 같은 기준값의 행을 묶는다. COUNT(\*)는 행 수, SUM은 합계, AVG는 평균을 계산한다. 수업은 분류별 메뉴 수·가격 합·평균을 구했다. 그룹 결과에서는 어떤 값을 보여 줄지 명확하도록 그룹 기준이나 집계식을 선택한다.
 
-주문 가능한 메뉴를 고르고 → 카테고리별로 묶고 → 메뉴가 3개 이상인 그룹만 남긴다.
+WHERE는 그룹화 전에 개별 행을 거르고 HAVING은 만들어진 그룹의 집계 결과를 거른다. 메뉴가 세 개 이상인 분류는 HAVING COUNT(\*) 조건이다. WITH ROLLUP은 그룹 단계에 따른 소계·총계를 추가한다. 합계 표시의 NULL과 실제 데이터의 NULL도 문맥으로 구분해야 한다.
 
-**WHERE는 그룹화 전의 행, HAVING은 집계 후의 그룹을 거른다.** `COUNT(*)`는 행 수, `SUM()`은 합계, `AVG()`는 평균이다. `WITH ROLLUP`을 붙이면 그룹 기준에 따른 소계·총계도 나온다.
+**JOIN**
 
-조회 컬럼은 그룹 기준이나 집계 값으로 구성한다. 카테고리별 집계에 개별 `menu_code`를 그대로 넣으면 어떤 메뉴를 대표하는지 불분명하다.
+JOIN은 여러 테이블의 행을 조건에 따라 연결한다. 메뉴의 category_code와 분류의 category_code가 같다는 ON 조건으로 이름과 분류명을 함께 읽는다. 테이블 별칭은 열의 소속을 짧고 분명하게 보여 준다. 별칭 자체가 모든 JOIN의 필수 문법인 것은 아니지만 같은 테이블을 여러 역할로 쓸 때는 구분이 필요하다.
 
-`GROUP BY menu_price, category_code WITH ROLLUP`은 가격·카테고리별 합계 → 가격별 소계 → 총계 순으로 집계한다. 소계는 `category_code`, 총계는 두 그룹 컬럼이 NULL로 표시된다. 그룹 기준이 하나면 그룹별 합계와 총계를 구한다.
+INNER JOIN은 조건에 맞는 짝이 있는 행을 남긴다. LEFT JOIN은 왼쪽 행을 모두 유지하고 오른쪽 짝이 없으면 오른쪽 열을 NULL로 채운다. RIGHT JOIN은 반대로 오른쪽을 유지한다. 조건이 여러 짝을 만들면 한 행이 여러 결과 행으로 나타날 수 있어 단순히 “교집합”이라는 말만으로 행 수를 판단하지 않는다.
 
-## ☘️ 조인과 서브쿼리
+SELF JOIN은 같은 테이블을 서로 다른 역할로 연결하는 것이다. 분류 테이블의 하위 분류 ref_category_code와 상위 분류 category_code를 연결했고, 직원 예제에서는 직원과 관리자를 각각 별칭으로 구분했다. 관리자 번호가 있는 행 수와 실제 관리자 행에 연결되는 수는 참조 대상 존재 여부에 따라 다를 수 있다.
 
-**JOIN은 테이블을 옆으로 연결하고, UNION은 조회 결과를 아래로 합친다.**
+## ☘️ 서브쿼리와 결과 합치기
 
-- `INNER JOIN`: 연결 조건에 맞는 행만 남긴다.
-- `LEFT JOIN`: 왼쪽 행을 모두 남기고, 연결할 오른쪽 값이 없으면 NULL로 채운다. `RIGHT JOIN`은 반대다.
-- `SELF JOIN`: 같은 테이블에 서로 다른 별칭을 붙여 연결한다.
-- `UNION`: 합친 결과의 중복 제거. `UNION ALL`은 중복 유지.
+서브쿼리는 다른 SQL 안에 들어 있는 조회다. 민트미역국의 분류를 먼저 찾아 그 값으로 같은 분류 메뉴를 고르는 데 썼다. 등호 오른쪽의 단일값 서브쿼리는 그 자리에 맞는 결과 개수를 반환해야 한다.
 
-`ON`은 연결 조건이다. `tbl_menu m`의 `m`은 테이블 별칭(`AS` 생략)이며 컬럼의 소속을 구분한다. 일반 조인에서 별칭은 필수가 아니지만 셀프 조인에서는 역할을 구분해야 한다.
+FROM 안의 서브쿼리는 조회 결과를 테이블처럼 사용한다. 분류별 메뉴 수를 먼저 구한 뒤 바깥에서 MAX를 계산하면 가장 큰 분류의 메뉴 수를 얻는다. 이런 파생 테이블에는 별칭을 지정한다. 상관 서브쿼리는 바깥 행의 분류 코드를 참조해 해당 분류 평균보다 비싼 메뉴인지 검사한다.
 
-```sql
-SELECT c.category_name, m.menu_name
-FROM tbl_category c
-LEFT JOIN tbl_menu m ON c.category_code = m.category_code;
-```
+UNION은 두 조회 결과를 위아래로 합치고 중복 행을 제거한다. UNION ALL은 중복도 유지한다. 대응하는 열 수와 타입이 맞아야 한다. JOIN이 관련 열을 옆으로 연결하는 것과 구분한다. 수업은 10번 분류이면서 9000원 미만인 메뉴를 IN으로 공통 조건에 남기고, LEFT JOIN 후 오른쪽 키가 NULL인 행으로 차집합도 표현했다.
 
-메뉴가 없는 카테고리도 남는다. 이때 `m.menu_name`은 NULL이다.
+## ☘️ 데이터 변경과 트랜잭션
 
-상·하위 카테고리는 `tbl_category a JOIN tbl_category b ON a.ref_category_code = b.category_code`로 연결한다. `a`는 하위, `b`는 상위이며, INNER JOIN이므로 상위가 없는 행은 제외된다.
+INSERT는 행을 추가한다. 열 목록을 지정하면 그 순서대로 값을 넣고, 생략하면 전체 열 순서를 맞춰야 한다. 여러 행은 VALUES 뒤의 괄호 묶음을 쉼표로 연결한다. 수업은 메뉴를 등록하며 자동 번호 자리에 NULL을 사용했다.
 
-**서브쿼리는 SQL 안의 조회문이다.** 조건에 값을 전달하거나, `FROM`에서 테이블처럼 쓸 수 있다. `FROM` 안의 서브쿼리에는 별칭이 필요하다.
+UPDATE는 SET에 바꿀 내용, WHERE에 대상을 쓴다. DELETE는 WHERE로 고른 행을 지운다. 같은 조건의 SELECT로 대상을 먼저 확인한 뒤 변경하면 실수를 줄일 수 있다. WHERE를 생략하면 모든 행이 대상이다. REPLACE는 기본 키나 고유 키가 충돌할 때 기존 행을 삭제하고 새로 넣는 동작이므로 일부 열만 고치는 UPDATE와 다르다.
 
-- **조건의 서브쿼리**: `WHERE category_code = (SELECT category_code FROM tbl_menu WHERE menu_name = '민트미역국')` → 같은 카테고리 메뉴 조회. `=` 오른쪽은 단일 값이어야 한다.
-- **파생 테이블**: `FROM (SELECT COUNT(*) AS menu_count FROM tbl_menu GROUP BY category_code) AS counts` → 카테고리별 메뉴 수를 테이블처럼 사용. 바깥에서 `MAX(menu_count)`를 구하면 최대 메뉴 수이며, 카테고리 코드 자체는 아니다.
-- **상관 서브쿼리**: 바깥 행을 참조해 해당 행에 맞는 기준으로 비교한다.
+**트랜잭션**은 함께 성공하거나 함께 취소해야 하는 작업 묶음이다. MySQL의 자동 커밋이 켜져 있으면 일반적으로 각 문장의 변경이 바로 확정된다. 수업은 autocommit을 끄고 START TRANSACTION 뒤 메뉴 추가·수정·삭제를 수행해 현재 연결에서 결과를 확인했다. ROLLBACK하면 아직 확정하지 않은 변경을 취소하고 COMMIT하면 확정한다. 이미 커밋한 변경을 이후 ROLLBACK으로 되돌릴 수는 없다. 실습 종료 시 autocommit을 다시 켰다.
 
-```sql
-SELECT a.menu_name, a.menu_price
-FROM tbl_menu a
-WHERE a.menu_price > (
-    SELECT AVG(b.menu_price)
-    FROM tbl_menu b
-    WHERE b.category_code = a.category_code
-);
-```
+## ☘️ 테이블 구조와 저장 규칙
 
-자기 카테고리의 평균보다 비싼 메뉴를 찾는다. 안쪽에서 바깥 행의 `a.category_code`를 참조하므로 **상관 서브쿼리**다.
+DDL은 CREATE·ALTER·DROP처럼 구조를 정의하는 명령이다. CREATE TABLE IF NOT EXISTS는 없을 때 테이블을 만든다. DESCRIBE로 열 정의를 확인하고 AUTO_INCREMENT는 새 행의 번호를 자동 생성한다. ALTER의 ADD는 열 추가, DROP COLUMN은 열 제거, CHANGE COLUMN은 이름을 포함한 정의 변경, MODIFY는 이름을 유지한 정의 변경이다.
 
-집합을 비교할 때는 `IN`으로 양쪽에 속한 행을, `LEFT JOIN` 후 오른쪽 키의 `IS NULL` 조건으로 왼쪽에만 속한 행을 찾을 수 있다.
+DROP TABLE은 구조와 데이터를 삭제한다. TRUNCATE는 구조를 남기고 전체 데이터를 비우며 수업의 자동 번호도 초기화된다. MySQL DDL은 일반 DML의 롤백 실험과 같은 방식으로 취소된다고 생각하면 안 된다.
 
-수업의 A는 카테고리 10, B는 가격 9,000원 미만인 메뉴다. 교집합은 A에서 B의 메뉴 코드에 `IN`인 행, 차집합은 A에 B를 연결한 뒤 `b.menu_code IS NULL`인 행이다.
+**제약 조건**
 
-`UNION`은 두 SELECT의 컬럼 개수와 대응 순서를 맞추고 타입이 호환되어야 한다. 중복은 조회한 컬럼 조합 전체로 판단한다.
+- NOT NULL은 값 누락을 금지한다. 빈 문자열까지 금지하는 규칙은 아니다.
+- UNIQUE는 중복을 제한한다. PRIMARY KEY는 행을 식별하며 NULL과 중복을 허용하지 않는다.
+- FOREIGN KEY는 다른 테이블의 키를 참조해 존재하는 대상과의 관계를 유지한다. 수업의 회원 등급 50은 등급 테이블에 없어 거부된다. 참조 열의 NULL 허용은 NOT NULL 여부도 함께 본다.
+- ON UPDATE·DELETE의 SET NULL은 부모 변경·삭제에 관련 참조값을 NULL로, CASCADE는 변경을 따라가거나 자식 행도 삭제하게 한다.
+- CHECK는 성별 후보나 나이 19 이상처럼 값 조건을 제한한다. NULL도 막아야 한다면 NOT NULL을 함께 생각한다.
+- DEFAULT는 열 값을 생략하거나 DEFAULT를 지정했을 때 채울 기본값이다. 직접 NULL을 넣는 것과는 다르다.
 
-## ☘️ 데이터 변경
+CAST와 CONVERT는 값을 명시적으로 다른 타입으로 바꾼다. 수업은 평균 가격을 SIGNED 정수로, 날짜 문자열을 DATE로, 가격을 CHAR로 바꿨다. 문자 길이를 제한하면 긴 내용이 잘릴 수 있다. 암시적 변환도 있어 문자열 '1'+'2'는 MySQL에서 숫자 계산이 된다. 프로그래밍 언어의 문자열 +와 같은 규칙으로 읽지 않는다.
 
-- `INSERT`: 새 행 추가
-- `UPDATE`: 기존 행의 지정한 컬럼 수정
-- `DELETE`: 행 삭제
-- `REPLACE`: 키 충돌 시 기존 행을 삭제하고 새 행 삽입. 충돌이 없으면 추가
+## ☘️ 인덱스와 직원 과제
 
-수업에서는 SELECT도 함께 다뤘으며, 조회를 별도로 DQL이라고 구분하기도 한다.
+인덱스는 조건에 맞는 행을 빠르게 찾는 데 사용할 수 있는 자료구조다. 수업은 phone_name 조건의 조회 계획을 EXPLAIN으로 살펴보고 CREATE INDEX로 이름 인덱스를 만든 뒤 SHOW INDEX로 확인하고 DROP INDEX로 지웠다. 인덱스를 만들었다고 모든 조회가 반드시 그것을 쓰거나 빨라지는 것은 아니다. 데이터 변경에는 인덱스 유지 비용도 있다.
 
-**추가할 컬럼과 값의 순서를 맞춘다.** 컬럼 목록을 생략하면 테이블의 전체 컬럼 순서에 맞춰 값을 작성해야 한다. 여러 행은 VALUES 뒤에 괄호 묶음을 쉼표로 잇는다.
+직원 과제는 퇴직 여부·전화번호 끝자리·입사일 순서·LIMIT을 조합하고, 직급과 부서를 JOIN해 이름·급여를 조회했다. 부서별 급여는 재직자를 WHERE로 먼저 고른 뒤 그룹과 ROLLUP을 계산한다. 관리자와 직원은 SELF JOIN으로 연결하며 부서가 없는 경우 LEFT JOIN으로 유지한다.
 
-```sql
-INSERT INTO tbl_menu (menu_name, menu_price, orderable_status, category_code)
-VALUES ('초콜릿', 5000, 'Y', 7), ('바닐라아이스크림', 2000, 'Y', 12);
-```
-
-수업의 전체 컬럼 삽입 예제는 메뉴 코드 자리에 NULL을 넣어 자동 생성 설정을 활용했다.
-
-```sql
-SELECT * FROM tbl_menu WHERE menu_code = 22;
-
-UPDATE tbl_menu
-SET category_code = 7
-WHERE menu_code = 22;
-
--- 삭제할 때도 같은 조건으로 먼저 조회한다.
-DELETE FROM tbl_menu WHERE menu_code = 22;
-```
-
-**UPDATE·DELETE는 실행 전 같은 WHERE로 대상을 조회한다.** WHERE를 빼면 모든 행이 대상이 된다. REPLACE는 일부 컬럼만 고치는 UPDATE와 동작이 다르다.
-
-`SET`에 바꿀 컬럼과 값을 쓴다. 예제의 22번은 수업에서 조회한 메뉴 코드이므로 실제 실행 시 조회 결과로 확인한다. `REPLACE INTO tbl_menu VALUES (17, '참기름', 5000, 10, 'Y')`는 기본 키·UNIQUE 키 충돌 시 삭제 후 삽입하며, 일반 INSERT는 중복 오류가 날 수 있다.
-
-## ☘️ 트랜잭션과 테이블 정의
-
-**트랜잭션은 모두 성공하거나 모두 취소해야 하는 작업 묶음이다.** MySQL은 기본적으로 autocommit이 켜져 있다. 수업에서는 `SET autocommit = OFF`와 `START TRANSACTION`으로 작업을 시작하고, INSERT·UPDATE·DELETE 결과를 확인한 뒤 `ROLLBACK`으로 취소하고 autocommit을 다시 켰다. `COMMIT`은 변경을 확정하며, 확정한 작업은 이후 ROLLBACK으로 되돌릴 수 없다.
-
-```sql
-START TRANSACTION;
-UPDATE tbl_menu SET menu_name = '수정 메뉴' WHERE menu_name = '열무김치라떼';
-SELECT * FROM tbl_menu;
-ROLLBACK; -- 확정하려면 COMMIT
-```
-
-**DDL은 테이블 구조를 정의한다.** `CREATE TABLE IF NOT EXISTS`는 테이블이 없을 때 생성하고 `DESCRIBE`는 컬럼 정의를 확인한다. `AUTO_INCREMENT` 기본 키에 NULL을 넣으면 번호가 자동으로 생성된다.
-
-- `ALTER TABLE ... ADD`: 컬럼 추가 / `DROP COLUMN`: 컬럼 삭제
-- `CHANGE COLUMN 기존명 새이름 타입`: 이름과 정의 변경 / `MODIFY 컬럼명 타입`: 이름을 유지하고 정의 변경
-- `DROP TABLE IF EXISTS`: 테이블 구조와 데이터 삭제
-- `TRUNCATE TABLE`: 구조는 남기고 모든 행을 비운다. 수업 예제에서는 자동 증가 번호도 초기화된다.
-
-## ☘️ 제약 조건과 형변환
-
-**제약 조건은 저장할 수 있는 값을 제한한다.**
-
-- `NOT NULL`: NULL 불가. `UNIQUE`: 중복 불가. 컬럼 또는 테이블 수준에서 지정할 수 있다.
-- `PRIMARY KEY`: 행을 식별하며 NULL과 중복을 허용하지 않는다.
-- `FOREIGN KEY`: 다른 테이블의 키를 참조한다. 참조 값이 없으면 거부되며, NULL 허용 여부는 해당 컬럼 정의에 따른다.
-- `ON UPDATE` / `ON DELETE`: 참조 대상이 변경·삭제될 때의 동작. `SET NULL`은 자식 값을 NULL로 바꾸고, `CASCADE`는 변경을 전파하거나 자식 행도 삭제한다. `SET NULL`을 쓰려면 자식 컬럼이 NULL을 허용해야 한다.
-- `CHECK`: `age >= 19`, `gender IN ('남', '여')`처럼 허용 조건을 지정한다.
-- `DEFAULT`: 컬럼을 생략하거나 `DEFAULT`를 지정할 때 쓸 기본값이다. 수업에서는 국가명, 현재 날짜와 시간을 기본값으로 설정했다.
-
-```sql
-CREATE TABLE user_foreignkey2 (
-  user_no INT PRIMARY KEY,
-  grade_code INT,
-  FOREIGN KEY (grade_code) REFERENCES user_grade(grade_code)
-    ON UPDATE SET NULL ON DELETE SET NULL
-);
-```
-
-**형변환**은 `CAST(값 AS 타입)` 또는 `CONVERT(값, 타입)`으로 명시한다. 예를 들어 `CAST(AVG(menu_price) AS SIGNED INTEGER)`와 `CONVERT(AVG(menu_price), SIGNED)`는 평균을 부호 있는 정수로 변환한다. 날짜 문자열은 `CAST('2026-10-21' AS DATE)`, 가격 문자열은 `CONCAT(CAST(menu_price AS CHAR(5)), '원')`처럼 사용한다. 길이를 지정한 문자 변환은 값이 길면 잘릴 수 있다.
-
-MySQL은 연산할 때 암시적으로 변환하기도 한다. `'1' + '2'`는 숫자 덧셈으로 평가되고, `3 > 'MAY'`처럼 숫자와 문자열을 비교할 때도 변환이 일어나므로 의도한 타입을 명시하는 편이 안전하다.
-
-## ☘️ 인덱스
-
-**인덱스는 조건에 맞는 행을 찾는 데 사용할 수 있는 자료구조다.** 수업에서는 `phone_name`으로 조회하는 계획을 `EXPLAIN`으로 확인하고, 인덱스를 만든 뒤 목록 조회와 삭제를 연습했다. 인덱스 생성이 모든 조회에서 사용됨을 보장하지는 않는다.
-
-```sql
-EXPLAIN SELECT * FROM phone WHERE phone_name = 'iPhone';
-CREATE INDEX idx_phone_name ON phone(phone_name);
-SHOW INDEX FROM phone;
-DROP INDEX idx_phone_name ON phone;
-```
+부서별 급여 합 중 최대는 그룹 합을 내림차순 정렬해 한 행만 얻고, 영업 부서는 서브쿼리로 찾은 코드 목록을 IN 조건으로 사용했다. 이름·가격 검색에서는 LIKE 앞에 등호를 붙이지 않으며 IN·NOT IN의 후보는 괄호로 묶는다. BETWEEN의 양 끝 포함과 정렬 기준의 적용 순서도 과제에서 확인한 경계다.
