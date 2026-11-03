@@ -3,80 +3,170 @@ title: 261014 TIL
 date: '2026-10-14'
 tags: ['TIL', 'java']
 draft: false
-summary: Object의 동등성 비교와 문자열 처리, StringBuilder, Wrapper와 날짜·시간 API를 정리하고 제네릭의 타입 안전성과 extends를 이용한 타입 제한을 학습했다.
+summary: 'Java의 기본 API는 객체 비교, 문자열 가공, 숫자 변환, 날짜 계산 같은 반복 작업을 제공한다.'
 ---
 
-[소스코드 보기](https://github.com/woong3e/sesac_lecture/commit/4fb848eed72af4bd575be11a7bcfd9adc2d950ad)
+[소스코드: Java API와 제네릭 강의 실습 추가](https://github.com/woong3e/sesac_lecture/commit/4fb848eed72af4bd575be11a7bcfd9adc2d950ad)
 
-## ☘️ 먼저 설명해보세요
+Java의 기본 API는 객체 비교, 문자열 가공, 숫자 변환, 날짜 계산 같은 반복 작업을 제공한다. 메서드 이름만 기억하기보다 원본을 바꾸는지와 반환값이 무엇인지 확인해야 결과를 올바르게 사용할 수 있다.
 
-1. 객체와 문자열은 어떻게 비교할까? → [답 확인](#%EF%B8%8F-%EA%B0%9D%EC%B2%B4%EC%99%80-%EB%AC%B8%EC%9E%90%EC%97%B4)
-2. 숫자·날짜는 어떻게 변환할까? → [답 확인](#%EF%B8%8F-wrapper%EC%99%80-%EC%8B%9C%EA%B0%84)
-3. 제네릭은 어떤 실수를 막을까? → [답 확인](#%EF%B8%8F-%ED%83%80%EC%9E%85-%EC%95%88%EC%A0%84%EC%84%B1%EA%B3%BC-%EC%A0%9C%ED%95%9C)
+## ☘️ 같은 객체와 같은 값의 구분
 
-## ☘️ 객체와 문자열
+참조의 ==는 같은 객체를 가리키는지 비교한다. equals는 클래스가 정한 값의 동등성을 비교할 수 있다. 책 번호와 제목이 같으면 같은 책으로 취급하려면 그 기준으로 equals를 구현한다. hashCode도 같은 기준에 맞춰야 해시 기반 컬렉션이 일관되게 동작한다.
 
-API는 제공된 클래스·메서드를 사용하는 규칙이다. 모든 Java 클래스는 직접·간접으로 Object를 상속한다.
+toString은 객체를 읽기 쉬운 문자열로 표현하는 방법이다. 출력 형태를 바꾸는 것과 equals의 비교 기준을 바꾸는 것은 별개다. 아래 Book은 서로 다른 객체의 참조 비교와 값 비교를 함께 보여 준다.
 
-- toString: 기본 클래스명·해시 표현 대신 필드 상태를 보이도록 재정의. 객체를 문자열에 연결할 때도 호출
-- 참조형 ==: 같은 객체인지 / Object 기본 equals도 동일성 비교
-- Book의 재정의 equals: 번호·제목·저자·가격이 같으면 true. null·다른 클래스 제외 후 기본형은 ==, 문자열은 Objects.equals로 null까지 처리
-- equals가 true인 객체는 같은 hashCode 필요. 두 메서드를 같은 필드 기준으로 재정의. 해시값 같음만으로 동등하지는 않음
+## ☘️ 문자열 읽기와 조립
 
-**String은 불변**이다. 같은 리터럴은 풀에서 재사용하지만 new String은 새 객체다. 내용 비교는 equals, null 가능 입력은 `"JAVA".equals(input)`처럼 호출한다. str2 += " mysql"은 새 결과를 재대입하므로 함께 가리키던 str1은 유지된다.
+String은 내용을 바꾸는 메서드를 호출한 것처럼 보여도 대개 새 문자열을 반환한다. substring은 위치 범위의 일부, split은 구분자로 나눈 배열, replace는 교체한 문자열을 만든다. 시작 위치는 포함하고 끝 위치는 제외하는 범위를 사용하는 메서드가 있으므로 경계를 확인한다.
 
-- trim: 앞뒤 공백 / toUpperCase·toLowerCase: 대소문자
-- indexOf: 처음 위치, 없으면 -1 / substring(start,end): end 직전까지
-- replace: 치환 결과 / split: 구분자로 문자열 배열 / isEmpty: 길이 0
-- 상품 코드: 여는 괄호 indexOf+1부터 닫는 괄호 직전 substring. 괄호가 있다는 전제
-- `"100/홍길동/서울//교육부".split("/")`: 연속 구분자 사이 빈 문자열은 isEmpty로 검사해 정보 없음 표시
-- split 구분자는 정규식. 점 자체는 `split("\\.")`로 분리. Java의 `\`가 정규식의 역슬래시 하나가 됨
-- 이스케이프: `\n` 줄바꿈, `\t` 탭, `\"` 따옴표, `\` 역슬래시
+trim은 양끝의 공백을 다듬고 대소문자 변환은 새 결과를 만든다. 반환값을 받지 않으면 기존 변수는 그대로다. StringBuilder는 내부 내용을 바꾸며 append·insert·delete·reverse로 조립한 뒤 toString으로 문자열을 얻는다. 여러 번 이어 붙이는 작업과 이미 완성된 문자열을 다루는 작업을 구분한다.
 
-**StringBuilder는 가변**이라 반복 조립에 적합하다. append는 자신을 반환해 체이닝 가능, toString으로 최종 문자열을 얻는다. delete(start,end)는 end 직전 삭제, insert는 삽입, reverse는 역순이다. 같은 객체 내용이 바뀐다.
+Wrapper는 기본형 값을 객체로 다룰 수 있게 한다. parseInt 같은 메서드는 문자열을 숫자로 해석하며 형식이 맞지 않으면 예외가 발생한다. 문자열 연결과 숫자 계산을 하기 전에 필요한 타입으로 변환한다.
 
-실습은 str += i와 append를 nanoTime 차이로 비교했다. 길이가 같아도 조립 방식은 다르며 실행 시간은 환경에 따라 달라 고정 수치로 외우지 않는다.
+## ☘️ 날짜와 제네릭
 
-## ☘️ Wrapper와 시간
+LocalDate는 날짜, LocalTime은 시간, LocalDateTime은 날짜와 시간을 표현한다. plus·minus 계열은 계산한 새 값을 반환한다. DateTimeFormatter는 표시 형식을 정한다. 날짜 계산과 문자열 표시를 나누면 시간 값을 단순 문자열로 잘못 계산하는 일을 줄일 수 있다.
 
-- Wrapper: int→Integer, double→Double처럼 기본형을 객체로 다룸
-- 파싱: 문자열→숫자. Integer.parseInt·Double.parseDouble은 static이며 기본형 반환
-- 문자열끼리 +는 연결이므로 계산 전 파싱. 숫자→문자열은 String.valueOf
-- 박싱: 기본형→Wrapper / 언박싱: Wrapper→기본형. 자동 변환도 가능
-- Wrapper 참조는 null 가능. **null 언박싱에서 예외**, 기본형은 null 저장 불가. 강의의 반대 주석은 오류
-- Wrapper 값은 equals로 비교하되 호출 변수 null 확인. ==는 참조라 객체 재사용 영향을 받음
+제네릭의 타입 매개변수 T는 사용할 때 구체 타입으로 정하는 자리다. `GenericBox<String>`이면 저장과 조회 타입이 String으로 연결된다. Object에 아무 값이나 넣고 매번 형변환하는 방식보다 타입 오류를 컴파일 단계에서 찾기 쉽다. extends 제한은 받을 수 있는 타입의 범위를 정하며, 제한된 공통 기능만 안전하게 사용할 수 있다.
 
-**java.time**: LocalDate는 날짜, LocalTime은 시간, LocalDateTime은 둘 다. 시간대는 없으며 필요한 경우 ZonedDateTime·ZoneId 사용을 소개했다.
+## ☘️ 문자열·동등성·날짜·제네릭의 실행
 
-- 불변이라 plus/minus 계산 결과를 받아야 함. minusMinutes 호출만으로 원본 변경 안 됨
-- getYear, getMonth(OCTOBER), getMonthValue(10), getDayOfWeek로 일부 추출
-- isBefore·isAfter·isEqual로 앞뒤·동일 시각 비교. 같은 날짜여도 현재 시각의 초·나노초까지 다르면 동일하지 않음
-- format: 날짜·시간→문자열 / parse: 문자열→해당 날짜·시간 타입
-- DateTimeFormatter 패턴: **HH 24시간 / hh 12시간 / MM 월 / mm 분**. 수업의 hh는 13시를 01시로 보여 HH로 정리
+다음은 연결된 학습 코드의 핵심 동작을 한 파일에서 확인하도록 정리한 설명용 예제다. 원본 프로젝트 전체를 그대로 옮긴 것은 아니다. 필요한 선언과 실행 부분을 함께 두었으며, 아래 코드만 저장해 흐름을 따라갈 수 있다.
+
+**Main.java**
 
 ```java
-DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
-String text = departure.format(formatter);
-LocalDate date = LocalDate.parse("2026-10-14");
-```
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Objects;
 
-## ☘️ 타입 안전성과 제한
-
-NormalBox의 Object는 어떤 값도 저장하지만 꺼낼 때 캐스트해야 하며, 숫자를 String으로 잘못 변환하면 **실행 때** 실패한다.
-
-```java
-class GenericBox<T> {
-    private T content;
-    public void setContent(T content) { this.content = content; }
-    public T getContent() { return content; }
+public class Main {
+  public static void main(String[] args) {
+    Book first = new Book(1, "홍길동전"), second = new Book(1, "홍길동전");
+    System.out.println((first == second) + " / " + first.equals(second));
+    System.out.println(first);
+    String raw = "    [PROD-001] Apple iPhone 16 Pro | a17 bionic | 2500000    ";
+    String text = raw.trim().toUpperCase();
+    System.out.println(text.substring(text.indexOf('[') + 1, text.indexOf(']')));
+    System.out.println(text.replace("IPHONE 16 PRO", "GALAXY S26"));
+    String original = "java", changed = original;
+    changed += " mysql";
+    System.out.println(original + " / " + changed);
+    for (String part : "100/사용자/서울//교육부".split("/"))
+      System.out.print((part.isEmpty() ? "정보 없음" : part) + "|");
+    System.out.println();
+    System.out.println("report.final.pdf".split("\\.").length);
+    StringBuilder builder = new StringBuilder("javamysql");
+    builder.delete(4, 9).insert(0, "my");
+    System.out.println(builder.reverse().toString());
+    double height = Double.parseDouble("175.5"), weight = Double.parseDouble("69.3");
+    System.out.println(Math.round(weight / ((height / 100) * (height / 100))));
+    Integer boxed = 20;
+    int unboxed = boxed;
+    System.out.println(String.valueOf(unboxed));
+    LocalDateTime departure =
+        LocalDateTime.of(LocalDate.of(2026, 10, 14), LocalTime.of(13, 48, 56));
+    DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+    System.out.println(departure.format(formatter));
+    System.out.println(departure.minusMinutes(20).format(formatter));
+    System.out.println(LocalDate.parse("20261225", DateTimeFormatter.ofPattern("yyyyMMdd")));
+    GenericBox<String> box = new GenericBox<>();
+    box.setContent("하이");
+    System.out.println(box.getContent());
+    RabbitFarm<Bunny> farm = new RabbitFarm<>(new Bunny());
+    farm.getAnimal().cry();
+  }
 }
-GenericBox<String> box = new GenericBox<>();
-box.setContent("문자열");
-String text = box.getContent(); // 캐스트 불필요
+
+class Book {
+  private final int number;
+  private final String title;
+
+  Book(int number, String title) {
+    this.number = number;
+    this.title = title;
+  }
+
+  @Override
+  public String toString() {
+    return number + ": " + title;
+  }
+
+  @Override
+  public boolean equals(Object other) {
+    if (!(other instanceof Book book)) return false;
+    return number == book.number && Objects.equals(title, book.title);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(number, title);
+  }
+}
+
+class GenericBox<T> {
+  private T content;
+
+  void setContent(T value) {
+    content = value;
+  }
+
+  T getContent() {
+    return content;
+  }
+}
+
+class Rabbit {
+  void cry() {
+    System.out.println("Rabbit");
+  }
+}
+
+class Bunny extends Rabbit {
+  @Override
+  void cry() {
+    System.out.println("Bunny");
+  }
+}
+
+class RabbitFarm<T extends Rabbit> {
+  private final T animal;
+
+  RabbitFarm(T animal) {
+    this.animal = animal;
+  }
+
+  T getAnimal() {
+    return animal;
+  }
+}
 ```
 
-제네릭은 타입을 매개변수화해 재사용하며 잘못된 저장을 **컴파일 때** 막는다. T(Type)·E(Element)·K(Key)·V(Value)는 관례 이름이다. 생성자의 &lt;&gt;는 타입 추론, 타입 인자는 참조형이므로 int 대신 Integer를 쓴다.
+equals는 두 객체를 같은 값으로 볼 기준을 정하고 hashCode는 그 기준과 일치해야 한다. 같은 책으로 판단되는 객체의 해시 값도 같도록 두 메서드를 함께 구현했다. String의 변환 메서드는 새 문자열을 반환하므로 반환값을 받지 않으면 원래 변수는 그대로다. StringBuilder는 내부 내용을 바꾸며 여러 번 연결한 뒤 toString으로 문자열을 얻는다. Wrapper의 parse 메서드는 문자열을 기본형 값으로 읽으며 잘못된 형식은 예외가 될 수 있다. 날짜는 현재 시각 대신 고정값을 사용한다. `GenericBox<T>`는 저장할 타입을 선언 시 정해 꺼낼 때 불필요한 형 변환을 줄인다.
 
-`RabbitFarm<T extends Rabbit>`은 Rabbit·그 하위 타입만 받는다. Bunny·DrunkenBunny는 가능, 같은 Animal 계열이어도 Rabbit 하위가 아닌 Snake는 불가다. 수업에서는 Mammal이 Animal 인터페이스를 구현하고 Rabbit이 Mammal을 상속한다.
+**Main.java 실행 확인 결과**
 
-Bunny로 지정하면 getAnimal 결과도 Bunny로 다루며 실제 Bunny의 cry가 실행된다. **제네릭은 저장·반환 타입, 오버라이딩은 실제 동작**을 정한다.
+```text
+false / true
+1: 홍길동전
+PROD-001
+[PROD-001] APPLE GALAXY S26 | A17 BIONIC | 2500000
+java / java mysql
+100|사용자|서울|정보 없음|교육부|
+3
+avajym
+22
+20
+2026-10-14 13:48
+2026-10-14 13:28
+2026-12-25
+하이
+Bunny
+```
+
+**실행 방법**
+
+JDK 21 환경에서 파일명을 `Main.java`로 저장한다. 같은 폴더에서 `javac -encoding UTF-8 Main.java`로 컴파일한 뒤 `java -Dfile.encoding=UTF-8 Main`을 실행한다. 글마다 Main 클래스가 있으므로 예제는 서로 다른 폴더에 저장한다.
