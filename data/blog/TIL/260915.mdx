@@ -8,81 +8,48 @@ summary: DOM 실습을 보완하고 이벤트 등록·제거, 이벤트 위임, 
 
 [소스코드 보기 1](https://github.com/woong3e/sesac_lecture/commit/44bada6a568d58ac4c0583b2f43d9ccc3becefc1) · [소스코드 보기 2](https://github.com/woong3e/sesac_lecture/commit/127fa89debba2cc8c1c840a7765f8071941c2410)
 
-## ☘️ 먼저 설명해보세요
+## ☘️ 이벤트 등록과 실행 대상
 
-1. 핸들러를 어떻게 등록하고 지울까? → [답 확인](#%EF%B8%8F-%EB%93%B1%EB%A1%9D%EA%B3%BC-%EC%9D%B4%EB%B2%A4%ED%8A%B8-%EB%8C%80%EC%83%81)
-2. 부모 하나로 자식 클릭을 처리하려면? → [답 확인](#%EF%B8%8F-%EC%9C%84%EC%9E%84%EA%B3%BC-%EB%8D%B0%EC%9D%B4%ED%84%B0)
-3. 기본 동작과 전파는 어떻게 다를까? → [답 확인](#%EF%B8%8F-%EC%9E%85%EB%A0%A5%EA%B3%BC-%ED%8F%BC-%EA%B2%80%EC%A6%9D)
+이벤트는 클릭·입력·제출처럼 브라우저에서 발생하는 동작이다. 그때 실행할 함수를 이벤트 핸들러라고 한다. HTML 속성으로 연결하거나 DOM의 onclick에 대입하거나 addEventListener로 등록할 수 있다.
 
-## ☘️ 등록과 이벤트 대상
+onclick은 함수 하나를 담는 프로퍼티이므로 새 함수를 대입하면 이전 함수를 대체한다. addEventListener는 같은 요소에 서로 다른 핸들러를 여러 개 등록할 수 있다. 나중에 제거하려면 등록한 함수 자체를 변수로 보관해야 한다. 모양이 똑같은 화살표 함수를 다시 작성해도 별개의 함수이므로 제거되지 않는다. 이벤트 종류와 capture 설정도 맞아야 한다.
 
-- HTML 이벤트 속성, DOM의 `onclick`, `addEventListener()`로 등록할 수 있다.
-- onclick에 새 함수를 대입하면 이전 함수를 덮어쓴다. addEventListener는 서로 다른 핸들러를 여러 개 등록 가능
-- `removeEventListener('click', handler)`는 **같은 함수 참조·이벤트 종류·capture 설정**이 필요. 닮은 화살표 함수를 새로 쓰면 제거되지 않음
-- 카운터는 클릭마다 횟수를 올리고, 중지 버튼에서 등록한 증가 함수를 제거
+수업의 카운터는 countFunc를 클릭에 등록해 횟수를 올리고, 중지 버튼에서 그 함수 참조를 removeEventListener에 전달한다. 중지 후에는 버튼이 남아 있어도 증가 함수가 실행되지 않는다.
 
-`target`은 이벤트가 시작된 요소, `currentTarget`은 지금 핸들러가 등록된 요소다. 버튼 속 글자를 클릭하면 둘이 다를 수 있다. `clientX/Y`는 뷰포트 기준 클릭 위치다.
+**이벤트 객체**
 
-```js
-button.addEventListener('click', (event) => {
-  const clickedButton = event.currentTarget
-  clickedButton.textContent = '클릭됐다.'
-  setTimeout(() => {
-    clickedButton.textContent = 'Best Practice'
-  }, 2000)
-})
-```
+핸들러의 인수로 받은 이벤트 객체에는 발생한 동작의 정보가 있다. target은 이벤트가 시작된 요소이고 currentTarget은 지금 실행 중인 핸들러가 등록된 요소다. 버튼 속 글자나 자식 요소를 클릭하면 두 대상이 다를 수 있다. clientX·clientY는 현재 보이는 브라우저 화면 영역을 기준으로 한 좌표다.
 
-일반 함수 핸들러의 this는 currentTarget, 화살표 함수는 바깥 this다. 나중에는 currentTarget이 null일 수 있어 비동기 콜백에서 쓸 요소는 미리 저장한다.
+일반 함수 핸들러의 this는 currentTarget이고 화살표 함수는 바깥 this를 사용한다. 수업은 버튼을 e.currentTarget으로 받아 글자와 색을 바꾼 뒤 2000ms 후 되돌린다. 나중에 실행할 함수에는 이벤트 객체의 currentTarget을 다시 읽기보다 미리 저장한 버튼을 사용한다. 이벤트 처리가 끝난 뒤에는 currentTarget이 null일 수 있기 때문이다.
 
-## ☘️ 위임과 데이터
+## ☘️ 전파와 이벤트 위임
 
-전파는 **캡처링 → 타깃 → 버블링**이다. click처럼 버블링하는 이벤트는 부모에서 처리할 수 있어, 나중에 추가된 항목에도 위임이 적용된다. 모든 이벤트가 버블링하는 것은 아니다.
+이벤트는 캡처링으로 바깥에서 대상 쪽으로 내려오고, 대상에 도착한 뒤 버블링으로 부모 방향에 전달될 수 있다. 따라서 자식을 클릭해도 부모의 클릭 핸들러가 실행된다. 모든 이벤트가 버블링하는 것은 아니지만 click은 이 성질을 활용할 수 있다.
 
-```js
-productList.addEventListener('click', (event) => {
-  const item = event.target.closest('.product-item')
-  if (!item || !productList.contains(item)) return
-  const price = Number(item.dataset.price)
-  infoPanel.textContent = `${item.dataset.productId}: ${price.toLocaleString('ko-KR')}원`
-})
-```
+**위임**은 항목마다 함수를 등록하는 대신 공통 부모 하나가 자식의 동작을 처리하는 방식이다. 이후 새로 붙인 항목도 같은 부모로 이벤트가 전달되므로 별도 등록 없이 처리할 수 있다.
 
-- `closest()`는 자신부터 부모 방향으로 탐색. 결과를 사용해야 자식 strong 등을 눌러도 처리됨
-- `contains()`는 실제 목록 내부인지 확인. 다시 target.matches('li')만 검사하면 중첩 클릭 누락
-- `data-product-id` → `dataset.productId`, `data-menu-id` → `dataset.menuId`
-- dataset 값은 문자열. 계산 전 Number 변환, `dataset.selected = 'true'`로 설정, `delete`로 제거
-- 메뉴·상품의 단일 선택: 기존 selected 클래스들을 제거하고 선택 항목에 추가. 음료 목록은 highlight 토글
+closest는 클릭한 요소 자신부터 부모 방향으로 올라가 조건에 맞는 가장 가까운 요소를 찾는다. 버튼 안쪽의 글자나 strong을 눌러도 실제 처리할 항목을 찾을 수 있다. contains로 목록 내부 항목인지 확인할 수 있다. 수업의 음료 목록은 closest로 항목을 구한 뒤 다시 target이 li인지 검사해, 안쪽 요소를 클릭한 경우 처리가 누락되는 부분이 있다. 찾은 항목을 처리 대상으로 써야 한다.
 
-## ☘️ 입력과 폼 검증
+메뉴 선택 과제는 클릭 위치에서 `.select-menu` 버튼을 찾고 기존 selected를 모두 제거한 뒤 해당 메뉴에만 selected를 붙인다. 버튼의 data-menu-id와 메뉴 안의 글자로 선택 정보를 출력한다. data-product-id도 dataset.productId로 읽으며, 가격은 문자열이므로 Number로 바꾸어 숫자 형식으로 표시한다. dataset은 값을 대입해 설정하고 delete로 제거할 수 있다.
 
-- `preventDefault()`: 취소 가능한 기본 동작 차단(링크 이동·폼 제출)
-- `stopPropagation()`: 요소 간 전파 차단(모달 내부 클릭이 배경 닫기로 이어지는 것 방지)
-- 둘은 별개다. 모달 내부의 링크 이동을 막으려면 링크 기본 동작도 따로 제어
-- `dblclick`, `mousedown`, `event.button`: 마우스 동작·버튼 확인
-- `keydown` / `keyup`: 키 누름·뗌. `key`는 Enter·a 같은 값, `code`는 KeyA 같은 물리 위치
-- `input`: 붙여넣기까지 포함한 입력값 변경. 코드로 value를 비우면 자동 발생하지 않아 글자 수도 직접 초기화
-- `focus` / `blur`: 이름 입력 스타일 변경 / `checked`: 관심사 선택 수·약관 동의 확인
+## ☘️ 기본 동작과 입력 다루기
 
-```js
-form.addEventListener('submit', (event) => {
-  event.preventDefault()
-  if (nameInput.value.trim().length < 2) {
-    showError('이름 두 글자 이상')
-    return
-  }
-  if (passwordInput.value.length < 6) {
-    showError('비밀번호 여섯 글자 이상')
-    return
-  }
-  if (!terms.checked) {
-    showError('약관 동의 필요')
-    return
-  }
-  signupResult.textContent = '회원가입 검증에 성공했습니다.'
-})
-```
+preventDefault는 링크 이동이나 폼 제출처럼 브라우저가 정한 기본 동작을 취소한다. stopPropagation은 다른 요소로의 이벤트 전파를 막는다. 서로 다른 동작이므로 모달 내부 클릭이 배경 닫기로 전달되지 않게 하려면 전파를 막고, 내부 링크 이동을 취소하려면 그 링크의 기본 동작을 별도로 막는다.
 
-showError는 안내 표시를 줄여 쓴 표현이다. 버튼 click 대신 **폼 submit**을 처리해야 Enter 제출도 포함한다. 오류는 안내 후 return, 성공 시에도 실습은 기본 제출을 막으며 실제 회원 저장까지 하지는 않는다.
+마우스의 dblclick은 두 번 클릭, mousedown은 누르는 순간을 다룬다. event.button은 0이 왼쪽, 1이 가운데, 2가 오른쪽 버튼이다. keydown과 keyup은 키 누름과 뗌이며 key는 Enter 같은 키 값, code는 KeyA 같은 물리적 키 위치를 알려 준다.
 
-참고: [MDN removeEventListener](https://developer.mozilla.org/en-US/docs/Web/API/EventTarget/removeEventListener) · [MDN currentTarget](https://developer.mozilla.org/en-US/docs/Web/API/Event/currentTarget) · [MDN preventDefault](https://developer.mozilla.org/en-US/docs/Web/API/Event/preventDefault) · [MDN stopPropagation](https://developer.mozilla.org/en-US/docs/Web/API/Event/stopPropagation) · [MDN input event](https://developer.mozilla.org/en-US/docs/Web/API/Element/input_event) · [MDN dataset](https://developer.mozilla.org/en-US/docs/Web/API/HTMLElement/dataset)
+입력값의 변경은 input 이벤트로 처리한다. 키보드 이벤트만 보면 붙여넣기 등 다른 입력 방식을 놓칠 수 있다. 수업의 메시지 과제는 input 때 글자 수를 표시하고 Enter 때 공백을 제거한 메시지를 확인한다. 제출 후 코드로 value를 비워도 input이 자동 발생하는 것은 아니므로 글자 수 역시 직접 0으로 초기화한다. focus와 blur는 입력 칸에 포커스가 들어오고 나갈 때 스타일을 바꾸는 데 썼다.
+
+## ☘️ 폼 검증과 DOM 과제 보완
+
+폼의 submit을 처리하면 버튼 클릭뿐 아니라 Enter 제출도 다룰 수 있다. document.forms와 폼의 name을 사용해 입력 요소를 찾는 방법도 실습했다. 체크박스는 value가 아니라 checked로 선택 상태를 읽고, 여러 항목을 배열로 바꾸어 선택 개수를 셀 수 있다.
+
+기본 폼 실습은 이름 두 글자 이상, 관심사 두 개 이상을 검사한다. 이벤트 종합 과제는 이름 두 글자 이상 → 비밀번호 여섯 글자 이상 → 약관 동의 순서다. 실패하면 안내를 표시하고 return으로 다음 단계를 중단한다. 모든 검사가 통과해야 성공 표시를 한다. 종합 과제는 처음부터 기본 제출을 막으므로 서버에 회원을 저장하는 구현까지 포함하지 않는다.
+
+**DOM 과제의 실제 완성 흐름**
+
+이번 커밋에는 이전 DOM 과제의 채워진 풀이도 있다. 검색은 trim·소문자 변환 후 includes로 비교하고 빈 검색 시 모든 표시를 해제한다. 관계 탐색은 기준 요소에서 부모·첫 자식·마지막 자식·이전과 다음 형제로 이동한다.
+
+할 일 추가에서는 함수 안에서 새 li를 만들고 빈 입력을 차단하며, 삭제 전 마지막 요소의 존재를 확인한다. 상품 선택에서는 전체 선택 표시를 지운 후 한 카드에만 클래스와 data-selected를 설정한다. 프로필은 최신 value를 textContent에 반영하고 borderColor와 compact를 바꾸며, dark는 카드에 토글하고 버튼 글자를 맞춘다. 앞선 날짜의 빈 함수와 잘못된 노드 재사용·클래스 대상 문제가 이 풀이에서 어떻게 해결됐는지 연결해 이해할 수 있다.
+
+NodeList의 forEach는 실제 배열이어서 가능한 것이 아니라 해당 메서드를 제공하기 때문이다. map·filter·reduce가 필요하면 배열로 변환한다. querySelectorAll의 결과는 정적이지만 “모든 NodeList는 정적”이라는 원본 주석은 일반화할 수 없다. DOM 문자열 삽입과 현재 value의 차이도 이전 실습과 같은 기준으로 구분한다.
