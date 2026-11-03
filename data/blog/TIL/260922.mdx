@@ -3,65 +3,171 @@ title: 260922 TIL
 date: '2026-09-22' # 포스팅된 글들은 날짜순으로 기본 정렬됩니다.
 tags: ['TIL']
 draft: false # true일 때 글을 노출하지 않습니다.(로컬에는 뜸)
-summary: GitHub 이모지 검색과 포켓몬 API 실습을 통해 컴포넌트 역할 분리, Promise.all 병렬 요청, 로딩·오류 처리를 정리했다.
+summary: 'API는 프로그램끼리 정해진 형식으로 데이터를 주고받는 접점이다.'
 ---
 
-[소스코드 보기](https://github.com/woong3e/sesac_lecture/commit/bbfd66ad509ceb68104a5b8eb9123f3ade3efc02)
+[소스코드: 과제 진행중](https://github.com/woong3e/sesac_lecture/commit/bbfd66ad509ceb68104a5b8eb9123f3ade3efc02)
 
-## ☘️ 먼저 설명해보세요
+API는 프로그램끼리 정해진 형식으로 데이터를 주고받는 접점이다. 화면에서 요청한 데이터는 즉시 도착하지 않으므로 로딩·성공·실패를 각각 상태로 표현해야 한다. 이모지와 포켓몬 예제는 한 번의 조회와 연속 조회의 차이를 보여 준다.
 
-1. 상태는 어느 컴포넌트가 가질까? → [답 확인](#%EF%B8%8F-%EC%9D%B4%EB%AA%A8%EC%A7%80-%EA%B2%80%EC%83%89)
-2. 여러 상세 요청을 어떻게 모을까? → [답 확인](#%EF%B8%8F-%ED%8F%AC%EC%BC%93%EB%AA%AC-%EB%AA%A9%EB%A1%9D%EA%B3%BC-%EC%83%81%EC%84%B8)
-3. 로딩과 실패는 어떻게 처리할까? → [답 확인](#%EF%B8%8F-%EC%9D%91%EB%8B%B5%EA%B3%BC-%ED%99%94%EB%A9%B4-%EC%83%81%ED%83%9C)
+## ☘️ 요청·응답·상태 갱신
 
-## ☘️ 이모지 검색
+fetch는 요청 결과를 Promise로 반환한다. await로 응답을 기다린 뒤 response.ok로 HTTP 성공 상태인지 확인하고 response.json으로 본문을 JavaScript 값으로 읽는다. 두 작업 모두 비동기다. 서버의 404나 500 응답은 fetch의 Promise가 정상 완료될 수도 있어 ok 검사가 필요하다.
 
-![이모지 검색 실습](/static/images/TIL/260922_1.png)
+요청 전에 로딩을 켜고 성공하면 데이터를 저장한다. 실패하면 오류를 저장하며 finally에서는 결과와 무관하게 로딩을 끈다. 로딩을 성공 분기에서만 끄면 실패했을 때 계속 기다리는 화면이 될 수 있다.
 
-- SearchBox: 입력 state 관리, 검색 시 부모 콜백에 값 전달
-- App: 전체 이모지·검색어·요청 상태 관리. 공통 부모가 공유 상태 소유
-- ImageBox: 전달받은 로딩·URL에 따라 표시. API 요청은 담당하지 않음
+이모지 API는 이름을 키, 이미지 주소를 값으로 갖는 객체를 반환한다. 예제는 처음에 전체 목록을 한 번 가져오고 검색 폼이 전달한 키로 이미지 주소를 찾는다. 검색 버튼을 누를 때마다 API 주소를 새로 요청하는 구조는 아니다. 없는 키라면 검색 결과가 없다고 표시한다.
 
-```jsx
-// 마운트 Effect 안에서 https://api.github.com/emojis 요청
-const response = await axios.get(emojiURL)
-setEmojiList(response.data)
-// App에서 검색 결과 계산
-const imgURL = emojiList?.[keyword]
+## ☘️ 컴포넌트가 맡는 역할
+
+SearchBox는 입력과 제출을 처리하고 검색어를 콜백으로 부모에게 전달한다. EmojiSearch는 받은 목록과 적용한 키를 보관한다. ImageBox는 로딩 여부와 이미지 주소를 받아 화면을 고른다. 입력 UI·데이터 관리·결과 표시를 나누면 각 컴포넌트의 입력과 결과를 확인하기 쉽다.
+
+## ☘️ 목록 주소에서 상세 데이터로
+
+포켓몬 목록의 results에는 각 항목의 이름과 상세 주소가 들어 있다. 카드 이미지까지 표시하려면 상세 요청이 추가로 필요하다. map으로 각 주소를 조회하는 Promise 배열을 만들고 Promise.all로 모두 기다린다. 결과 배열은 완료 속도와 관계없이 입력 Promise의 순서를 따른다.
+
+하나라도 실패하면 Promise.all은 실패한다. 이 예제는 일부 성공 카드를 따로 보여 주기보다 전체 오류를 표시하는 규칙이다. 상세 데이터가 모이면 상태에 저장하고 Card가 이름과 이미지를 표시한다. 중첩된 이미지 경로가 없을 가능성은 옵셔널 체이닝과 대체 주소로 다룬다.
+
+외부 데이터나 응답 속도는 실행 시점에 따라 바뀐다. 원본의 Axios 호출과 같은 요청 흐름을 별도 설치 없이 읽을 수 있도록 아래 전체 문서는 fetch를 사용했다. 예제는 초기 조회만 수행하며 재검색 요청 경쟁이나 요청 취소까지 구현한 것은 아니다.
+
+## ☘️ 검색 요청과 목록·상세 요청의 연결
+
+다음은 연결된 학습 코드의 핵심 동작을 한 파일에서 확인하도록 정리한 설명용 예제다. 원본 프로젝트 전체를 그대로 옮긴 것은 아니다. 필요한 선언과 실행 부분을 함께 두었으며, 아래 코드만 저장해 흐름을 따라갈 수 있다.
+
+**index.html**
+
+```html
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>React 동작 확인</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="text/babel">
+      const { useState, useEffect } = React
+      function SearchBox({ onSearch }) {
+        const [input, setInput] = useState('')
+        return (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              onSearch(input.trim())
+            }}
+          >
+            <input
+              aria-label="이모지 이름"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+            />
+            <button>검색</button>
+          </form>
+        )
+      }
+      function ImageBox({ isLoading, imgURL }) {
+        return isLoading ? (
+          <p>이모지 로딩 중</p>
+        ) : imgURL ? (
+          <img src={imgURL} alt="검색한 이모지" width="60" />
+        ) : (
+          <p>검색 결과 없음</p>
+        )
+      }
+      function EmojiSearch() {
+        const [emojiList, setEmojiList] = useState({}),
+          [keyword, setKeyword] = useState(''),
+          [isLoading, setIsLoading] = useState(true),
+          [error, setError] = useState('')
+        useEffect(() => {
+          async function load() {
+            try {
+              const response = await fetch('https://api.github.com/emojis')
+              if (!response.ok) throw new Error('이모지 요청 실패')
+              setEmojiList(await response.json())
+            } catch (e) {
+              setError(e.message)
+            } finally {
+              setIsLoading(false)
+            }
+          }
+          load()
+        }, [])
+        return (
+          <section>
+            <h2>이모지 검색</h2>
+            <SearchBox onSearch={setKeyword} />
+            {error && <p>{error}</p>}
+            <ImageBox isLoading={isLoading} imgURL={emojiList[keyword]} />
+          </section>
+        )
+      }
+      function Card({ pokemon }) {
+        const imageUrl =
+          pokemon.sprites.other?.dream_world?.front_default || pokemon.sprites.front_default
+        return (
+          <li>
+            {pokemon.id}: {pokemon.name}
+            {imageUrl && <img src={imageUrl} alt={pokemon.name} width="80" />}
+          </li>
+        )
+      }
+      function PokemonList() {
+        const [pokemons, setPokemons] = useState([]),
+          [loading, setLoading] = useState(true),
+          [error, setError] = useState(null)
+        useEffect(() => {
+          async function load() {
+            try {
+              const response = await fetch('https://pokeapi.co/api/v2/pokemon')
+              if (!response.ok) throw new Error('목록 요청 실패')
+              const listData = await response.json()
+              const details = await Promise.all(
+                listData.results.map(async (pokemon) => {
+                  const response = await fetch(pokemon.url)
+                  if (!response.ok) throw new Error('상세 요청 실패')
+                  return response.json()
+                })
+              )
+              setPokemons(details)
+            } catch (e) {
+              setError(e)
+            } finally {
+              setLoading(false)
+            }
+          }
+          load()
+        }, [])
+        if (loading) return <p>포켓몬 로딩 중</p>
+        if (error) return <p>{error.message}</p>
+        return (
+          <ul>
+            {pokemons.map((pokemon) => (
+              <Card key={pokemon.id} pokemon={pokemon} />
+            ))}
+          </ul>
+        )
+      }
+      function App() {
+        return (
+          <>
+            <EmojiSearch />
+            <PokemonList />
+          </>
+        )
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(<App />)
+    </script>
+  </body>
+</html>
 ```
 
-응답은 이모지 이름이 키인 객체다. 동적 키는 대괄호로 읽고, `?.`는 객체가 null·undefined면 오류 대신 undefined를 반환한다. 부모는 데이터·함수를 props로 내려주고 자식은 입력·표시 역할에 집중한다.
+이모지 목록을 처음 한 번 요청한 뒤 검색어를 객체의 키로 사용해 이미지 주소를 찾는다. fetch는 HTTP 오류 상태만으로 reject하지 않으므로 ok를 먼저 검사한다. 포켓몬은 목록에 있는 각 상세 주소를 조회하고 Promise.all로 모두 기다린다. 데이터가 모이면 카드를 표시하고 실패하면 오류 안내를 표시한다. finally는 성공 여부와 관계없이 로딩을 끝낸다. 이 예제에는 초기 조회만 있으며 요청 취소나 재검색 요청 경쟁 제어는 포함하지 않았다.
 
-원본은 isLoading 상태를 선언했지만 요청 전후 setter를 호출하지 않아 실제 로딩 전환은 구현되지 않았다. 요청과 상태 연결이 필요하다.
+**실행 방법**
 
-## ☘️ 포켓몬 목록과 상세
-
-![포켓몬 API 실습](/static/images/TIL/260922_2.png)
-
-**목록 요청 → 상세 URL → Promise 배열 → Promise.all → 데이터 배열 → state → Card**
-
-```js
-const response = await fetch('https://pokeapi.co/api/v2/pokemon')
-if (!response.ok) throw new Error('목록 요청 실패')
-const listData = await response.json()
-const details = await Promise.all(
-  listData.results.map(async (pokemon) => {
-    const detailResponse = await fetch(pokemon.url)
-    if (!detailResponse.ok) throw new Error('상세 요청 실패')
-    return detailResponse.json()
-  })
-)
-setPokemons(details)
-```
-
-목록에는 이름·상세 URL만 있어 이미지·번호는 상세 API로 가져온다. map에서 fetch를 반환하면 데이터가 아닌 Promise 배열이며, Promise.all로 모아야 실제 결과 배열이 된다. **결과 순서는 입력 순서**, 하나라도 reject면 전체도 reject다. then 체인으로 작성할 때도 json()·Promise.all()을 return해야 이어진다.
-
-## ☘️ 응답과 화면 상태
-
-- fetch는 HTTP 404·500만으로 자동 reject하지 않으므로 목록·상세 모두 response.ok 검사
-- `try`: 요청·저장 / `catch`: setError / `finally`: 성공·실패 모두 setLoading(false)
-- 화면은 loading → error.message → 목록 순서로 분기
-- `pokemons.map(pokemon => <Card key={pokemon.id} pokemon={pokemon} />)`으로 안정적인 key와 데이터 전달
-- Card 이미지는 `sprites.other?.dream_world?.front_default || sprites.front_default`로 대체 이미지 선택
-
-원본은 목록 JSON 변환 후 ok를 검사했다. 위 예시는 성공 여부부터 확인하도록 순서를 정리했다.
+아래 전체 코드를 index.html로 저장하고 브라우저에서 연다. React 18·React DOM 18·Babel을 CDN에서 가져오므로 인터넷 연결이 필요하다. Babel은 브라우저에서 JSX를 변환하는 실습용 구성이다. 파일을 여러 조각으로 나누어 붙일 필요가 없다.
