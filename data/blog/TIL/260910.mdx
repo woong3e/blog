@@ -8,25 +8,39 @@ summary: 생성자 함수와 클래스로 Person 인스턴스를 만들고, 인�
 
 [소스코드 보기](https://github.com/woong3e/sesac_lecture/commit/e68f6c13aaf996fda5f564f49adf3c59a5f386f8)
 
-## ☘️ 객체별 데이터와 메서드 위치
+## ☘️ 먼저 설명해보세요
 
-수업에서는 같은 Person을 생성자 함수와 class 두 방식으로 표현했다. Person은 이름과 나이를 가진 사람을 만드는 정의이고, new로 만들어진 person1과 person2는 각각의 인스턴스다. 두 객체의 데이터가 비슷하더라도 같은 객체를 가리키는 것은 아니다.
+1. 메서드의 위치에 따라 무엇이 달라질까? → [답 확인](#%EF%B8%8F-%EA%B0%9D%EC%B2%B4-%EC%83%9D%EC%84%B1%EA%B3%BC-%EB%A9%94%EC%84%9C%EB%93%9C)
+2. 클래스로 쓰면 어떻게 표현할까? → [답 확인](#%EF%B8%8F-%ED%81%B4%EB%9E%98%EC%8A%A4%EC%99%80-%EC%9A%A9%EC%96%B4)
 
-생성자 함수에서는 `this.name = name`, `this.age = age`로 새 객체에 전달받은 값을 넣는다. 함수 안에 getInfo도 정의했으므로 객체를 만들 때마다 별도의 getInfo 함수가 만들어진다.
+## ☘️ 객체 생성과 메서드
 
-공통 동작인 sayHi는 `Person.prototype`에 정의한다. 인스턴스에 직접 없으면 프로토타입을 따라 그 함수를 찾는다. 여러 객체가 같은 함수를 공유하더라도 호출한 객체가 this가 되므로 각 사람의 이름과 나이를 사용할 수 있다.
+JavaScript는 프로토타입 기반이며 생성자 함수와 클래스 모두 인스턴스를 만든다. 클래스 없이도 프로토타입으로 상속을 구현할 수 있고, ES6 클래스는 생성·상속 의도를 표현하기 쉽게 한다.
 
-**비교 결과의 의미**
+```js
+function Person(name, age) {
+  this.name = name
+  this.age = age
+  this.getInfo = function () {
+    return `${this.name}: ${this.age}`
+  }
+}
+Person.prototype.sayHi = function () {
+  return `hi ${this.name}`
+}
+Person.sayBye = function () {
+  console.log('bye')
+}
+const p1 = new Person('박지성', 30)
+const p2 = new Person('손흥민', 20)
+```
 
-- person1과 person2를 `===`로 비교하면 false다. 새로 만든 두 객체의 참조가 다르기 때문이다.
-- 두 객체의 getInfo 비교도 false다. 생성자 안에서 각자 함수를 만들었기 때문이다.
-- 두 객체의 sayHi 비교는 true다. Person.prototype에 있는 하나의 함수를 함께 찾기 때문이다.
+- `p1 === p2`: false. 별도 객체의 참조를 비교
+- `p1.getInfo === p2.getInfo`: false. 생성자 안의 함수는 객체마다 생성
+- `p1.sayHi === p2.sayHi`: true. 프로토타입 함수 공유
+- `Person.sayBye()`: 객체 없이 생성자에 붙은 정적 메서드 호출
 
-참조는 어떤 객체를 가리키는 값이다. 객체의 `===`는 속성 내용이 같은지 모두 비교하는 연산이 아니므로, 함수 비교 결과도 “코드가 닮았다”가 아니라 “같은 함수 객체인가”로 읽는다.
-
-## ☘️ class로 같은 구조 표현하기
-
-클래스는 생성과 공통 동작의 구조를 명확하게 표현하는 문법이다. JavaScript는 프로토타입을 사용하며, class로 만든 인스턴스도 프로토타입과 연결된다.
+## ☘️ 클래스와 용어
 
 ```js
 class Person {
@@ -34,11 +48,11 @@ class Person {
     this.name = name
     this.age = age
     this.getInfo = function () {
-      return `${this.name}은 ${this.age}세 입니다.`
+      return `${this.name}: ${this.age}`
     }
   }
   sayHi() {
-    return `hi ${this.name}은 ${this.age}세 입니다.`
+    return `hi ${this.name}`
   }
   static sayBye() {
     console.log('bye')
@@ -46,10 +60,10 @@ class Person {
 }
 ```
 
-constructor는 new로 인스턴스를 만들 때 데이터를 초기화하는 부분이다. 그 안에서 만든 getInfo는 객체마다 따로 생긴다. 클래스 본문에 일반 메서드로 작성한 sayHi는 프로토타입에 놓이므로 공유된다. 수업의 박지성·30과 손흥민·20을 각각 생성하면 생성자 함수와 같은 참조 비교 결과를 확인할 수 있다.
+생성자 함수 예제와 같은 비교 결과다. 두 예제는 각각 실행한다.
 
-`static`이 붙은 sayBye는 인스턴스가 아니라 클래스에 속하는 정적 메서드다. `Person.sayBye()`로 호출하므로 먼저 사람 객체를 만들 필요가 없다. 생성자 함수 버전에서도 Person에 함수를 직접 붙여 같은 호출 방식을 만들었다.
-
-원본의 생성자 함수 버전 sayHi는 console.log로 출력하고, 클래스 버전 sayHi는 문자열을 return한다. 두 버전의 메서드 저장 위치는 같지만 호출 결과를 다루는 방식은 이 차이를 구분해야 한다. 두 파일은 같은 Person 이름을 정의하므로 각각 실행해 비교한다.
-
-프로퍼티는 객체의 키·값 항목, 메서드는 함수인 프로퍼티, 인스턴스는 new로 만든 개별 객체다. class·extends·super·static은 생성과 상속, 부모 접근, 정적 기능을 표현하는 관련 문법이며 이 수업 예제에서는 생성과 세 종류의 메서드 위치를 직접 비교했다.
+- 프로퍼티: 객체의 키·값 쌍 / 인스턴스: `new`로 만든 객체
+- `constructor`: 클래스의 초기화 메서드
+- 생성자 내부의 메서드: 객체마다 새로 생성 / 클래스 본문의 일반 메서드: 프로토타입에 위치
+- 정적 메서드: 클래스·생성자로 접근 / `[[Prototype]]`: 객체와 프로토타입의 연결
+- `class`, `extends`, `super`, `static`: 생성·상속·부모 접근·정적 기능을 명확히 표현

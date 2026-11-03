@@ -8,79 +8,64 @@ summary: 상품과 주문 과제로 자료형 확인, 숫자 변환, 논리 연�
 
 [소스코드 보기](https://github.com/woong3e/sesac_lecture/commit/d85616610a1b2657c4bae903b3d16d1ec9055257)
 
-## ☘️ 상품 정보와 입력값 계산
+## ☘️ 먼저 설명해보세요
 
-이 수업의 과제는 상품 정보를 저장한 뒤 자료형을 확인하고, 조건·반복·객체·함수로 주문 처리의 작은 단계를 구현하는 것이다. 각 문제는 별도로 생각하되 앞에서 배운 문법이 뒤의 풀이에 어떻게 연결되는지 확인한다.
+1. 타입을 확인하고 숫자로 바꾸려면? → [답 확인](#%EF%B8%8F-%ED%83%80%EC%9E%85%EA%B3%BC-%EC%A1%B0%EA%B1%B4)
+2. 반복·객체·반환값은 어떻게 다룰까? → [답 확인](#%EF%B8%8F-%EB%88%84%EC%A0%81%EA%B3%BC-%EA%B0%9D%EC%B2%B4-%EB%B3%80%EA%B2%BD)
+3. 출력과 return은 어떻게 다를까? → [답 확인](#%EF%B8%8F-%ED%95%A8%EC%88%98-%EB%B0%98%ED%99%98%EA%B3%BC-%EC%A1%B0%EA%B8%B0-%EC%A2%85%EB%A3%8C)
 
-**변수와 자료형**
+## ☘️ 타입과 조건
 
-변수는 값을 이름으로 보관한다. 노트라는 상품명은 글자인 string, 3000이라는 가격은 숫자인 number, 판매 가능 여부 true는 boolean이다. `typeof`는 값의 자료형을 확인한다. 원본 1번 풀이는 자료형 세 개만 출력했지만 문제에서는 상품 정보 자체도 함께 출력하도록 요구하므로 출력 항목이 부족하다.
+상품·주문 과제에서 변수 → 타입 변환 → 조건 → 반복 → 객체 → 함수를 연습했다.
 
-문자열로 받은 금액은 숫자로 바꾸어야 덧셈으로 계산할 수 있다. 문자열의 `+`는 글자를 이어 붙이기 때문이다. 수업 코드는 입력 가격과 배송비를 `Number`로 각각 바꾸고 그 결과를 더한다.
+- `typeof '노트'`는 string, `typeof 3000`은 number, `typeof true`는 boolean
+- 문자열 금액은 `Number('12000') + Number('3000')`으로 계산 → 숫자 15000. 변환하지 않은 `+`는 문자열 연결
+- 무료 배송: `isMember && orderAmount >= 20000`. 회원·18000원은 false, 회원·20000원은 true, 비회원·30000원은 false
 
 ```js
-const inputPrice = '12000'
-const inputDeliveryFee = '3000'
-const result1 = Number(inputPrice)
-const result2 = Number(inputDeliveryFee)
-const total = result1 + result2
-console.log(total, typeof total)
+if (score < 0 || score > 100) console.log('점수를 확인하세요.')
+else if (score >= 90) console.log('우수')
+else if (score >= 70) console.log('통과')
+else console.log('재학습')
 ```
 
-입력은 문자열이지만 total은 숫자 15000이고 자료형은 number다. 출력할 숫자를 직접 적는 대신 입력값을 변환하고 계산해야 입력이 달라져도 같은 로직을 사용할 수 있다.
+범위 검증을 먼저 하고 높은 점수부터 검사한다. 90은 우수, 70·85는 통과, 0·69는 재학습, -1·101은 오류다.
 
-**무료 배송 조건**
-
-무료 배송은 회원이면서 주문 금액이 20000원 이상이어야 한다. `isMember && orderAmount >= 20000`은 금액 비교 결과와 회원 여부가 모두 참인지 검사한다. 회원·18000원은 false, 회원·20000원은 true, 비회원·30000원은 false다. 금액이 충분하다는 이유만으로 회원 조건까지 만족하는 것은 아니다.
-
-## ☘️ 조건의 순서와 반복 누적
-
-**점수 분류**
-
-유효 범위는 0~100이다. 먼저 `score < 0 || score > 100`으로 잘못된 값을 걸러 내고, 남은 값에서 90 이상은 우수, 70 이상은 통과, 나머지는 재학습으로 나눈다.
-
-`if / else if / else`는 앞에서 처음 해당하는 분기 하나만 실행한다. 따라서 높은 점수부터 확인해야 90점도 먼저 “통과”로 처리되는 일을 막을 수 있다. 90은 우수, 70과 85는 통과, 0과 69는 재학습, -1과 101은 잘못된 점수다. 경계값을 직접 확인하면 `>`와 `>=`를 잘못 쓴 부분을 찾기 쉽다.
-
-**3의 배수 개수와 합계**
-
-1~20의 수를 하나씩 확인하고, 3으로 나눈 나머지가 0인 경우만 처리한다. 개수를 저장하는 count와 합을 저장하는 sum은 반복이 시작되기 전에 0으로 만든다.
+## ☘️ 누적과 객체 변경
 
 ```js
 let count = 0
 let sum = 0
 for (let i = 1; i <= 20; i++) {
   if (i % 3 === 0) {
-    console.log(i)
+    console.log(i) // 3, 6, 9, 12, 15, 18
     count++
     sum += i
   }
-}
+} // count: 6, sum: 63
 ```
 
-선택된 수는 3·6·9·12·15·18이다. 하나를 찾을 때마다 count는 1 증가하고 sum에는 그 수가 더해져, 반복 후 6개와 합계 63이 남는다. 누적 변수를 반복문 안에서 매번 0으로 만들면 앞선 계산이 사라진다.
+누적 변수는 반복문 밖에서 초기화한다.
 
-## ☘️ 객체 수정과 함수의 반환값
+```js
+const product = { name: '노트', price: 3000, stock: 10, category: '문구' }
+const key = 'price'
+product.stock -= 2
+product.isAvailable = product.stock > 0
+delete product.category
+// product[key]: 3000, stock: 8, isAvailable: true, category: undefined
+```
 
-**상품 객체 변경**
+`const` 객체는 다른 객체로 재할당할 수 없지만 프로퍼티 조회·수정·추가·삭제는 가능하다.
 
-상품 객체는 이름·가격·재고·분류를 하나로 묶는다. `key`에 price를 저장하고 `product[key]`로 읽으면 가격 3000을 얻는다. 점 표기법으로 `product.key`라고 쓰면 key라는 다른 항목을 찾게 된다.
-
-재고를 10에서 2 줄이면 8이 되고, 남은 재고가 0보다 큰지를 비교해 isAvailable을 true로 추가한다. `delete product.category`로 분류 항목을 지우면 이후 조회는 undefined다. product를 const로 선언했어도 내부 프로퍼티의 수정·추가·삭제는 가능하다. 금지되는 것은 product 변수에 새 객체 자체를 다시 대입하는 것이다.
-
-**주문 금액 반환**
-
-함수는 반복해서 사용할 계산을 이름으로 묶는다. price와 quantity는 함수를 호출한 쪽에서 값을 전달받는 매개변수다.
+## ☘️ 함수 반환과 조기 종료
 
 ```js
 function getOrderTotal(price, quantity) {
-  if (quantity <= 0) {
-    return 0
-  }
+  if (quantity <= 0) return 0
   return price * quantity
 }
-console.log(`배송비 포함: ${getOrderTotal(3000, 2) + 2500}`)
+console.log(getOrderTotal(3000, 2) + 2500) // 배송비 포함 8500
 ```
 
-수량이 0 이하라면 return 0에서 즉시 끝난다. 양수일 때만 가격과 수량을 곱해 돌려준다. 수업의 확인 값은 3000원 두 개 6000, 5000원 한 개 5000, 수량 0과 -2는 0이다. 반환한 6000에 배송비 2500을 더하면 8500이 된다.
-
-`console.log`는 콘솔에 보여 주는 동작이고 `return`은 계산 결과를 호출한 쪽에 전달하는 동작이다. 함수 안에서 출력만 하면 결과를 받아 후속 계산하는 흐름을 만들 수 없다. 이 과제는 외부 변수를 바꾸는 대신 반환값을 사용하도록 요구한다.
+`console.log`는 화면 출력, `return`은 호출자에게 값을 전달하고 함수를 종료한다. 5000원 1개는 5000, 수량 0·-2는 0을 반환한다. 외부 변수 대신 반환값으로 후속 계산을 이어 간다.

@@ -8,49 +8,65 @@ summary: map과 key로 목록을 렌더링하고 Todo의 추가·삭제·완료 
 
 [소스코드 보기 1](https://github.com/woong3e/sesac_lecture/commit/b07cbe4d492ac5305edc6e41fbbb254fe68c950f) · [소스코드 보기 2](https://github.com/woong3e/sesac_lecture/commit/1c3b2cf2ef0efd2a92d6c618866475ffbd97d4a3)
 
-## ☘️ 배열을 화면 목록으로 바꾸기
+## ☘️ 먼저 설명해보세요
 
-React의 목록은 데이터 배열을 map으로 JSX 배열로 바꾸어 표시한다. map은 각 항목을 받아 반환한 결과를 새 배열로 모으므로, 중괄호 본문을 사용하면 JSX를 return해야 한다. 수업의 과일 목록은 위치인 index를 key로, 사용자 목록은 각 데이터의 id를 key로 사용했다.
+1. 목록을 어떻게 추가·삭제·수정할까? → [답 확인](#%EF%B8%8F-%EB%AA%A9%EB%A1%9D%EA%B3%BC-todo)
+2. 자식 이벤트는 부모에게 어떻게 전할까? → [답 확인](#%EF%B8%8F-%EC%97%AD%ED%95%A0-%EB%B6%84%EB%A6%AC%EC%99%80-%EC%99%84%EB%A3%8C)
+3. Effect는 언제 실행하고 정리할까? → [답 확인](#%EF%B8%8F-effect%EC%99%80-cleanup)
 
-key는 React가 형제 항목 사이에서 같은 항목을 식별하는 값이다. 추가·삭제로 순서가 달라지는 목록에서 index를 쓰면 위치와 데이터가 어긋날 수 있다. Todo에서는 각 항목의 id를 사용하고, 삭제하더라도 다른 항목의 id를 당겨 다시 번호 매기지 않는다.
+## ☘️ 목록과 Todo
 
-**추가와 삭제**
-
-부모 TodoList는 입력값, 할 일 배열, 다음 id를 관리한다. 추가할 때는 공백뿐인 입력을 막고 새 객체를 만들어 기존 배열 뒤에 붙인다. 이때 원래 state 배열을 push로 바꾸는 대신 Spread로 새 배열을 만들어 setter에 전달한다. 추가 후 다음 id를 늘리고 입력을 비운다.
-
-삭제는 filter로 지정 id와 다른 항목만 남긴 새 배열을 만든다. filter의 함수가 true를 반환한 항목만 결과에 포함된다. 화면은 변경된 배열을 다시 map하므로 제거한 항목이 사라진다.
-
-## ☘️ 부모·자식 역할과 완료 상태
-
-TodoItem은 할 일 하나를 표시하고 사용자 동작을 부모에게 알리는 자식 컴포넌트다. 부모가 todo와 삭제·완료 함수를 props로 내려주면 자식은 버튼을 눌렀을 때 해당 id를 넣어 호출한다. 실제 목록 변경 규칙과 state는 부모에 모여 있다.
+`map()`으로 데이터를 JSX로 바꾸고 `key={item.id}`로 항목을 식별한다. key는 형제 사이에서 고유하고 같은 항목에 안정적이어야 한다. 고정 목록에서는 index를 쓰기도 했지만, 추가·삭제되는 Todo에는 위치가 바뀌므로 id를 쓴다.
 
 ```jsx
-const handleToggle = (id) => {
-  const toggleArr = todos.map((todo) => {
-    return todo.id === id ? { ...todo, isDone: !todo.isDone } : todo
-  })
-  setTodos(toggleArr)
+// 빈 입력 차단 → 추가 → 다음 id 증가 → 입력 비우기
+if (!inputValue.trim()) return
+setTodos([...todos, { id: nextId, text: inputValue, isDone: false }])
+setNextId(nextId + 1)
+setInputValue('')
+// 삭제
+setTodos(todos.filter((todo) => todo.id !== id))
+// 완료 토글
+setTodos(todos.map((todo) => (todo.id === id ? { ...todo, isDone: !todo.isDone } : todo)))
+```
+
+push·splice로 원본 state를 직접 수정하지 않는다. **새 배열과 변경할 객체의 복사 둘 다** 필요하다. id는 삭제해도 다시 당기지 않고 계속 증가시킨다.
+
+## ☘️ 역할 분리와 완료
+
+TodoList는 입력값·배열·다음 id·변경 로직, TodoItem은 항목 화면과 사용자 동작 전달을 담당한다.
+
+```jsx
+function TodoItem({ todo, onRemove, onToggle }) {
+  return (
+    <li>
+      <input type="checkbox" checked={todo.isDone} onChange={() => onToggle(todo.id)} />
+      <span className={todo.isDone ? 'completed' : ''}>{todo.text}</span>
+      <button onClick={() => onRemove(todo.id)}>삭제</button>
+    </li>
+  )
 }
 ```
 
-수업의 완료 토글은 모든 항목을 살펴 지정 id만 새 객체로 복사하고 isDone을 뒤집는다. 다른 항목은 기존 객체를 유지한다. 바깥 배열과 변경하는 내부 객체를 모두 새로 만드는 이유는 기존 상태를 직접 바꾸지 않기 위해서다.
+부모가 데이터·콜백을 props로 전달하고, 자식은 id로 동작을 알린다. 체크 상태는 value가 아닌 boolean checked다. 완료 클래스에 취소선을 적용했다.
 
-체크박스는 boolean인 checked를 isDone에 연결하고 onChange에서 토글을 요청한다. 완료된 글자에는 completed 클래스를 붙여 취소선을 표시한다. 원본의 “남은 할 일”은 todos.length로 전체 개수를 보여 준다. 미완료 개수를 표시하려면 완료되지 않은 항목만 세는 처리가 추가로 필요하다.
+원본의 “남은 할 일”은 todos.length로 전체를 셌다. 미완료 수는 `todos.filter(todo => !todo.isDone).length`로 계산해야 한다.
 
-별도 연습 파일에는 map의 return 누락과 렌더링 도중 `handleRemove(todo.id)`를 호출하는 오류도 있다. JSX를 반환하지 않으면 화면 목록이 만들어지지 않고, 삭제 함수는 렌더링 중이 아니라 클릭 시 실행되도록 함수로 전달해야 한다. 완성된 Todo 파일과 이 미완성 파일을 구분한다.
+## ☘️ Effect와 cleanup
 
-## ☘️ useEffect의 시점과 의존성
+Effect는 DOM 반영 후 외부 작업을 시작한다.
 
-컴포넌트의 본문은 화면 구조를 계산한다. 타이머 등록처럼 화면 바깥의 시스템과 연결하는 작업은 Effect에서 처리한다. useEffect의 함수는 해당 렌더링 결과가 DOM에 반영된 뒤 실행된다. 수업에서는 렌더링 중 로그와 Effect의 로그 순서를 비교했다.
+- 의존성 생략: 매 커밋 후 / `[]`: 마운트 / `[count]`: 마운트와 count 변경 시
+- otherCount만 바꾸면 `[count]` Effect는 재실행하지 않음
+- 사용한 반응형 값을 의존성에 포함. 이전 값과 Object.is로 비교
 
-- 의존성 배열을 생략하면 매번 반영된 렌더링 후 실행한다.
-- 빈 배열이면 해당 컴포넌트가 마운트될 때 설정한다. 마운트는 화면 트리에 처음 들어오는 단계다.
-- count를 넣으면 첫 마운트와 count가 달라진 반영 뒤 실행한다. otherCount만 바뀌면 해당 Effect는 재실행하지 않는다.
+```jsx
+useEffect(() => {
+  const id = setInterval(() => console.log('1초 경과'), 1000)
+  return () => clearInterval(id)
+}, [])
+```
 
-의존성은 작업이 사용하는 반응형 값을 기준으로 적는다. React는 이전 값과 Object.is로 비교한다. 개발 환경의 Strict Mode에서는 설정·정리 과정을 추가 실행할 수 있으므로 빈 배열을 어떤 상황에서도 정확히 한 번이라는 뜻으로 외우지 않는다.
+Timer를 조건부 표시·숨김하며 정리를 확인했다. cleanup은 **제거 시**, 그리고 **의존성 변경으로 재실행하기 전**에 이전 작업을 정리한다. 개발 Strict Mode는 초기 setup·cleanup을 추가 실행할 수 있어 `[]`를 무조건 한 번이라고 외우지 않는다.
 
-**정리 함수(cleanup)**
-
-Timer는 마운트될 때 setInterval로 1초마다 로그를 찍는 타이머를 만든다. Effect가 반환한 함수에서 clearInterval로 그 타이머를 정리한다. App에서 Timer를 숨겨 화면 트리에서 제거할 때 정리가 실행되어 화면에서 사라진 타이머가 계속 동작하지 않게 한다.
-
-정리는 제거 시점뿐 아니라 의존성 변경으로 새 작업을 설정하기 전에도 실행된다. 이전 작업 정리 → 새 값으로 설정이라는 쌍으로 이해하면 이벤트 등록이나 외부 연결에도 같은 흐름을 적용할 수 있다.
+참고: [React 목록 렌더링](https://react.dev/learn/rendering-lists) · [React 배열 state 업데이트](https://react.dev/learn/updating-arrays-in-state) · [React input](https://react.dev/reference/react-dom/components/input) · [React useEffect](https://react.dev/reference/react/useEffect)

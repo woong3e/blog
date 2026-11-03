@@ -8,55 +8,81 @@ summary: JDBC 연결부터 조회, 데이터 변경, DAO 분리까지 실습 흐
 
 [소스코드 보기](https://github.com/woong3e/sesac_lecture/commit/7b87da7465dc2bebd4c753c07c04cee7d573f569)
 
-## ☘️ Java와 데이터베이스 연결하기
+## ☘️ 먼저 설명해보세요
 
-JDBC는 Java가 데이터베이스에 연결하고 SQL을 실행하는 공통 API다. DB별 드라이버가 실제 통신을 맡는다. 수업은 드라이버 준비 → Connection 획득 → SQL 준비·실행 → 결과 읽기 → 자원 해제 순서로 진행한다.
+1. JDBC로 조회한 결과는 어떻게 읽을까? → [답 확인](#️-chap01-연결과-chap02-조회)
+2. PreparedStatement는 입력값을 어떻게 전달할까? → [답 확인](#️-chap02-매개변수와-chap03-데이터-변경)
+3. DAO로 분리하면 각 코드는 어떤 역할을 맡을까? → [답 확인](#️-chap04-dao로-역할-분리)
 
-chap01은 Class.forName으로 MySQL 드라이버를 로딩하고 DriverManager.getConnection에 접속 정보를 주어 연결을 받는다. Connection은 Java 프로그램과 데이터베이스의 연결 통로다. 사용이 끝나면 close로 반납하고, 실패 시 null일 수도 있으므로 확인한다.
+**전체 흐름 먼저 보기**
 
-이 작업을 매번 쓰지 않도록 JDBCTemplate에 연결과 종료 기능을 모았다. Properties로 driver·url·계정 정보를 별도 설정에서 읽으므로 접속 설정과 실행 로직을 나누어 관리할 수 있다. 설정 파일을 읽는 FileReader는 try-with-resources로 닫고, Connection은 호출한 쪽에서 생명주기를 관리한다. 원본 getConnection은 실패를 기록하고 null을 반환할 수 있어 이후 코드가 무조건 연결 성공을 가정하면 별도 오류가 날 수 있다.
+Java 프로그램은 JDBC 드라이버를 통해 DB에 연결한 다음 SQL을 보내고 결과를 받는다. 연결은 `Connection`, 실행할 문장은 `Statement` 또는 `PreparedStatement`, SELECT 결과는 `ResultSet`이 맡는다. 메뉴를 조회하는 경우라면 “연결 → SELECT 실행 → 결과를 한 행씩 읽기 → 자원 닫기” 순서다.
 
-## ☘️ 조회 결과와 PreparedStatement
+## ☘️ chap01 연결과 chap02 조회
 
-Statement는 완성된 SQL 문자열을 실행한다. Connection에서 만들고 SELECT는 executeQuery로 실행해 ResultSet을 받는다. ResultSet은 결과 행을 차례로 읽는 객체로, 처음에는 첫 행 앞에 있다. next를 호출해 다음 행으로 이동하고 행이 있으면 true가 된다. 그 상태에서 getString·getInt 등으로 현재 행의 열을 읽는다.
-
-한 행 조회는 if(next), 여러 행은 while(next)를 사용한다. 열 이름 또는 위치로 읽을 수 있으며 수업은 열 이름으로 DTO 필드에 값을 옮겼다. 각 행마다 새 DTO를 만들어 List에 추가해야 개별 결과가 유지된다. 더 읽을 행이 없으면 반복이 끝난다. 자원은 결과 ResultSet → Statement → Connection 순으로 닫았다.
-
-**값 바인딩**
-
-PreparedStatement는 SQL 구조와 입력값을 분리한다. SQL에 `?`를 두고 prepareStatement로 준비한 뒤 setString·setInt로 각 위치에 값을 넣는다. 위치는 1부터이며 SQL의 물음표 순서와 맞춘다.
+**JDBC**는 Java에서 데이터베이스에 연결하고 SQL을 실행하는 API다. 실습은 드라이버 로딩 → `Connection` 획득 → SQL 실행 → 결과 처리 → 자원 해제 순서다.
 
 ```java
-String query = "SELECT MENU_NAME, MENU_PRICE FROM TBL_MENU WHERE MENU_CODE = ?";
-pstmt = con.prepareStatement(query);
-pstmt.setString(1, menuCode);
-rset = pstmt.executeQuery();
+Class.forName(driver);
+Connection con = DriverManager.getConnection(url, prop);
+Statement stmt = con.createStatement();
+ResultSet rset = stmt.executeQuery("SELECT MENU_NAME, MENU_PRICE FROM TBL_MENU");
+while (rset.next()) {
+    System.out.println(rset.getString("MENU_NAME") + ", " + rset.getInt("MENU_PRICE"));
+}
 ```
 
-수업의 이 코드는 메뉴 번호를 데이터로 전달한다. Statement처럼 완성 문자열을 실행할 때마다 전달하는 방식과 다르다. 이름 첫 글자 검색은 SQL의 CONCAT으로 바인딩한 값 뒤에 %를 붙였다. 직원 조회는 SQL을 XML의 이름별 항목으로 분리하고 Properties.loadFromXML로 읽어 사용했다. 이 XML은 실행 결과가 아니라 SQL 문장을 보관하는 파일이다.
+`ResultSet`의 커서는 처음에 첫 행 앞에 있다. `next()`가 다음 행으로 이동하며 행이 있으면 true를 반환한다. `getString`, `getInt` 등으로 현재 행의 컬럼을 읽는다. 여러 행은 DTO를 만들어 리스트에 담아 사용할 수 있다.
 
-원본 일부 조회는 예외가 나기 전에 List를 만들지 못하면 이후 for 순회에서 null 문제가 날 수 있다. Statement 단일 조회 파일에는 자원 해제도 빠져 있다. 다른 파일에 finally가 있다고 모든 실습 파일이 같은 정리를 했다고 가정하지 않는다.
+연결 설정은 properties에서 읽고 `JDBCTemplate`에 연결·종료를 모아 중복을 줄였다. 조회 후 `ResultSet` → `Statement` → `Connection` 순으로 닫는다. 파일 스트림은 try-with-resources로 닫고, JDBC 자원은 예제의 `finally`에서 닫는다. 연결이나 SQL 처리 중 예외가 나더라도 해제가 필요하다.
 
-## ☘️ SQL 인젝션을 비교한 이유
+**chap01: 연결 설정을 분리하는 이유**
 
-입력값을 SQL 문자열에 그대로 이어 붙이면 따옴표나 OR 조건이 데이터 대신 SQL 구문의 일부가 될 수 있다. 원본은 직원 번호·이름 조건에 조작된 이름 문자열을 넣어 원래 조회 의도와 다른 결과가 나오는 것을 비교했다. 이를 SQL 인젝션이라고 한다.
+처음에는 드라이버 클래스명과 URL을 사용해 `Class.forName(driver)`으로 드라이버를 로딩하고, `DriverManager.getConnection(url, prop)`으로 연결을 받았다. 다음 예제는 이 과정을 `JDBCTemplate.getConnection()`으로 묶고 설정을 properties에서 읽는다. 호출하는 쪽은 연결 방법을 반복하지 않고 `getConnection()`을 호출한 뒤 사용이 끝나면 `close(con)`을 호출한다.
 
-PreparedStatement는 직원 번호와 이름을 물음표 위치에 각각 바인딩한다. 조작된 문자열 전체를 이름이라는 값으로 다루므로 그 문자열의 OR가 SQL 조건으로 합쳐지지 않는다. 핵심은 SQL 구조와 값을 분리하는 것이다. 테이블명이나 정렬 구문 등 SQL 구조까지 입력 문자열로 직접 붙이는 별도 코드는 이 값 바인딩만으로 보호되지 않는다.
+**chap02: 결과 행을 읽는 순서**
 
-## ☘️ 메뉴 등록·수정·삭제
+`executeQuery()`가 결과를 주어도 처음부터 첫 행을 가리키지는 않는다. `while (rset.next())`가 다음 행으로 이동한 후 `getString("MENU_NAME")`, `getInt("MENU_PRICE")`로 그 행의 컬럼을 읽는다. 결과가 없으면 `next()`가 처음부터 false이므로 반복문은 실행되지 않는다. DTO를 사용하는 예제는 행마다 새 객체에 컬럼을 채워 리스트에 넣는다.
 
-chap03은 XML에서 insertMenu·updateMenu·deleteMenu를 읽어 PreparedStatement로 실행한다. SELECT의 executeQuery와 달리 데이터 변경은 executeUpdate를 사용하고 영향을 받은 행 수를 int로 받는다. 이 숫자는 ResultSet이나 등록 객체 자체가 아니다. 0은 조건에 맞는 행이 없었던 경우일 수도 있으므로 항상 SQL 오류와 같은 뜻은 아니다.
+`finally`에서 결과, 문장, 연결을 역순으로 닫는다. 설정 파일을 읽는 `FileReader`나 XML을 읽는 `FileInputStream`은 try-with-resources를 사용해 블록을 벗어날 때 닫는다.
 
-고정 등록은 평양냉면·18000·분류 4·Y를 이름·가격·분류·판매 여부 순서로 넣는다. 입력 등록은 값을 MenuDTO에 묶은 뒤 같은 순서로 전달한다. nextInt 후 문자열을 받을 때는 남은 줄바꿈을 소비하고 판매 여부를 대문자로 바꾼다.
+## ☘️ chap02 매개변수와 chap03 데이터 변경
 
-수정은 새 이름·새 가격·대상 코드 순서로, 삭제는 대상 코드 하나를 바인딩한다. Java에서 입력받은 순서와 SQL 물음표의 순서가 꼭 같은 것은 아니므로 SQL을 기준으로 맞춘다. finally에서 Statement와 Connection을 닫으며 자동 커밋 설정에서는 실행된 DML이 각자 확정된다. 여러 변경을 한 묶음으로 처리하려면 별도 트랜잭션 경계가 필요하다.
+**Statement**는 완성된 SQL 문자열을 실행한다. 입력을 문자열에 직접 이어 붙이면 따옴표 등으로 SQL 구조가 바뀌는 SQL 인젝션이 발생할 수 있다. **PreparedStatement**는 SQL의 `?`에 값을 바인딩해 입력을 SQL 구문과 분리한다.
 
-## ☘️ DAO로 접근 코드 분리하기
+```java
+PreparedStatement pstmt = con.prepareStatement(
+    "UPDATE tbl_menu SET menu_name = ?, menu_price = ? WHERE menu_code = ?");
+pstmt.setString(1, name);
+pstmt.setInt(2, price);
+pstmt.setInt(3, code);
+int result = pstmt.executeUpdate();
+```
 
-chap04의 첫 파일은 카테고리 조회·사용자 입력·값 가공·SQL 실행을 main에 함께 둔다. DAO는 Database Access Object로, 데이터베이스 접근 코드를 모으는 객체다. 역할을 나누면 입력 화면을 바꾸더라도 SQL 처리 코드를 같은 방식으로 사용할 수 있다.
+인덱스는 1부터 시작하며 SQL의 물음표 순서와 타입에 맞춘다. SELECT는 `executeQuery()`로 `ResultSet`을, INSERT·UPDATE·DELETE는 `executeUpdate()`로 영향받은 행 수를 받는다. 행 수가 0이면 조건에 맞는 변경 대상이 없을 수 있다.
 
-MenuDAO는 생성자에서 SQL XML을 읽고, selectAllCategory에서 조회 결과를 CategoryDTO 목록으로 변환한다. insertNewMenu는 Connection과 MenuDTO를 받아 값을 바인딩하고 변경 행 수를 반환한다. DAO 안에는 사용자 입력이나 성공 안내 출력이 없다.
+수업에서는 메뉴 등록·수정·삭제에 값을 바인딩하고, 입력값을 DTO에 담아 전달했다. SQL을 XML properties에 분리해 `loadFromXML()`과 키로 가져오는 방법도 사용했다. 문자열 연결을 사용하는 예제와 바인딩 예제의 차이를 SQL 인젝션 실습으로 확인한다.
 
-호출부는 연결을 만들고 카테고리를 보여 준 뒤 입력을 DTO로 묶어 DAO를 호출한다. DAO는 자신이 만든 ResultSet·PreparedStatement만 닫고 전달받은 Connection은 닫지 않는다. 호출부가 여러 작업에 같은 연결을 쓰고 마지막에 닫을 수 있게 소유 책임을 나눈 것이다.
+**chap02: SQL 인젝션을 비교한 흐름**
 
-원본은 “예” 이외의 모든 답을 N으로 바꾸며, 입력 코드가 조회 목록에 있는지 별도로 검증하지 않는다. DAO도 SQL 예외를 기록하고 0을 반환해 호출자가 실패 원인과 0행 결과를 구분하기 어렵다. 계층을 나눈 것과 입력 검증·오류 전달까지 완성된 것은 구분해 복습한다.
+`Statement` 예제는 사원 번호와 이름을 SQL 문자열에 직접 이어 붙인다. 이름에 따옴표와 `OR 1=1` 같은 내용이 들어가면 그 내용이 값의 일부가 아니라 SQL 조건으로 해석될 수 있다. 실제 실습은 `EMP_ID = '210'`과 조작된 이름을 이어 붙여 조건이 달라지는 모습을 확인한다.
+
+같은 입력을 받는 `PreparedStatement` 예제는 `WHERE EMP_ID = ? AND EMP_NAME = ?`를 먼저 만들고 `setString(1, empId)`, `setString(2, empName)`으로 값을 넣는다. 이때 입력은 조건식 자체가 아니라 각 자리의 값으로 전달된다. `?`의 순서가 1부터라는 점이 중요하다.
+
+**chap03: 메뉴 등록·수정·삭제**
+
+등록은 이름·가격·카테고리 코드·판매 여부를 입력받아 INSERT의 네 자리에 순서대로 넣는다. 수정은 DTO에 메뉴 코드와 변경할 이름·가격을 담고, UPDATE의 세 번째 자리에 WHERE에 사용할 메뉴 코드를 넣는다. 삭제는 메뉴 코드로 대상을 지정한다. 세 작업 모두 `executeUpdate()`가 돌려준 행 수로 성공 여부를 출력한다. 값이 0이면 변경된 행이 없는 것이다.
+
+SQL을 Java 코드 밖의 XML properties에 두는 예제는 `prop.loadFromXML(queryStream)`으로 파일을 읽고 `prop.getProperty("updateMenu")`처럼 키로 SQL을 찾는다. 가져온 SQL의 `?`에도 같은 방식으로 값을 채운다.
+
+## ☘️ chap04 DAO로 역할 분리
+
+한 `main`에 카테고리 조회, 입력, 메뉴 등록 SQL을 모두 넣으면 DB 처리와 입력·출력이 뒤섞인다. **DAO**는 DB 접근과 CRUD를 담당하고, DTO는 데이터를 전달한다.
+
+수업의 흐름은 연결 생성 → `MenuDAO.selectAllCategory(con)`으로 카테고리 DTO 목록 조회 → 메뉴 정보 입력 → `MenuDTO` 생성 → `insertNewMenu(con, newMenu)` 호출 → 결과 행 수 확인 → 연결 종료다. DAO는 SQL을 XML에서 읽고 자체 `PreparedStatement`와 `ResultSet`을 닫으며, 전달받은 연결은 호출자가 닫는다.
+
+원본의 분리 전 예제는 조회한 목록과 별도로 카테고리 이름을 코드에 고정 매핑한다. 분리 후에는 조회한 카테고리 코드를 입력받는다. 판매 여부 입력은 `예`면 `Y`, 그 외에는 `N`으로 처리한다.
+
+**chap04: DAO 안과 밖에서 하는 일**
+
++`Application`은 연결을 만들고 카테고리 목록을 DAO에 요청한다. 사용자가 메뉴 정보를 입력하면 `MenuDTO`를 만들고 DAO의 등록 메서드에 연결과 함께 넘긴다. `MenuDAO`는 XML에서 SQL을 꺼내 문장을 만들고, 조회에서는 각 행을 `CategoryDTO`로 바꿔 목록을 반환하며 등록에서는 변경 행 수를 반환한다. DAO는 자신이 만든 문장과 결과를 닫고, 연결을 만든 호출자는 사용을 마친 뒤 연결을 닫는다.

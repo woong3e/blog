@@ -6,96 +6,109 @@ draft: false
 summary: Spring Boot 요청 처리부터 JSON, 예외, 업로드, 인터셉터와 REST API까지 정리했다.
 ---
 
-[chap00](https://github.com/woong3e/sesac_lecture/commit/8fda8a271511a46b6e462a1a5a73052775a680d7) · [chap01](https://github.com/woong3e/sesac_lecture/commit/6dcfd014f27b2b889a09101d8901dbaf039f5a07) · [chap02](https://github.com/woong3e/sesac_lecture/commit/b2a336811eae34e7401635d52e959b5d1f427a18) · [chap03](https://github.com/woong3e/sesac_lecture/commit/1ca43ba62b39bbe39013dbd9c9af5ba8aed3f090) · [chap04](https://github.com/woong3e/sesac_lecture/commit/1ea79c00419273553f8e635ffd3e62f18869318a) · [chap05](https://github.com/woong3e/sesac_lecture/commit/eea5c7ce5fec2efe83e8a0191c6a5c57dbb21eac) · [chap06](https://github.com/woong3e/sesac_lecture/commit/d7543827782de94677050d5de4e360f368ab4eeb) · [chap07](https://github.com/woong3e/sesac_lecture/commit/54bb11b222e0f2ad4001a8dce51bbc5528281e4a) · [chap08](https://github.com/woong3e/sesac_lecture/commit/7795c547cd1055a875bb19badac48e10d4ecdbf4)
+[chap00](https://github.com/woong3e/sesac_lecture/commit/8fda8a2) · [chap01](https://github.com/woong3e/sesac_lecture/commit/6dcfd01) · [chap02](https://github.com/woong3e/sesac_lecture/commit/b2a3368) · [chap03](https://github.com/woong3e/sesac_lecture/commit/1ca43ba) · [chap04](https://github.com/woong3e/sesac_lecture/commit/1ea79c0) · [chap05](https://github.com/woong3e/sesac_lecture/commit/eea5c7c) · [chap06](https://github.com/woong3e/sesac_lecture/commit/d754382) · [chap07](https://github.com/woong3e/sesac_lecture/commit/54bb11b) · [chap08](https://github.com/woong3e/sesac_lecture/commit/7795c54)
 
-## ☘️ chap00: 서버 실행과 HTTP 요청
+## ☘️ 먼저 설명해보세요
 
-웹 화면과 서버는 HTTP 요청·응답으로 통신한다. 요청에는 주소·메서드·헤더·본문 등이 있고, 응답에는 상태 코드·헤더·본문이 있다. 수업은 Spring Boot 서버를 실행해 작은 요청을 처리한 뒤 입력·JSON·오류·파일·화면 연동으로 확장했다.
+1. 요청 경로와 입력값은 핸들러에 어떻게 전달될까? → [답 확인](#️-chap01-요청-매핑과-chap02-핸들러)
+2. JSON과 Java 객체는 어떻게 오갈까? → [답 확인](#️-chap03-jackson과-json)
+3. 인터셉터는 요청 흐름의 어느 시점에 실행될까? → [답 확인](#️-chap06-인터셉터)
 
-@SpringBootApplication이 붙은 클래스에서 SpringApplication.run을 호출하면 애플리케이션을 시작한다. HelloController는 @RestController로 등록하고 @GetMapping("/hello")를 메서드에 붙였다. 서버에 GET /hello를 보내면 hello가 실행되고 "Spring Boot Hello"가 응답 본문이 된다. HTML 템플릿 파일 이름을 반환하는 흐름과 구분한다.
+## ☘️ chap00 Spring Boot 시작
 
-컨트롤러에서 요청에 연결된 메서드를 **핸들러 메서드**라고 한다. 브라우저나 수업의 api-test.http로 요청을 보내며, 각 장은 별도 애플리케이션이므로 실제 실행 포트와 주소를 맞춰야 한다. chap01 HTTP 파일은 8081을, 다른 장의 예제는 주로 8080을 사용한다.
+`@SpringBootApplication`과 `SpringApplication.run()`으로 애플리케이션을 실행한다. `@RestController`의 `@GetMapping("/hello")`는 GET 요청을 메서드에 연결하고 반환 문자열을 HTTP 응답 본문으로 보낸다.
 
-## ☘️ chap01·02: 주소를 메서드와 매개변수에 연결하기
+**요청 한 건의 흐름**
 
-@RequestMapping은 클래스의 공통 주소를, Get·Post·Put·DeleteMapping은 HTTP 방식과 세부 경로를 정한다. 같은 주소라도 요청 방식이 다르면 다른 핸들러로 연결한다. 수업은 메뉴·주문의 목록과 상세, 메뉴 등록·수정·삭제를 구분했다. chap01은 연결 확인을 위한 안내 응답이며 실제 DB 처리까지 구현한 것은 아니다.
+서버를 실행한 뒤 브라우저나 HTTP 파일에서 `GET /hello`를 보내면 `/hello`에 연결된 `hello()`가 실행된다. 메서드의 `"Spring Boot Hello"`가 화면 템플릿 이름이 아니라 응답 본문으로 전달된다. 이것이 이후 API 예제의 출발점이다.
 
-ResponseEntity는 응답 상태·헤더·본문을 함께 정하는 도구다. ok는 200, 등록 예제의 CREATED는 201이다. @RestController는 컨트롤러와 응답 본문 기능을 합쳐, 반환 객체를 JSON 등으로 보내게 한다.
+## ☘️ chap01 요청 매핑과 chap02 핸들러
 
-**요청값이 들어오는 위치**
+`@RestController`는 컨트롤러와 응답 본문 기능을 합친다. 클래스의 `@RequestMapping`으로 공통 주소를 지정하고 `@GetMapping`, `@PostMapping`, `@PutMapping`, `@DeleteMapping`으로 HTTP 요청을 핸들러 메서드에 연결한다. 등록 예제는 `ResponseEntity`로 201을 반환했다.
 
-@RequestParam은 물음표 뒤 쿼리 문자열의 값을 받는다. 수업의 keyword·categoryCode·page는 각각 검색어·분류·페이지다. required=false는 누락을 허용하고 기본값을 지정한 숫자는 누락 시 0이나 1로 받는다. 선택 문자열은 null일 수 있어 응답 Map도 null을 허용하는 LinkedHashMap을 사용했다. Map.of는 null 값을 받을 수 없다.
+```java
+@GetMapping("/{menuCode}")
+public ResponseEntity<Map<String, Object>> findMenu(@PathVariable int menuCode) {
+    Map<String, Object> response = new LinkedHashMap<>();
+    response.put("menuCode", menuCode);
+    return ResponseEntity.ok(response);
+}
+```
 
-@RequestParam Map은 여러 조건 전체를 이름과 값으로 받는다. @PathVariable은 /menus/3의 3처럼 경로 값을 받아 int menuCode로 변환한다. 숫자 타입에 변환할 수 없는 입력이라면 핸들러의 정상 계산 전에 오류가 날 수 있다.
+`@RequestParam`은 쿼리 문자열을 받는다. 이름을 생략하면 Java 매개변수명을 사용하며, `required = false`는 누락을 허용하고 `defaultValue`는 기본값을 정한다. Map으로 전체 쿼리 값을 받을 수도 있다. `@PathVariable`은 경로 값을 받는다.
 
-@RequestBody는 요청 본문을 받는다. application/json의 name·price·categoryCode 등을 DTO 프로퍼티와 연결해 객체로 만든다. String으로 받는 raw 예제는 본문 텍스트를 그대로 확인한다. @RequestHeader는 Content-Type·User-Agent 같은 헤더, @CookieValue는 clientId 쿠키를 읽는다. 선택값에는 required=false를 명시한다. 헤더 이름은 대소문자를 구분하지 않는다.
+`@RequestBody`는 JSON 본문을 같은 프로퍼티 이름의 DTO로 변환하거나 문자열 본문을 그대로 받는다. 잘못된 JSON이나 빈 본문은 400, 지원하지 않는 Content-Type은 415가 발생할 수 있다. `@RequestHeader`는 헤더를, `@CookieValue`는 쿠키를 받으며 선택값은 `required = false`로 지정한다. null이 가능한 응답에는 `LinkedHashMap`을 사용했다.
 
-수업의 JSON 등록은 DTO를 응답 Map에 담고 201로 보낸다. 빈 본문·잘못된 JSON은 400, 처리할 수 없는 Content-Type은 415가 발생할 수 있다. 값의 위치와 본문 형식을 구분해야 요청과 메서드가 맞게 연결된다.
+**요청값이 메서드로 들어오는 예**
 
-## ☘️ chap03: Java 객체와 JSON 변환
+`GET /api/v1/menus?keyword=coffee&categoryCode=2&page=1`에서는 `keyword`, `categoryCode`, `page`가 각각 해당 매개변수로 들어간다. 쿼리를 생략하면 선택값 `keyword`는 null이고, 기본값이 지정된 `categoryCode`와 `page`는 각각 0과 1이다. `/menus/3`에서는 경로의 3을 `@PathVariable`이 `menuCode`에 전달한다.
 
-JSON은 객체의 이름·값과 배열을 텍스트로 표현하는 데이터 형식이다. Java 객체를 JSON으로 바꾸는 것이 직렬화, 받은 JSON을 Java 객체로 읽는 것이 역직렬화다. 수업은 Spring Boot가 제공하는 Jackson 변환기를 사용한다.
+메뉴 등록 요청은 `Content-Type: application/json`과 함께 `name`, `price`, `categoryCode`가 담긴 본문을 보낸다. `@RequestBody MenuDTO`가 이를 객체로 받아 응답 Map에 담고 201을 반환한다. `/raw` 예제는 DTO 대신 `String`으로 본문을 받고 Content-Type 헤더를 함께 확인한다. 요청 정보 예제는 전체 헤더와 `user-agent`, `clientId` 쿠키를 읽는다.
 
-회원 한 명인 MemberDTO를 반환하면 JSON 객체, List를 반환하면 JSON 배열이 된다. 바깥 Map 안에 data로 List를 넣으면 객체 안에 배열이 중첩된다. 서버가 DTO를 반환하는 코드와 실제 전송 문자열을 구분해 이해한다.
+## ☘️ chap03 Jackson과 JSON
 
-@JsonProperty는 Java 필드 no와 JSON 이름 memberNo를 연결한다. @JsonFormat은 LocalDate를 yyyy-MM-dd 형식으로 주고받게 한다. 등록 요청의 JSON을 @RequestBody로 읽어 목록에 추가하고, 응답 시 다시 JSON으로 보낸다. 지정한 날짜 형식에 맞지 않으면 읽기에 실패할 수 있다.
+Java `List`는 JSON 배열로, DTO는 JSON 객체로 직렬화된다. `@RequestBody`는 JSON을 DTO로 역직렬화한다. 바깥 Map에 List를 넣으면 객체 안에 배열이 중첩된다.
 
-ObjectMapper는 직접 변환도 제공한다. 수업은 주입받은 변환기로 회원 목록을 JSON 문자열로 만든 뒤 Map의 jsonString 값에 넣었다. 이미 문자열로 만든 JSON과 객체를 그대로 응답 변환하는 것은 결과 구조가 다르다. 이 장의 회원 목록은 메모리에 있어 서버를 재시작하면 초기 상태로 돌아간다.
+`@JsonProperty("memberNo")`는 Java의 `no`와 JSON의 `memberNo`를 연결한다. `@JsonFormat(pattern = "yyyy-MM-dd")`은 날짜 형식을 지정하며 형식이 맞지 않으면 역직렬화에 실패할 수 있다. `ObjectMapper`를 이용한 직접 변환도 확인했다.
 
-## ☘️ chap04: 예외를 공통 오류 응답으로 만들기
+**직렬화와 역직렬화 따라가기**
 
-요청 처리가 실패했을 때 모든 오류를 같은 500으로 보내면 호출자가 문제를 구분하기 어렵다. 수업은 없는 회원은 404, 잘못된 등록·검증·본문은 400, 예상하지 못한 내부 문제는 500으로 분류했다.
+회원 목록을 반환하면 Java의 `List<MemberDTO>`가 JSON 배열이 되고 각 회원은 배열 안의 객체가 된다. 회원 하나를 반환하면 JSON 객체 하나다. 반대로 등록 요청의 JSON은 `@RequestBody`를 통해 `MemberDTO`가 되고 목록에 추가된다. 응답을 보낼 때 그 객체는 다시 JSON으로 변환된다.
 
-회원 조회는 없으면 MemberNotFoundException을 던진다. @RestControllerAdvice의 @ExceptionHandler가 이 타입을 받아 ErrorResponse와 404를 반환한다. DTO의 @NotBlank·@Min 등을 @Valid로 검사해 실패하면 검증 예외를 처리한다. 중복 회원 번호는 별도 잘못된 요청 예외다.
+예를 들어 Java 필드 이름은 `no`지만 `@JsonProperty("memberNo")`를 지정하면 요청과 응답의 JSON에서는 `memberNo`를 사용한다. `LocalDate`의 `@JsonFormat`은 `2026-04-24`처럼 지정한 형식으로 주고받도록 한다. ObjectMapper 예제는 객체를 JSON 문자열로 직접 바꾸는 결과도 확인한다.
 
-오류 응답에는 발생 시각·상태·오류 이름·메시지·경로를 담아 프론트엔드가 같은 구조로 읽게 한다. 예상 밖 예외는 실제 원인을 서버 로그에 남기고 응답에는 일반 안내를 보낸다. 로그 기록과 사용자 응답을 나누는 이유다.
+## ☘️ chap04 예외 처리
 
-원본 검증 응답은 숫자 400과 BAD_GATEWAY 문구를 함께 사용해 불일치한다. 경로 추출도 실제 `uri=`에서 공백을 넣은 다른 문자열을 제거하려 한다. 서버 오류 테스트용 GetMapping은 컨트롤러 대신 Advice 클래스에 있어 일반 핸들러로 기대한 대로 등록되지 않는다. 공통 예외 처리의 원리와 이 원본 오류를 구분한다.
+`@RestControllerAdvice`에서 컨트롤러의 예외를 공통으로 처리하고 `@ExceptionHandler`가 예외 타입별 응답을 만든다. 조회 대상이 없을 때 404, 잘못된 입력이나 요청 본문은 400, 예상하지 못한 오류는 500으로 처리하는 예제다. 오류 응답에는 상태, 메시지, 경로 등을 담고 예상하지 못한 원인은 서버 로그에 남긴다. `@Valid`, `@Min`, `@NotBlank`로 요청값을 검사한다.
 
-## ☘️ chap05: 파일 업로드와 저장 순서
+원본 코드의 검증 오류 응답은 상태 값 400과 `BAD_GATEWAY` 문구가 함께 쓰이고, 경로에서 제거하는 `uri =` 문자열도 요청 설명의 `uri=`와 다르다. 서버 오류 테스트 메서드도 컨트롤러가 아닌 advice 클래스에 작성돼 있다.
 
-파일 전송은 multipart 형식을 사용한다. 서버의 @RequestParam("file") MultipartFile과 클라이언트 FormData의 키를 맞춰야 한다. 여러 파일은 files라는 이름으로 List를 받는다. description은 선택 문자열이다.
+**예외가 응답으로 바뀌는 과정**
 
-저장은 입력 파일 검증 → 저장 폴더 준비 → 원본 이름 확인 → 새 저장명 생성 → 실제 저장 → 응답용 정보 구성 순서다. file이 없거나 비어 있거나 원본 이름이 없으면 거부한다. 업로드 기준 경로는 설정에서 읽어 절대 경로로 정규화하고 single·multiple 폴더를 만든다.
+회원 조회에서 찾는 번호가 없으면 `MemberNotFoundException`을 던진다. `@RestControllerAdvice`의 해당 `@ExceptionHandler`가 이를 받아 `ErrorResponse`를 만들고 404로 응답한다. 등록 시 필수 값이나 최솟값 검사에 실패하면 검증 예외를 처리해 400을 돌려준다. 예상하지 못한 예외는 로그에 원인을 기록하고 클라이언트에는 500 응답을 보낸다.
 
-원본 이름의 경로를 정리하고 `..`이 있으면 거부한 뒤 파일명 부분만 추출한다. UUID와 원래 확장자를 합쳐 같은 이름 충돌을 줄이고, 계산한 최종 경로가 저장 폴더 안인지 확인한다. transferTo에서 실제 파일을 쓴다. 응답에는 서버의 절대 경로 대신 업로드 루트 기준 상대 경로·파일명·크기·형식 등을 담는다.
+실습의 오류 응답에는 발생 시각, 상태, 오류 이름, 메시지, 요청 경로가 담긴다. 프론트엔드는 같은 구조에서 상태와 메시지를 확인할 수 있다.
 
-다중 업로드는 앞에서 저장한 파일 정보를 모은다. 중간에 실패하면 그 목록의 파일을 정리하려고 시도한 뒤 최초 예외를 다시 던진다. 정리 자체의 실패가 최초 원인을 덮지 않도록 suppressed 예외로 남긴다. 데이터베이스 롤백이 자동으로 파일 저장까지 취소해 주는 구조는 아니다.
+## ☘️ chap05 파일 업로드
 
-수업 설정은 파일 하나 10MB, 요청 전체 50MB다. 두 제한은 별개이므로 여러 파일 합계도 확인해야 한다. 원본 확장자를 유지하는 것이 파일 내용의 형식까지 검증했다는 뜻은 아니다.
+`MultipartFile`을 `@RequestParam("file")`로 받고 FormData의 키와 이름을 맞춘다. 여러 파일은 `List<MultipartFile>`로 받는다. 업로드 기준 경로를 정규화하고 단일·다중 업로드 디렉터리를 만든 뒤 파일명과 빈 파일 여부를 확인한다.
 
-## ☘️ chap06: 인터셉터로 요청 전후 처리
+UUID와 원본 확장자로 저장명을 만들고 `transferTo`로 저장한다. 응답에는 업로드 루트 기준 상대 경로를 담는다. 다중 업로드가 중간에 실패하면 앞서 저장한 파일을 정리하고 원래 예외를 다시 던진다. 정리 오류는 원래 예외의 부가 정보로 남긴다.
 
-인터셉터는 Spring MVC 컨트롤러 실행 앞뒤에서 공통 동작을 처리한다. HandlerInterceptor의 preHandle은 실행 전이며 true면 계속, false면 이후 처리를 멈춘다. postHandle은 정상 실행 후, afterCompletion은 요청 완료 때 정리에 사용한다. 예외가 나면 postHandle이 실행되지 않을 수 있다.
+**파일 한 개가 저장되는 순서**
 
-WebMvcConfigurer의 addInterceptors에 빈을 등록하고 URL 범위와 순서를 정한다. 수업의 시간 측정은 /api/v1/\*\*에 먼저 적용되어 요청 속성에 시작 시각을 보관한다. 요청 완료 때 시각 차이를 계산해 밀리초로 출력한다. 컨트롤러의 300ms·200ms 대기는 측정 차이를 보기 위한 실습용 지연이다.
+클라이언트가 `file`과 선택사항인 `description`을 multipart 요청으로 보낸다. 서버는 파일이 비어 있거나 원본 이름이 없는지 검사한다. 원본 파일명에 `..`이 포함되면 거부하고 파일명만 추출한다. 이후 UUID와 확장자로 저장 이름을 만들고 정규화한 저장 경로가 업로드 디렉터리 안에 있는지 확인한 뒤 파일을 쓴다.
 
-관리자 범위에는 두 번째 API 키 검사도 적용된다. X-API-KEY가 수업의 고정값과 일치하면 통과하고 없거나 다르면 401 JSON을 직접 쓴 뒤 false를 반환한다. 컨트롤러를 실행하지 않으므로 인터셉터가 상태·형식·문자 인코딩·본문까지 만들어야 한다. 이 고정 키 예제는 인터셉터 순서와 차단 흐름을 확인하기 위한 범위다.
+다중 업로드는 파일을 하나씩 같은 방식으로 저장한다. 두 번째 파일에서 실패했다면 이미 저장된 첫 번째 파일을 정리하려고 시도한 뒤 최초 예외를 다시 전달한다.
 
-## ☘️ chap07: React에서 서버 API 사용하기
+## ☘️ chap06 인터셉터
 
-화면은 3000, 서버는 8080처럼 다른 포트를 쓰므로 서로 다른 출처다. CORS는 브라우저가 다른 출처 응답을 사용하도록 서버가 허용 범위를 알리는 규칙이다. 수업은 /api/\*\*에 localhost:3000과 GET·POST·OPTIONS, Content-Type 헤더를 허용했다.
+인터셉터는 컨트롤러 앞뒤의 공통 로직을 처리한다. `preHandle()`은 컨트롤러 전에 실행하며 false면 처리를 중단한다. `postHandle()`은 정상 실행 후 호출되며 예외 시 호출되지 않을 수 있다. `afterCompletion()`은 요청이 끝난 뒤 마무리 작업에 쓴다.
 
-화면은 환경 변수의 API 주소로 메뉴 목록을 fetch한다. Effect에서 요청 → ok 확인 → JSON 읽기 → menus state 저장 → finally에서 로딩 해제 순서다. 실패는 error로 표시하고, 성공 목록은 code를 key로 map한다. CORS 문제와 서버가 400·500으로 실패한 응답은 원인이 다르므로 구분한다.
+`WebMvcConfigurer.addInterceptors()`에 등록하면서 경로와 순서를 지정한다. 실습에서는 처리 시간을 측정하고 관리자 경로의 `X-API-KEY`를 검사했다. 거부할 때는 인터셉터에서 401 상태와 JSON 본문을 직접 작성한다.
 
-등록은 입력 name과 Number로 변환한 price를 JSON.stringify해 POST한다. 서버는 MenuRequest로 받고 새 코드를 붙인 MenuResponse를 메모리 목록에 저장해 201로 돌려준다. 화면은 그 응답을 기존 배열 뒤에 추가한 새 배열로 바꾸고 입력값을 비운다. 요청 DTO와 응답 DTO를 나누므로 서버가 정한 코드를 응답에서 사용할 수 있다.
+**관리자 요청 예제**
 
-원본은 handleSubmit을 form의 onSubmit이 아니라 버튼 onClick에 연결하고 그 안에서 preventDefault를 호출한다. 폼 제출 경로 전체와 브라우저 기본 검증을 일관되게 다루려면 연결 위치를 검토해야 한다. 등록 시작 시 로딩을 켜는 처리도 없어 최초 조회 로딩과 등록 중 상태는 같은 수준으로 구현되어 있지 않다. 서버 목록은 DB가 아니라 메모리에 보관한다.
+`/api/v1/**`에는 처리 시간을 재는 인터셉터가 먼저 적용되고, `/api/v1/admin/**`에는 API 키 검사도 적용된다. 관리 요청에서 헤더 값이 일치하면 `preHandle()`이 true를 반환해 다음 단계로 진행한다. 키가 없거나 다르면 false를 반환하고, 컨트롤러 대신 인터셉터가 상태 코드와 JSON 오류를 쓴다. 시간 측정 예제는 요청 시작과 종료 시점을 사용한다.
 
-## ☘️ chap08: REST 응답·검증·문서화
+## ☘️ chap07 React 연동
 
-REST API 실습은 회원이라는 자원을 주소로 표현하고 조회 GET, 등록 POST, 수정 PUT, 삭제 DELETE의 동작을 구분한다. ResponseEntity로 응답을 명확하게 만든다. created에 URI를 전달하면 201과 Location 헤더를, noContent().build는 본문 없는 204를 만든다. Location은 새 자원의 위치를 알려 주므로 원본의 앞 슬래시 없는 상대 경로가 의도한 주소로 해석되는지도 확인할 부분이다.
+서버는 `/api/**`에 대해 `http://localhost:3000`을 허용한다. 클라이언트는 환경 변수의 API 주소로 메뉴 목록을 `fetch`하고 로딩·오류 상태를 표시한다. 등록 시 JSON을 POST하고 서버가 돌려준 메뉴를 기존 배열 뒤에 추가해 상태를 갱신한다. `preventDefault()`는 폼의 기본 새로고침을 막는다.
 
-요청 DTO는 입력 id·비밀번호·이름·상태를 받고 응답 DTO는 공개 정보만 담아 비밀번호를 제외한다. toString에서 비밀번호를 빼는 것과 JSON 응답 타입에서 제외하는 것은 다른 경로의 보호다. 일부 초기 예제는 없는 회원에서 Optional.get을 바로 사용하므로, 뒤의 Swagger 예제처럼 명시적인 없는 회원 예외와 응답을 구성하는 흐름과 구분한다.
+**화면과 서버 사이의 흐름**
 
-**입력 검증**
+화면이 처음 표시되면 `useEffect`에서 메뉴 목록을 요청하고, 성공하면 응답 JSON을 상태에 담아 목록을 그린다. 실패하면 오류 문장을 표시하고 요청이 끝나면 로딩 상태를 해제한다. 등록 버튼은 입력한 이름과 숫자로 바꾼 가격을 JSON으로 보낸다. 성공 응답으로 받은 메뉴를 기존 목록에 더하고 입력값을 비운다.
 
-@Valid가 붙은 본문 DTO는 선언한 제약 조건을 검사한다. NotBlank는 누락·공백 문자열을, NotNull은 null을, Size는 길이를, Past는 현재보다 과거인 날짜인지 확인한다. 수업의 비밀번호 최대는 10, 이름 최대는 5이며 가입일은 필수 과거 날짜다. 이 값은 실습 조건이지 일반 서비스의 권장 정책을 의미하지 않는다.
+클라이언트는 3000번 포트, 서버는 8080번 포트를 사용한다. 서버의 CORS 설정은 `/api/**`에 대해 해당 클라이언트 출처와 GET·POST·OPTIONS, Content-Type 헤더를 허용한다.
 
-검증 실패는 MethodArgumentNotValidException으로 처리해 첫 필드 오류의 코드와 메시지를 읽는다. 필수·길이·기타 오류별 공통 응답을 400으로 돌려준다. 첫 오류만 반환하므로 모든 오류를 한꺼번에 표시하는 구현은 아니다. 존재하지 않는 회원은 별도 예외와 404로 처리한다. 검증 컨트롤러의 등록은 201을 만드는 예시이며 실제 회원 저장까지 구현되어 있지 않다.
+## ☘️ chap08 REST API
 
-**Swagger와 OpenAPI**
+요청 DTO에는 등록·수정 입력값을, 응답 DTO에는 공개할 회원 정보만 담고 비밀번호를 제외한다. `ResponseEntity.created(URI)`는 201과 Location 헤더를, `noContent().build()`는 본문 없는 204를 만든다.
 
-OpenAPI는 API의 요청·응답을 설명하는 문서 형식이고 Swagger UI는 이를 살펴보고 요청을 시험하는 화면이다. 수업은 설정 빈에 제목·설명·버전을 넣고 문서화할 패키지를 제한했다. Operation은 기능 설명, ApiResponse는 가능한 응답 코드, Schema는 요청 필드의 설명과 예시를 담는다.
+`@Valid`와 `@NotBlank`, `@NotNull`, `@Size`, `@Past`로 입력을 검사하고 예외 처리기에서 필드 오류에 맞는 응답을 만든다. 수업 코드에서 비밀번호 최대 길이는 10, 이름 최대 길이는 5다. Swagger 예제는 `@Operation`, `@ApiResponse`, `@Schema`와 OpenAPI 설정으로 API와 응답·요청 필드를 문서화한다.
 
-문서에 404를 쓴다고 서버의 예외 처리가 자동으로 구현되지는 않는다. Swagger 예제는 실제 조회 helper에서 없는 회원 예외를 던지고 전용 Advice가 404 JSON으로 바꾸도록 연결했다. 문서의 약속과 실제 동작을 함께 확인해야 한다.
+**검증과 문서화 흐름**
+
++회원 등록 JSON이 `@Valid @RequestBody`에 들어오면 DTO의 제약 조건을 검사한다. 공백 아이디나 이름은 `@NotBlank`, 누락된 가입일은 `@NotNull`, 미래 가입일은 `@Past` 검사 대상이다. 실패하면 `MethodArgumentNotValidException`을 받아 첫 필드 오류의 코드와 메시지로 400 응답을 구성한다. 존재하지 않는 회원을 찾는 예제는 별도 예외와 404를 사용한다.
+
++Swagger 예제에서는 `@Operation`으로 요청의 기능을 설명하고 `@ApiResponse`로 응답 코드를 표시한다. `@Schema`는 요청 필드의 설명과 예시를 붙인다. 이 정보는 Swagger UI에서 API를 살펴볼 때 사용된다.
