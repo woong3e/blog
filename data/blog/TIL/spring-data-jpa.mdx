@@ -1,0 +1,1118 @@
+---
+title: spring data jpa
+date: '2026-11-10'
+tags: ['jpa', 'spring']
+draft: false
+summary: 'Spring Data JPA는 인터페이스만 선언해 CRUD를 만들고, 쿼리 메서드·JPQL·네이티브 쿼리로 조건 조회와 통계를 더한다.'
+---
+
+[소스코드: Update 10_jpa/chap04-spring-data-jpa-crud lecture materials](https://github.com/woong3e/sesac_lecture/commit/ca622f6c28dd50074003404553eb94b3521f25b4) · [소스코드: Update 10_jpa/chap05-spring-data-jpa-query lecture materials](https://github.com/woong3e/sesac_lecture/commit/c95f1214ad523ca5b332c8a3d647b7279c986287) · [소스코드: Update 10_jpa/chap06-native-query lecture materials](https://github.com/woong3e/sesac_lecture/commit/8dc66f258235b6686785d5cf6a0002e8a0ee00ed)
+
+`EntityManager`를 직접 호출하는 리포지토리 클래스는 엔티티마다 비슷한 코드가 반복된다. Spring Data JPA는 `JpaRepository`를 상속한 인터페이스만 선언하면 구현 클래스를 자동으로 만들어 저장·조회·수정·삭제를 제공한다. 이 글은 메뉴 REST API를 만들며 CRUD, 조건 조회와 페이징, 네이티브 쿼리를 차례로 확인한다. 세 챕터는 같은 프로젝트에 기능을 더해 간 구성이라, 아래 코드는 마지막 단계인 chap06의 최종본을 기준으로 단계별로 설명한다.
+
+## ☘️ 프로젝트 구성
+
+**계층과 설정**
+
+요청은 컨트롤러(`MenuController`)가 받고, 서비스(`MenuService`)가 업무 로직과 트랜잭션을 맡으며, 리포지토리(`MenuRepository`)가 데이터베이스에 접근한다. 요청과 응답은 엔티티가 아니라 DTO(Data Transfer Object, 데이터 전달용 객체)로 주고받는다. 엔티티를 그대로 응답으로 내보내면 내부 구조와 연관 객체가 외부에 노출되고, 지연 로딩 객체를 JSON으로 바꾸다가 예외가 발생할 수 있다.
+
+의존성은 JPA, 요청 검증(`validation`), 웹(`webmvc`)과 MySQL 드라이버다.
+
+**`build.gradle`**
+
+```groovy
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '4.0.9'
+    id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'com.ohgiraffers'
+version = '0.0.1-SNAPSHOT'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+    implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+    developmentOnly 'org.springframework.boot:spring-boot-devtools'
+    runtimeOnly 'com.mysql:mysql-connector-j'
+    testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
+    testImplementation 'org.springframework.boot:spring-boot-starter-validation-test'
+    testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
+```
+
+`application.yml`에서 중요한 설정은 두 가지다. `ddl-auto: none`은 이미 있는 `menudb`의 테이블을 건드리지 않고, `open-in-view: false`는 영속성 컨텍스트가 서비스의 트랜잭션이 끝날 때까지만 열려 있게 한다. Spring Boot는 이 값이 기본으로 `true`여서 웹 요청이 끝날 때까지 `EntityManager`를 열어 두는데, `false`로 하면 트랜잭션 밖(컨트롤러 등)에서 지연 로딩 객체에 접근할 수 없다. 그래서 이 예제의 서비스는 트랜잭션 안에서 엔티티를 DTO로 바꾸어 반환한다. 비밀번호는 환경에 맞게 `<DB 비밀번호>` 자리에 직접 채운다.
+
+**`src/main/resources/application.yml`**
+
+```yaml
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/menudb
+    username: ohgiraffers
+    password: <DB 비밀번호>
+  jpa:
+    show-sql: true
+    open-in-view: false
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate:
+        format_sql: true
+```
+
+**`src/main/java/com/woong3e/springdatajpa/Chap06NativeQueryApplication.java`**
+
+```java
+package com.woong3e.springdatajpa;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+@SpringBootApplication
+public class Chap06NativeQueryApplication {
+
+    public static void main(String[] args) {
+        SpringApplication.run(Chap06NativeQueryApplication.class, args);
+    }
+}
+```
+
+**엔티티**
+
+`Menu`와 `Category`는 N:1 관계이며 `@ManyToOne(fetch = FetchType.LAZY)`로 카테고리를 필요할 때만 조회한다. `Menu`에는 `setter` 대신 `update` 메서드를 두어 수정할 값을 한 번에 바꾼다. 아래 서비스가 이 메서드만 호출하고 `save`를 호출하지 않아도 변경이 저장되는 이유는 뒤에서 설명한다.
+
+**`src/main/java/com/woong3e/springdatajpa/menu/entity/Category.java`**
+
+```java
+package com.woong3e.springdatajpa.menu.entity;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+
+@Entity
+@Table(name = "tbl_category")
+public class Category {
+
+    @Id
+    @Column(name = "category_code")
+    private int categoryCode;
+
+    @Column(name = "category_name", nullable = false)
+    private String categoryName;
+
+    @Column(name = "ref_category_code")
+    private Integer refCategoryCode;
+
+    protected Category() {}
+
+    public int getCategoryCode() {
+        return categoryCode;
+    }
+
+    public String getCategoryName() {
+        return categoryName;
+    }
+
+    public Integer getRefCategoryCode() {
+        return refCategoryCode;
+    }
+}
+```
+
+**`src/main/java/com/woong3e/springdatajpa/menu/entity/Menu.java`**
+
+```java
+package com.woong3e.springdatajpa.menu.entity;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+
+@Entity
+@Table(name = "tbl_menu")
+public class Menu {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "menu_code")
+    private int menuCode;
+
+    @Column(name = "menu_name", nullable = false)
+    private String menuName;
+
+    @Column(name = "menu_price", nullable = false)
+    private int menuPrice;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "category_code", nullable = false)
+    private Category category;
+
+    @Column(name = "orderable_status", nullable = false, length = 1)
+    private String orderableStatus;
+
+    protected Menu() {}
+
+    public Menu(String menuName, int menuPrice, Category category, String orderableStatus) {
+        this.menuName = menuName;
+        this.menuPrice = menuPrice;
+        this.category = category;
+        this.orderableStatus = orderableStatus;
+    }
+
+    public void update(String menuName, int menuPrice, Category category, String orderableStatus) {
+        this.menuName = menuName;
+        this.menuPrice = menuPrice;
+        this.category = category;
+        this.orderableStatus = orderableStatus;
+    }
+
+    public int getMenuCode() {
+        return menuCode;
+    }
+
+    public String getMenuName() {
+        return menuName;
+    }
+
+    public int getMenuPrice() {
+        return menuPrice;
+    }
+
+    public Category getCategory() {
+        return category;
+    }
+
+    public String getOrderableStatus() {
+        return orderableStatus;
+    }
+}
+```
+
+## ☘️ CRUD: JpaRepository
+
+`JpaRepository<Menu, Integer>`의 두 타입 인자는 다루는 엔티티와 그 엔티티의 기본 키 타입이다. 인터페이스를 선언만 하면 Spring Data JPA가 실행 시점에 구현체를 만들어 스프링 빈으로 등록한다. 서비스는 다음 메서드를 사용한다.
+
+| 메서드           | 동작                                                                   |
+| ---------------- | ---------------------------------------------------------------------- |
+| `save(entity)`   | 새 엔티티는 저장(`persist`)하고, 이미 있는 엔티티는 병합(`merge`)한다. |
+| `findById(id)`   | 기본 키로 조회하고 결과를 `Optional`로 돌려준다.                       |
+| `findAll()`      | 모든 행을 조회한다.                                                    |
+| `delete(entity)` | 엔티티를 삭제한다.                                                     |
+
+아래 `MenuRepository`는 chap06의 최종본이며 CRUD 메서드는 상속받으므로 따로 선언하지 않았다. 선언된 세 개의 쿼리 메서드와 두 개의 네이티브 쿼리는 뒤에서 하나씩 설명한다.
+
+**`src/main/java/com/woong3e/springdatajpa/menu/repository/MenuRepository.java`**
+
+```java
+package com.woong3e.springdatajpa.menu.repository;
+
+import com.woong3e.springdatajpa.menu.dto.CategoryMenuCountView;
+import com.woong3e.springdatajpa.menu.dto.MenuPriceRankView;
+import com.woong3e.springdatajpa.menu.entity.Menu;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.NativeQuery;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+import java.util.List;
+
+public interface MenuRepository extends JpaRepository<Menu, Integer> {
+
+    List<Menu> findByMenuPriceGreaterThanEqualOrderByMenuPriceDesc(int minPrice);
+
+    @Query("SELECT m FROM Menu m " +
+            "WHERE m.menuName LIKE CONCAT('%', :keyword, '%') " +
+            "ORDER BY m.menuCode")
+    List<Menu> searchByMenuName(@Param("keyword") String keyword);
+
+    @Query(
+            value = "SELECT m FROM Menu m JOIN FETCH m.category",
+            countQuery = "SELECT COUNT(m) FROM Menu m"
+    )
+    Page<Menu> findPageWithCategory(Pageable pageable);
+/*=========================아래부터가 native query=====================*/
+    @Query(value = """
+SELECT  c.category_Code AS categoryCode,
+        c.category_name AS categoryName,
+        COUNT(m.menu_code) AS menuCount
+FROM tbl_category c
+LEFT JOIN tbl_menu m ON m.category_code = c.category_code
+GROUP BY c.category_code,c.category_name
+ORDER BY menuCount DESC,c.category_code
+""",nativeQuery = true)
+    List<CategoryMenuCountView> findCategoryMenuCounts();
+
+
+    // 아예 @NativeQuery라는 어노테이션도 있다.
+    @NativeQuery(value = """
+        SELECT m.menu_code AS menuCode,
+               m.menu_name AS menuName,
+               m.menu_price AS menuPrice,
+               RANK() OVER (ORDER BY m.menu_price DESC) AS priceRank
+          FROM tbl_menu m
+         ORDER BY priceRank, m.menu_code
+        """)
+    List<MenuPriceRankView> findMenuPriceRanks();
+
+}
+```
+
+**`src/main/java/com/woong3e/springdatajpa/menu/repository/CategoryRepository.java`**
+
+```java
+package com.woong3e.springdatajpa.menu.repository;
+
+import com.woong3e.springdatajpa.menu.entity.Category;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface CategoryRepository extends JpaRepository<Category, Integer> {
+}
+```
+
+**서비스: 변경 감지로 수정하기**
+
+서비스의 핵심 동작은 다음과 같다.
+
+- **조회**: `findById(...).orElseThrow(...)`로 없는 값은 `ResourceNotFoundException`으로 바꾼다. 조회 메서드는 `@Transactional(readOnly = true)`로 읽기 전용 트랜잭션을 연다.
+- **등록**: 요청의 `categoryCode`로 `Category`를 먼저 조회하고, 그 객체로 `Menu`를 만들어 `save`한다.
+- **수정**: `findMenuEntity`로 영속 상태의 메뉴를 가져와 `menu.update(...)`만 호출한다. `save`를 호출하지 않아도 트랜잭션이 끝날 때 변경 감지가 `UPDATE`를 실행한다. 수정할 때는 영속 상태의 엔티티를 조회해서 값을 바꾸는 방식이 기본이다.
+- **삭제**: 엔티티를 조회한 뒤 `delete`에 넘긴다.
+- **DTO 변환**: `toResponse`는 메뉴와 카테고리 이름을 `MenuResponse`로 옮긴다. `menu.getCategory().getCategoryName()`은 지연 로딩 객체를 읽으므로 반드시 트랜잭션 안에서 실행되어야 한다.
+
+**`src/main/java/com/woong3e/springdatajpa/menu/service/MenuService.java`**
+
+```java
+package com.woong3e.springdatajpa.menu.service;
+
+import com.woong3e.springdatajpa.menu.dto.*;
+import com.woong3e.springdatajpa.menu.entity.Category;
+import com.woong3e.springdatajpa.menu.entity.Menu;
+import com.woong3e.springdatajpa.menu.exception.ResourceNotFoundException;
+import com.woong3e.springdatajpa.menu.repository.CategoryRepository;
+import com.woong3e.springdatajpa.menu.repository.MenuRepository;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
+import java.util.List;
+
+@Service
+public class MenuService {
+
+    private final MenuRepository menuRepository;
+    private final CategoryRepository categoryRepository;
+
+    public MenuService(MenuRepository menuRepository, CategoryRepository categoryRepository) {
+        this.menuRepository = menuRepository;
+        this.categoryRepository = categoryRepository;
+    }
+
+    @Transactional(readOnly = true)
+    public MenuResponse findMenu(int menuCode) {
+        return toResponse(findMenuEntity(menuCode));
+    }
+
+    @Transactional(readOnly = true)
+    public List<MenuResponse> findMenus() {
+        return menuRepository.findAll().stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<MenuResponse> findMenusByMinimumPrice(int minPrice) {
+        return menuRepository
+                .findByMenuPriceGreaterThanEqualOrderByMenuPriceDesc(minPrice)
+                .stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<MenuResponse> searchMenusByName(String keyword) {
+        return menuRepository.searchByMenuName(keyword).stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<MenuResponse> findMenuPage(Pageable pageable) {
+        Page<MenuResponse> responsePage = menuRepository
+                .findPageWithCategory(pageable)
+                .map(this::toResponse);
+
+        return PageResponse.from(responsePage);
+    }
+
+    @Transactional
+    public MenuResponse createMenu(MenuRequest request) {
+        Category category = findCategory(request.getCategoryCode());
+        Menu menu = new Menu(
+                request.getMenuName(),
+                request.getMenuPrice(),
+                category,
+                request.getOrderableStatus()
+        );
+
+        return toResponse(menuRepository.save(menu));
+    }
+
+    @Transactional
+    public MenuResponse updateMenu(int menuCode, MenuRequest request) {
+        Menu menu = findMenuEntity(menuCode);
+        Category category = findCategory(request.getCategoryCode());
+
+        menu.update(
+                request.getMenuName(),
+                request.getMenuPrice(),
+                category,
+                request.getOrderableStatus()
+        );
+
+        return toResponse(menu);
+    }
+
+    @Transactional
+    public void deleteMenu(int menuCode) {
+        Menu menu = findMenuEntity(menuCode);
+        menuRepository.delete(menu);
+    }
+
+    private Menu findMenuEntity(int menuCode) {
+        return menuRepository.findById(menuCode)
+                .orElseThrow(() -> new ResourceNotFoundException("메뉴를 찾을 수 없습니다."));
+    }
+
+    private Category findCategory(int categoryCode) {
+        return categoryRepository.findById(categoryCode)
+                .orElseThrow(() -> new ResourceNotFoundException("카테고리를 찾을 수 없습니다."));
+    }
+
+    private MenuResponse toResponse(Menu menu) {
+        Category category = menu.getCategory();
+        return new MenuResponse(
+                menu.getMenuCode(),
+                menu.getMenuName(),
+                menu.getMenuPrice(),
+                category.getCategoryCode(),
+                category.getCategoryName(),
+                menu.getOrderableStatus()
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public List<CategoryMenuCountView> findCategoryMenuCounts() {
+        return menuRepository.findCategoryMenuCounts();
+    }
+
+    @Transactional(readOnly = true)
+    public List<MenuPriceRankView> findMenuPriceRanks(){
+        return menuRepository.findMenuPriceRanks();
+
+    }
+}
+```
+
+**요청·응답 DTO와 예외 처리**
+
+`MenuRequest`는 `@NotBlank`, `@Positive`, `@Pattern`으로 입력값을 검사하고, 컨트롤러에서 `@Valid`를 붙이면 이 검사가 실행된다. `MenuResponse`는 읽기만 하는 값이므로 모든 필드를 `final`로 선언했다. 없는 메뉴나 카테고리는 `ResourceNotFoundException`을 던지고, `@RestControllerAdvice`의 핸들러가 이를 404 상태와 `{"message": ...}` 형태의 본문으로 바꾼다.
+
+**`src/main/java/com/woong3e/springdatajpa/menu/dto/MenuRequest.java`**
+
+```java
+package com.woong3e.springdatajpa.menu.dto;
+
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Positive;
+
+public class MenuRequest {
+
+    @NotBlank(message = "메뉴 이름은 필수입니다.")
+    private String menuName;
+
+    @Positive(message = "메뉴 가격은 0보다 커야 합니다.")
+    private int menuPrice;
+
+    @Positive(message = "카테고리 코드는 0보다 커야 합니다.")
+    private int categoryCode;
+
+    @Pattern(regexp = "Y|N", message = "주문 가능 상태는 Y 또는 N이어야 합니다.")
+    private String orderableStatus;
+
+    public MenuRequest() {}
+
+    public MenuRequest(String menuName, int menuPrice, int categoryCode, String orderableStatus) {
+        this.menuName = menuName;
+        this.menuPrice = menuPrice;
+        this.categoryCode = categoryCode;
+        this.orderableStatus = orderableStatus;
+    }
+
+    public String getMenuName() {
+        return menuName;
+    }
+
+    public int getMenuPrice() {
+        return menuPrice;
+    }
+
+    public int getCategoryCode() {
+        return categoryCode;
+    }
+
+    public String getOrderableStatus() {
+        return orderableStatus;
+    }
+}
+```
+
+**`src/main/java/com/woong3e/springdatajpa/menu/dto/MenuResponse.java`**
+
+```java
+package com.woong3e.springdatajpa.menu.dto;
+
+public class MenuResponse {
+
+    private final int menuCode;
+    private final String menuName;
+    private final int menuPrice;
+    private final int categoryCode;
+    private final String categoryName;
+    private final String orderableStatus;
+
+    public MenuResponse(
+            int menuCode, String menuName, int menuPrice,
+            int categoryCode, String categoryName, String orderableStatus
+    ) {
+        this.menuCode = menuCode;
+        this.menuName = menuName;
+        this.menuPrice = menuPrice;
+        this.categoryCode = categoryCode;
+        this.categoryName = categoryName;
+        this.orderableStatus = orderableStatus;
+    }
+
+    public int getMenuCode() {
+        return menuCode;
+    }
+
+    public String getMenuName() {
+        return menuName;
+    }
+
+    public int getMenuPrice() {
+        return menuPrice;
+    }
+
+    public int getCategoryCode() {
+        return categoryCode;
+    }
+
+    public String getCategoryName() {
+        return categoryName;
+    }
+
+    public String getOrderableStatus() {
+        return orderableStatus;
+    }
+}
+```
+
+**`src/main/java/com/woong3e/springdatajpa/menu/exception/ResourceNotFoundException.java`**
+
+```java
+package com.woong3e.springdatajpa.menu.exception;
+
+public class ResourceNotFoundException extends RuntimeException {
+
+    public ResourceNotFoundException(String message) {
+        super(message);
+    }
+}
+```
+
+**`src/main/java/com/woong3e/springdatajpa/menu/exception/ErrorResponse.java`**
+
+```java
+package com.woong3e.springdatajpa.menu.exception;
+
+public class ErrorResponse {
+
+    private final String message;
+
+    public ErrorResponse(String message) {
+        this.message = message;
+    }
+
+    public String getMessage() {
+        return message;
+    }
+}
+```
+
+**`src/main/java/com/woong3e/springdatajpa/menu/exception/GlobalExceptionHandler.java`**
+
+```java
+package com.woong3e.springdatajpa.menu.exception;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleNotFound(ResourceNotFoundException exception) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(new ErrorResponse(exception.getMessage()));
+    }
+}
+```
+
+**컨트롤러와 HTTP 상태 코드**
+
+컨트롤러는 요청 방식에 따라 메서드를 나누고 결과에 맞는 상태 코드를 돌려준다. 등록은 201 Created, 수정은 200 OK, 삭제는 본문이 없는 204 No Content다. 아래 컨트롤러에는 뒤에서 설명하는 조건 조회와 네이티브 쿼리용 엔드포인트도 함께 들어 있다.
+
+**`src/main/java/com/woong3e/springdatajpa/menu/controller/MenuController.java`**
+
+```java
+package com.woong3e.springdatajpa.menu.controller;
+
+import com.woong3e.springdatajpa.menu.dto.*;
+import com.woong3e.springdatajpa.menu.service.MenuService;
+import jakarta.validation.Valid;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/v1/menus")
+public class MenuController {
+
+    private final MenuService menuService;
+
+    public MenuController(MenuService menuService) {
+        this.menuService = menuService;
+    }
+
+    @GetMapping("/{menuCode}")
+    public ResponseEntity<MenuResponse> findMenu(@PathVariable int menuCode) {
+        return ResponseEntity.ok(menuService.findMenu(menuCode));
+    }
+
+    @GetMapping
+    public ResponseEntity<List<MenuResponse>> findMenus() {
+        return ResponseEntity.ok(menuService.findMenus());
+    }
+
+    @GetMapping("/search/price")
+    public ResponseEntity<List<MenuResponse>> findMenusByPrice(
+            @RequestParam int minPrice
+    ) {
+        return ResponseEntity.ok(menuService.findMenusByMinimumPrice(minPrice));
+    }
+
+    @GetMapping("/search/name")
+    public ResponseEntity<List<MenuResponse>> searchMenusByName(
+            @RequestParam String keyword
+    ) {
+        return ResponseEntity.ok(menuService.searchMenusByName(keyword));
+    }
+
+    @GetMapping("/page")
+    public ResponseEntity<PageResponse<MenuResponse>> findMenuPage(
+            @PageableDefault(size = 5, sort = "menuCode") Pageable pageable
+    ) {
+        return ResponseEntity.ok(menuService.findMenuPage(pageable));
+    }
+
+    @PostMapping
+    public ResponseEntity<MenuResponse> createMenu(@Valid @RequestBody MenuRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(menuService.createMenu(request));
+    }
+
+    @PutMapping("/{menuCode}")
+    public ResponseEntity<MenuResponse> updateMenu(
+            @PathVariable int menuCode,
+            @Valid @RequestBody MenuRequest request
+    ) {
+        return ResponseEntity.ok(menuService.updateMenu(menuCode, request));
+    }
+
+    @DeleteMapping("/{menuCode}")
+    public ResponseEntity<Void> deleteMenu(@PathVariable int menuCode) {
+        menuService.deleteMenu(menuCode);
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/reports/category-menu-counts")
+    public ResponseEntity<List<CategoryMenuCountView>> findCategoryMenuCounts() {
+        return ResponseEntity.ok(menuService.findCategoryMenuCounts());
+    }
+
+    @GetMapping("reports/price-ranks")
+    public ResponseEntity<List<MenuPriceRankView>> findMenuPriceRanks() {
+        return ResponseEntity.ok(menuService.findMenuPriceRanks());
+    }
+}
+```
+
+**CRUD 테스트**
+
+chap04의 서비스 테스트는 등록, 조회, 수정, 삭제를 한 흐름으로 확인한다. 수정 후에 `flush`를 호출하는 이유는 변경 감지의 `UPDATE`가 실제로 실행되도록 하기 위해서고, 삭제 뒤에는 `flush`와 `clear`로 영속성 컨텍스트를 비워 삭제된 행이 조회되지 않는지(`ResourceNotFoundException`) 확인한다. 이 테스트는 chap04 프로젝트에서 실행해 통과를 확인했다.
+
+**`src/test/java/com/woong3e/springdatajpa/menu/service/MenuServiceTests.java (chap04)`**
+
+```java
+package com.woong3e.springdatajpa.menu.service;
+
+import com.woong3e.springdatajpa.menu.dto.MenuRequest;
+import com.woong3e.springdatajpa.menu.dto.MenuResponse;
+import com.woong3e.springdatajpa.menu.exception.ResourceNotFoundException;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.transaction.annotation.Transactional;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+@SpringBootTest
+@Transactional
+class MenuServiceTests {
+
+    @Autowired
+    private MenuService menuService;
+
+    @PersistenceContext
+    private EntityManager entityManager;
+
+    @Test
+    @DisplayName("Spring Data JPA로 메뉴 CRUD 수행")
+    void menuCrudTest() {
+        MenuResponse created = menuService.createMenu(
+                new MenuRequest("돈까스 스파게티", 15000, 4, "Y")
+        );
+        assertTrue(created.getMenuCode() > 0);
+
+        MenuResponse found = menuService.findMenu(created.getMenuCode());
+        assertEquals("돈까스 스파게티", found.getMenuName());
+
+        MenuResponse updated = menuService.updateMenu(
+                created.getMenuCode(),
+                new MenuRequest("치즈 돈까스 스파게티", 17000, 4, "Y")
+        );
+        entityManager.flush();
+        assertEquals(17000, updated.getMenuPrice());
+
+        menuService.deleteMenu(created.getMenuCode());
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThrows(
+                ResourceNotFoundException.class,
+                () -> menuService.findMenu(created.getMenuCode())
+        );
+    }
+}
+```
+
+chap04의 코드는 리포지토리 패키지 이름이 `respotiroy`(오타)였고, 컨트롤러가 사용하지 않는 `MenuRepository`도 주입받고 있었다. chap05부터 패키지가 `repository`로 바뀌고 컨트롤러는 서비스만 주입받는다. 위 코드는 정리된 최종본이다.
+
+## ☘️ 조건 조회: 쿼리 메서드, JPQL, 페이징
+
+**쿼리 메서드**
+
+메서드 이름을 정해진 규칙에 맞게 쓰면 Spring Data JPA가 이름을 해석해 쿼리를 만든다. `findByMenuPriceGreaterThanEqualOrderByMenuPriceDesc(int minPrice)`는 `findBy`(조회), `MenuPrice`(엔티티 필드), `GreaterThanEqual`(이상), `OrderByMenuPriceDesc`(가격 내림차순)으로 나뉘어 "가격이 `minPrice` 이상인 메뉴를 비싼 순으로 조회"한다. 조건이 단순할 때는 쿼리를 쓰지 않아도 된다. 이름이 길어지는 복잡한 조건에는 맞지 않는다.
+
+**JPQL**
+
+JPQL(Java Persistence Query Language)은 테이블과 컬럼이 아니라 엔티티와 필드를 대상으로 하는 JPA의 쿼리 언어다. `@Query`에 작성하고, 값은 `:keyword`처럼 이름 있는 파라미터로 받아 `@Param`으로 연결한다. 값을 문자열에 직접 이어 붙이지 않고 파라미터로 바인딩하므로 SQL 주입을 막는 데도 도움이 된다. 이 예제는 `LIKE CONCAT('%', :keyword, '%')`로 이름에 검색어가 포함된 메뉴를 찾는다.
+
+**페이징과 fetch join**
+
+`Pageable`은 몇 번째 페이지를 몇 건씩, 어떤 정렬로 가져올지를 담고, 리포지토리가 돌려주는 `Page`는 그 페이지의 내용과 전체 건수를 가진다. 요청에서는 `page`(0부터 시작), `size`, `sort` 파라미터로 전달한다. 컨트롤러의 `@PageableDefault(size = 5, sort = "menuCode")`는 파라미터가 없을 때의 기본값이다. `Page` 객체를 그대로 JSON으로 바꾸지 않고 `PageResponse`로 옮겨 응답 구조를 직접 정한다.
+
+`findPageWithCategory`는 `JOIN FETCH m.category`를 사용한다. 메뉴의 카테고리는 `LAZY`여서 `toResponse`에서 카테고리 이름을 읽을 때마다 카테고리를 따로 조회한다. 한 페이지의 메뉴가 서로 다른 카테고리를 가리키면 그만큼 조회가 늘어난다(실행된 SQL의 수를 세어 확인하지는 않았고 지연 로딩의 일반적인 동작을 설명한 것이다). `JOIN FETCH`는 메뉴를 가져오는 쿼리에서 카테고리를 함께 가져와(조인) 이 추가 조회를 없앤다. 다만 fetch join이 들어간 쿼리를 그대로 전체 건수 계산에 쓸 수 없으므로 `countQuery`를 따로 지정했다. 학습 코드의 서비스에는 `findAll(pageable)`을 쓰던 이전 방식이 주석으로 남아 있었고, 최종본은 fetch join 방식이다.
+
+**`src/main/java/com/woong3e/springdatajpa/menu/dto/PageResponse.java`**
+
+```java
+package com.woong3e.springdatajpa.menu.dto;
+
+import org.springframework.data.domain.Page;
+
+import java.util.List;
+
+public class PageResponse<T> {
+
+    private final List<T> content;
+    private final int page;
+    private final int size;
+    private final long totalElements;
+    private final int totalPages;
+
+    private PageResponse(
+            List<T> content, int page, int size,
+            long totalElements, int totalPages
+    ) {
+        this.content = content;
+        this.page = page;
+        this.size = size;
+        this.totalElements = totalElements;
+        this.totalPages = totalPages;
+    }
+
+    public static <T> PageResponse<T> from(Page<T> page) {
+        return new PageResponse<>(
+                page.getContent(),
+                page.getNumber(),
+                page.getSize(),
+                page.getTotalElements(),
+                page.getTotalPages()
+        );
+    }
+
+    public List<T> getContent() {
+        return content;
+    }
+
+    public int getPage() {
+        return page;
+    }
+
+    public int getSize() {
+        return size;
+    }
+
+    public long getTotalElements() {
+        return totalElements;
+    }
+
+    public int getTotalPages() {
+        return totalPages;
+    }
+}
+```
+
+**조건 조회 테스트**
+
+세 가지 조회를 각각 확인한다. 최소 가격 이상 조회에서는 모든 결과의 가격이 기준 이상이어야 하고, 이름 검색에서는 모든 결과의 이름에 검색어가 들어 있어야 한다. 페이징은 한 페이지의 크기가 5 이하이고 전체 건수가 0보다 크며 카테고리 이름이 채워져 있는지 확인한다. 이 테스트는 chap05 프로젝트에서 실행해 3개가 모두 통과했다.
+
+**`src/test/java/com/woong3e/springdatajpa/menu/service/MenuQueryServiceTests.java (chap05)`**
+
+```java
+package com.woong3e.springdatajpa.menu.service;
+
+import com.woong3e.springdatajpa.menu.dto.MenuResponse;
+import com.woong3e.springdatajpa.menu.dto.PageResponse;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+@SpringBootTest
+@Transactional
+class MenuQueryServiceTests {
+
+    @Autowired
+    private MenuService menuService;
+
+    @Test
+    @DisplayName("쿼리 메소드로 최소 가격 이상의 메뉴 조회")
+    void findMenusByMinimumPriceTest() {
+        List<MenuResponse> menus = menuService.findMenusByMinimumPrice(20000);
+
+        assertFalse(menus.isEmpty());
+        assertTrue(menus.stream().allMatch(menu -> menu.getMenuPrice() >= 20000));
+    }
+
+    @Test
+    @DisplayName("JPQL로 이름에 검색어가 포함된 메뉴 조회")
+    void searchMenusByNameTest() {
+        List<MenuResponse> menus = menuService.searchMenusByName("마늘");
+
+        assertFalse(menus.isEmpty());
+        assertTrue(menus.stream().allMatch(menu -> menu.getMenuName().contains("마늘")));
+    }
+
+    @Test
+    @DisplayName("fetch join과 페이징으로 메뉴와 카테고리 조회")
+    void findMenuPageTest() {
+        PageRequest pageable = PageRequest.of(
+                0,
+                5,
+                Sort.by("menuCode").ascending()
+        );
+
+        PageResponse<MenuResponse> page = menuService.findMenuPage(pageable);
+
+        assertFalse(page.getContent().isEmpty());
+        assertTrue(page.getContent().size() <= 5);
+        assertTrue(page.getTotalElements() > 0);
+        assertTrue(page.getContent().stream()
+                .allMatch(menu -> menu.getCategoryName() != null));
+    }
+}
+```
+
+## ☘️ 네이티브 쿼리와 인터페이스 프로젝션
+
+JPQL이나 쿼리 메서드로 표현하기 어려운 집계, 통계, 데이터베이스 전용 기능은 SQL을 그대로 쓰는 네이티브 쿼리로 작성한다. `@Query(nativeQuery = true)`로 쓰거나 전용 어노테이션 `@NativeQuery`를 쓸 수 있다. 이 예제의 두 쿼리는 다음과 같다.
+
+- `findCategoryMenuCounts`: 카테고리별 메뉴 수를 구한다. 메뉴가 없는 카테고리도 보여야 하므로 `LEFT JOIN`으로 카테고리를 기준에 두고 `GROUP BY`로 센다.
+- `findMenuPriceRanks`: 가격이 높은 순으로 순위를 매긴다. `RANK() OVER (ORDER BY m.menu_price DESC)`는 윈도우 함수여서 MySQL 8 이상에서 동작한다. `RANK`는 같은 가격에 같은 순위를 주고 다음 순위를 건너뛴다.
+
+네이티브 쿼리는 특정 데이터베이스의 문법에 묶인다. 데이터베이스를 바꾸면 쿼리도 함께 확인해야 한다.
+
+결과는 엔티티가 아니라 **인터페이스 프로젝션**으로 받는다. 읽을 값마다 getter 메서드를 선언한 인터페이스를 반환 타입으로 쓰면 Spring Data JPA가 쿼리 결과의 컬럼을 그 getter에 연결한다. 쿼리의 컬럼 별칭(`AS categoryCode`)이 getter 이름(`getCategoryCode`의 `categoryCode`)과 일치해야 한다. 컨트롤러가 이 인터페이스 객체를 반환하면 Jackson이 getter를 읽어 JSON으로 바꾼다. 흐름은 데이터베이스 결과, Spring Data JPA, 프로젝션 객체, Jackson, JSON 응답 순서다.
+
+**`src/main/java/com/woong3e/springdatajpa/menu/dto/CategoryMenuCountView.java`**
+
+```java
+package com.woong3e.springdatajpa.menu.dto;
+
+public interface CategoryMenuCountView {
+
+
+    int getCategoryCode();
+
+    String getCategoryName();
+
+    long getMenuCount();
+
+}
+
+// Spring Data JPA 쿼리 결과를 CategoryMenuCountView의 getter 로 꺼낼 수있께 연결해준다.
+// Jackson: Controller 가 반환한 객체의 getter를 읽어서 JSON으로 변환한다.
+
+// 순서:  DB 결과 → Spring Data JPA → 객체 → Jackson → JSON 응답
+```
+
+**`src/main/java/com/woong3e/springdatajpa/menu/dto/MenuPriceRankView.java`**
+
+```java
+package com.woong3e.springdatajpa.menu.dto;
+
+public interface MenuPriceRankView {
+
+    int getMenuCode();
+    String getMenuName();
+    int getMenuPrice();
+    long getPriceRank();    // 얘는 계산한 값이 들어올거임.
+}
+```
+
+## ☘️ API 호출과 실제 응답
+
+아래 파일은 IntelliJ의 HTTP 클라이언트로 실행하는 요청 모음이다. 수정과 삭제 요청의 번호는 먼저 등록 요청의 응답에 나온 `menuCode`로 바꾸어 실행해야 한다.
+
+**`api-test.http`**
+
+```http
+### 전체 메뉴 조회
+GET http://localhost:8080/api/v1/menus
+
+### 메뉴 상세 조회
+GET http://localhost:8080/api/v1/menus/10
+
+### 최소 가격 이상 조회 - 쿼리 메소드
+GET http://localhost:8080/api/v1/menus/search/price?minPrice=20000
+
+### 메뉴 이름 검색 - JPQL
+GET http://localhost:8080/api/v1/menus/search/name?keyword=마늘
+
+### 페이지 조회 - fetch join
+GET http://localhost:8080/api/v1/menus/page?page=0&size=5&sort=menuCode,asc
+
+### 메뉴 등록
+POST http://localhost:8080/api/v1/menus
+Content-Type: application/json
+
+{
+  "menuName": "돈까스 스파게티",
+  "menuPrice": 15000,
+  "categoryCode": 4,
+  "orderableStatus": "Y"
+}
+
+### 메뉴 수정 - 앞의 등록 응답에 나온 menuCode로 변경
+PUT http://localhost:8080/api/v1/menus/22
+Content-Type: application/json
+
+{
+  "menuName": "치즈 돈까스 스파게티",
+  "menuPrice": 17000,
+  "categoryCode": 4,
+  "orderableStatus": "Y"
+}
+
+### 메뉴 삭제 - 앞의 등록 응답에 나온 menuCode로 변경
+DELETE http://localhost:8080/api/v1/menus/22
+
+### 카테고리별 메뉴 수 - Native Query(인터페이스 프로젝션)
+GET http://localhost:8080/api/v1/menus/reports/category-menu-counts
+
+### 메뉴 가격 순위 - MYSQL 윈도우 함수
+
+GET http://localhost:8080/api/v1/menus/reports/price-ranks
+```
+
+chap06 프로젝트를 임시 포트(18081)로 실행해 조회 요청을 보낸 실제 응답이다. 데이터는 로컬 `menudb`에 들어 있던 값이라 환경에 따라 다르다. 등록, 수정, 삭제 요청은 서비스 테스트로만 확인했고 HTTP로 호출하지는 않았다.
+
+**`GET /api/v1/menus/reports/category-menu-counts`** (HTTP 200)
+
+```json
+[
+  { "categoryCode": 4, "categoryName": "한식", "menuCount": 6 },
+  { "categoryCode": 10, "categoryName": "기타", "menuCount": 6 },
+  { "categoryCode": 6, "categoryName": "일식", "menuCount": 3 },
+  { "categoryCode": 12, "categoryName": "서양", "menuCount": 3 },
+  { "categoryCode": 8, "categoryName": "커피", "menuCount": 2 },
+  { "categoryCode": 5, "categoryName": "중식", "menuCount": 1 },
+  { "categoryCode": 9, "categoryName": "쥬스", "menuCount": 1 },
+  { "categoryCode": 11, "categoryName": "동양", "menuCount": 1 },
+  { "categoryCode": 1, "categoryName": "식사", "menuCount": 0 },
+  { "categoryCode": 2, "categoryName": "음료", "menuCount": 0 },
+  { "categoryCode": 3, "categoryName": "디저트", "menuCount": 0 },
+  { "categoryCode": 7, "categoryName": "퓨전", "menuCount": 0 }
+]
+```
+
+메뉴 수가 많은 순으로 정렬되고, 메뉴가 없는 카테고리도 `menuCount`가 0으로 나온다. `LEFT JOIN`과 `COUNT(m.menu_code)`의 효과다.
+
+**`GET /api/v1/menus/page?page=0&size=2&sort=menuCode,asc`** (HTTP 200)
+
+```json
+{
+  "content": [
+    {
+      "menuCode": 1,
+      "menuName": "열무김치라떼",
+      "menuPrice": 4500,
+      "categoryCode": 8,
+      "categoryName": "커피",
+      "orderableStatus": "Y"
+    },
+    {
+      "menuCode": 2,
+      "menuName": "우럭스무디",
+      "menuPrice": 5000,
+      "categoryCode": 10,
+      "categoryName": "기타",
+      "orderableStatus": "Y"
+    }
+  ],
+  "page": 0,
+  "size": 2,
+  "totalElements": 23,
+  "totalPages": 12
+}
+```
+
+23건을 2건씩 나누어 12페이지(`ceil(23 / 2)`)이고, 첫 페이지는 메뉴 코드 오름차순의 처음 두 건이다.
+
+**`GET /api/v1/menus/search/price?minPrice=30000`** (HTTP 200)
+
+```json
+[
+  {
+    "menuCode": 18,
+    "menuName": "붕어빵초밥",
+    "menuPrice": 35000,
+    "categoryCode": 6,
+    "categoryName": "일식",
+    "orderableStatus": "Y"
+  },
+  {
+    "menuCode": 9003,
+    "menuName": "을밀대 평양냉면",
+    "menuPrice": 30000,
+    "categoryCode": 4,
+    "categoryName": "한식",
+    "orderableStatus": "Y"
+  }
+]
+```
+
+**`GET /api/v1/menus/reports/price-ranks`** (HTTP 200)
+
+가격 순위 응답은 메뉴 전체 목록이라 길어서, 앞의 세 건만 같은 형식으로 옮긴다.
+
+```json
+[
+  { "menuCode": 18, "menuName": "붕어빵초밥", "menuPrice": 35000, "priceRank": 1 },
+  { "menuCode": 9003, "menuName": "을밀대 평양냉면", "menuPrice": 30000, "priceRank": 2 },
+  { "menuCode": 20, "menuName": "마라깐쇼한라봉", "menuPrice": 22000, "priceRank": 3 }
+]
+```
+
+## ☘️ 헷갈리기 쉬운 지점
+
+- 수정은 `save`가 아니라 영속 상태의 엔티티를 조회해 값을 바꾸는 방식으로 한다. 변경 감지가 `UPDATE`를 만든다.
+- `Page`의 번호는 0부터 시작한다. 첫 페이지는 `page=0`이다.
+- `open-in-view: false`이면 서비스의 트랜잭션 밖에서 지연 로딩 객체를 읽을 수 없다. 엔티티는 서비스 안에서 DTO로 바꾼다.
+- JPQL은 테이블 이름이 아니라 엔티티 이름(`Menu`)과 필드 이름(`menuName`)을 쓴다.
+- 네이티브 쿼리의 컬럼 별칭은 인터페이스 프로젝션의 getter 이름과 맞아야 한다.
+- 컬렉션(`@OneToMany`)을 fetch join하면서 페이징하면 데이터베이스가 아니라 메모리에서 페이징하게 되므로 주의해야 한다. 이 예제의 fetch join은 단일 참조(`@ManyToOne`)여서 해당하지 않는다.
