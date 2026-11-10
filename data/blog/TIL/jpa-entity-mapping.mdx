@@ -1,0 +1,1097 @@
+---
+title: jpa entity mapping
+date: '2026-11-10'
+tags: ['jpa', 'spring']
+draft: false
+summary: '엔티티 어노테이션으로 클래스와 테이블을 연결하고, 객체 참조와 외래 키는 연관관계 매핑으로 연결한다.'
+---
+
+[소스코드: Update 10_jpa/chap02-mapping lecture materials](https://github.com/woong3e/sesac_lecture/commit/5a1fca384db96532cf7cefcf310fa125538adb2d) · [소스코드: Update 10_jpa/chap03-association-mapping lecture materials](https://github.com/woong3e/sesac_lecture/commit/bd87a01475258e9c31fd3a5bd18015b166a41894)
+
+JPA를 사용하려면 클래스의 필드가 테이블의 어느 컬럼에 대응하는지, 객체 사이의 참조가 테이블의 외래 키와 어떻게 이어지는지를 어노테이션으로 알려 주어야 한다. 이 글은 Spring Boot 프로젝트에서 엔티티를 컬럼에 매핑하는 방법, 여러 필드를 하나의 값 객체로 묶는 방법, 그리고 메뉴와 카테고리처럼 서로 참조하는 엔티티를 연관관계로 매핑하는 방법을 코드로 정리한다.
+
+## ☘️ 엔티티와 컬럼 매핑
+
+**Spring Boot에서 JPA 설정하기**
+
+Spring Boot에서는 `spring-boot-starter-data-jpa` 의존성이 JPA와 Hibernate, 트랜잭션 관련 설정을 함께 가져온다. 순수 JPA에서는 `persistence.xml`에 직접 설정을 쓰지만 Spring Boot에서는 `application.yml`의 `spring.jpa` 설정과 자동 설정이 그 역할을 한다. 데이터베이스 드라이버는 실행할 때만 필요하므로 `runtimeOnly`로 둔다.
+
+**`build.gradle`**
+
+```groovy
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '4.0.9'
+    id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'com.woong3e'
+version = '0.0.1-SNAPSHOT'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    developmentOnly 'org.springframework.boot:spring-boot-devtools'
+    runtimeOnly 'com.mysql:mysql-connector-j'
+    testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
+```
+
+아래 설정에서 `ddl-auto`는 애플리케이션을 시작할 때 엔티티 정의로 테이블을 어떻게 다룰지를 정한다. 이 예제의 `create`는 기존 테이블을 삭제하고 엔티티 정의에 맞게 새로 만든다. 따라서 실제 데이터가 들어 있는 데이터베이스에 연결해 실행하면 해당 테이블의 데이터가 사라진다. 비밀번호는 환경에 맞게 `<DB 비밀번호>` 자리에 직접 채운다.
+
+**`src/main/resources/application.yml`**
+
+```yaml
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/menudb
+    username: ohgiraffers
+    password: <DB 비밀번호>
+  jpa:
+    show-sql: true
+    database: mysql
+    hibernate:
+      ddl-auto: create
+    properties:
+      hibernate:
+        format_sql: true
+```
+
+`ddl-auto`의 값에 따라 동작이 다르다. 이 시리즈의 설정 값을 비교하면 다음과 같다.
+
+| 값         | 동작                                                           | 사용된 곳       |
+| ---------- | -------------------------------------------------------------- | --------------- |
+| `create`   | 시작할 때 테이블을 삭제하고 다시 만든다.                       | chap02          |
+| `none`     | 테이블을 건드리지 않는다.                                      | chap03 ~ chap06 |
+| `validate` | 엔티티와 테이블이 맞는지만 검사하고 맞지 않으면 시작을 멈춘다. | chap07          |
+
+**회원 엔티티**
+
+아래 `Member`는 `tbl_member` 테이블과 매핑된다. 각 어노테이션의 역할은 다음과 같다.
+
+- `@Entity`: 클래스를 JPA가 관리하는 엔티티로 지정한다.
+- `@Table(name = ...)`: 매핑할 테이블 이름을 지정한다.
+- `@Id`: 기본 키 필드를 지정한다. `@GeneratedValue(strategy = GenerationType.IDENTITY)`는 `INSERT` 때 데이터베이스가 번호를 만들게 한다.
+- `@Column`: 컬럼 이름과 제약을 지정한다. `nullable = false`는 `NOT NULL`, `unique = true`는 유일 제약, `length`는 문자열 길이다. 이 제약은 `ddl-auto`가 테이블을 만들 때 DDL에 반영된다.
+- `@Enumerated(EnumType.STRING)`: 열거형을 상수 이름 문자열로 저장한다.
+
+`EnumType.ORDINAL`은 열거형의 선언 순서(0, 1, ...)를 저장하는데, 이 경우 상수의 순서를 바꾸거나 중간에 추가하면 이미 저장된 숫자의 의미가 바뀐다. `STRING`은 `ROLE_MEMBER`, `ROLE_ADMIN` 같은 이름을 저장하므로 순서가 바뀌어도 의미가 유지된다.
+
+**`src/main/java/com/woong3e/mapping/section01/entity/Member.java`**
+
+```java
+package com.woong3e.mapping.section01.entity;
+
+import jakarta.persistence.*;
+
+import java.time.LocalDateTime;
+
+// 클래스를 JPA가 관리하는 엔티티로 지정한다.
+// JPA는 이 클래스를 데이터베이스 테이블과 매핑해 객체를 저장하고 조회할 수 있다.
+@Entity
+@Table(name = "tbl_member") // 엔티티를 어떤 데이터베이스 테이블에 매핑할지 지정해준다.
+public class Member {
+
+    // @Id는 기본 키이며 IDENTITY 방식은 INSERT 시 DB가 번호를 생성한다.
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "member_no")
+    private int memberNo;
+    @Column(name = "member_id", nullable = false, unique = true,length = 50)
+    private String memberId;
+    @Column(name = "member_pwd",nullable = false,length = 20)
+    private String memberPwd;
+    @Column(name = "member_name",nullable = false,length = 10)
+    private String memberName;
+    @Column(name = "phone")
+    private String phone;
+    @Column(name = "address")
+    private String address;
+    @Column(name = "enroll_date")
+    private LocalDateTime enrollDate;
+    @Enumerated(EnumType.STRING)    // enum 순서가 바뀌어도 DB 값의 의미가 유지되도록 이름으로 저장.
+    @Column(name = "member_role")
+    private MemberRole memberRole;
+    @Column(name = "status")
+    private String status;
+
+    // JPA가 조회 결과로 엔티티를 만들 때 사용할 기본 생성자.
+    protected Member() {}
+
+    // 회원을 새로 만들 때 필요한 생성자
+    public Member(
+            String memberId, String memberPwd, String memberName,
+            String phone, String address, LocalDateTime enrollDate,
+            MemberRole memberRole, String status
+    ) {
+        this.memberId = memberId;
+        this.memberPwd = memberPwd;
+        this.memberName = memberName;
+        this.phone = phone;
+        this.address = address;
+        this.enrollDate = enrollDate;
+        this.memberRole = memberRole;
+        this.status = status;
+    }
+
+    public int getMemberNo() {
+        return memberNo;
+    }
+
+    public String getMemberId() {
+        return memberId;
+    }
+
+    public String getMemberName() {
+        return memberName;
+    }
+
+    public MemberRole getMemberRole() {
+        return memberRole;
+    }
+}
+```
+
+**`src/main/java/com/woong3e/mapping/section01/entity/MemberRole.java`**
+
+```java
+package com.woong3e.mapping.section01.entity;
+
+public enum MemberRole {
+
+    ROLE_MEMBER,
+    ROLE_ADMIN
+}
+```
+
+**저장 흐름: 리포지토리, 서비스, 테스트**
+
+`MemberRepository`는 `@PersistenceContext`로 스프링이 만든 `EntityManager`를 주입받아 `persist`를 호출한다. `@Repository`는 데이터 접근 계층임을 스프링에 알리는 어노테이션이다.
+
+`MemberRegistService`는 요청값을 담은 `MemberRegistDTO`를 `Member`로 바꾸어 저장한다. `@Transactional`은 메서드 전체를 하나의 트랜잭션으로 묶는다. `EntityManager`로 저장·수정·삭제하려면 트랜잭션이 필요하고, 트랜잭션 없이 `persist`를 호출하면 스프링이 예외를 던진다. 이 어노테이션은 `jakarta.transaction`이 아니라 `org.springframework.transaction.annotation` 패키지의 것을 import한다.
+
+**`src/main/java/com/woong3e/mapping/Chap02MappingApplication.java`**
+
+```java
+package com.woong3e.mapping;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+@SpringBootApplication
+public class Chap02MappingApplication {
+
+    public static void main(String[] args) {
+        SpringApplication.run(Chap02MappingApplication.class, args);
+    }
+}
+```
+
+**`src/main/java/com/woong3e/mapping/section01/entity/MemberRepository.java`**
+
+```java
+package com.woong3e.mapping.section01.entity;
+
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import org.springframework.stereotype.Repository;
+
+@Repository // 데이터베이스에 접근하는 역할로 스프링에 등록한다.
+public class MemberRepository {
+
+    @PersistenceContext // JPA 작업에 사용하는 EntityManager를 스프링이 주입하도록 한다.
+    private EntityManager entityManager;
+
+    public Member save(Member member){
+        entityManager.persist(member);
+        return member;
+    }
+}
+```
+
+**`src/main/java/com/woong3e/mapping/section01/entity/MemberRegistDTO.java`**
+
+```java
+package com.woong3e.mapping.section01.entity;
+
+import java.time.LocalDateTime;
+
+public class MemberRegistDTO {
+
+    private String memberId;
+    private String memberPwd;
+    private String memberName;
+    private String phone;
+    private String address;
+    private LocalDateTime enrollDate;
+    private MemberRole memberRole;
+    private String status;
+
+    public MemberRegistDTO() {}
+
+    public MemberRegistDTO(
+            String memberId, String memberPwd, String memberName,
+            String phone, String address, LocalDateTime enrollDate,
+            MemberRole memberRole, String status
+    ) {
+        this.memberId = memberId;
+        this.memberPwd = memberPwd;
+        this.memberName = memberName;
+        this.phone = phone;
+        this.address = address;
+        this.enrollDate = enrollDate;
+        this.memberRole = memberRole;
+        this.status = status;
+    }
+
+    public String getMemberId() {
+        return memberId;
+    }
+
+    public String getMemberPwd() {
+        return memberPwd;
+    }
+
+    public String getMemberName() {
+        return memberName;
+    }
+
+    public String getPhone() {
+        return phone;
+    }
+
+    public String getAddress() {
+        return address;
+    }
+
+    public LocalDateTime getEnrollDate() {
+        return enrollDate;
+    }
+
+    public MemberRole getMemberRole() {
+        return memberRole;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+}
+```
+
+**`src/main/java/com/woong3e/mapping/section01/entity/MemberRegistService.java`**
+
+```java
+package com.woong3e.mapping.section01.entity;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service    // 이 클래스가 서비스 역할을 한다고 스프링에 알려준다.
+public class MemberRegistService {
+
+    private final MemberRepository memberRepository;
+
+    @Autowired
+    public MemberRegistService(MemberRepository memberRepository) {
+        this.memberRepository = memberRepository;
+    }
+
+    @Transactional  // springframework의 어노테이션으로 import.
+    public Member registMember(MemberRegistDTO newMember){
+        Member member = new Member(
+                newMember.getMemberId(),
+                newMember.getMemberPwd(),
+                newMember.getMemberName(),
+                newMember.getPhone(),
+                newMember.getAddress(),
+                newMember.getEnrollDate(),
+                newMember.getMemberRole(),
+                newMember.getStatus()
+                );
+
+        return memberRepository.save(member);
+    }
+}
+```
+
+테스트는 `@SpringBootTest`로 전체 컨텍스트를 띄우고 `@Transactional`로 테스트마다 롤백한다. 이 테스트만 `@Commit`을 붙여 롤백하지 않고 실제로 커밋하므로 `tbl_member`에 행이 남는다. `ddl-auto: create` 설정 때문에 애플리케이션을 다시 시작하면 테이블이 새로 만들어지므로 같은 아이디로 다시 실행해도 유일 제약에 걸리지 않는다. 저장이 성공하면 `memberNo`가 0보다 큰 값으로 채워지고, 역할은 `ROLE_MEMBER`로 저장된다.
+
+**`src/test/java/com/woong3e/mapping/section01/entity/MemberRegistServiceTests.java`**
+
+```java
+package com.woong3e.mapping.section01.entity;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.annotation.Commit;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+@SpringBootTest
+@Transactional
+public class MemberRegistServiceTests {
+
+    @Autowired
+    private MemberRegistService memberRegistService;
+
+    @Test
+    @DisplayName("회원 엔티티 매핑과 저장 확인")
+    @Commit
+    void testRegistMember() {
+        // given
+        MemberRegistDTO newMember = new MemberRegistDTO(
+                "user01",
+                "pass01",
+                "홍길동",
+                "010-1234-5678",
+                "서울시 종로구",
+                LocalDateTime.now(),
+                MemberRole.ROLE_MEMBER,
+                "Y"
+        );
+
+        // when
+        Member savedMember = memberRegistService.registMember(newMember);
+
+        // then
+        assertTrue(savedMember.getMemberNo() > 0);
+        assertEquals("홍길동", savedMember.getMemberName());
+        assertEquals(MemberRole.ROLE_MEMBER, savedMember.getMemberRole());
+    }
+}
+```
+
+이 챕터의 테스트는 `ddl-auto: create`가 기존 테이블을 삭제하므로 실행해서 검증하지 않았다. 프로젝트가 컴파일되는 것만 확인했고, 위 결과는 코드를 읽고 예상한 내용이다.
+
+## ☘️ 값 객체를 임베디드 타입으로 매핑하기
+
+가격처럼 여러 필드가 한 덩어리의 의미를 가지는 경우 별도의 클래스로 묶는 것이 객체지향적이다. 하지만 테이블에서는 정가, 할인율, 판매가가 도서 테이블의 컬럼으로 나란히 있다. `@Embeddable`은 클래스가 소유 엔티티의 컬럼으로 포함되는 값 타입임을 표시하고, `@Embedded`는 엔티티 필드에서 그 값 타입을 사용한다고 표시한다. 별도의 테이블이나 기본 키가 없으므로 `Price`의 필드는 `tbl_book` 테이블의 `regular_price`, `discount_rate`, `sell_price` 컬럼이 된다.
+
+`Price`의 생성자는 값이 올바른지 검사한 뒤 판매가를 계산한다. 이처럼 값 객체 안에 규칙을 두면 잘못된 가격이 만들어지는 것을 생성 단계에서 막을 수 있다.
+
+**`src/main/java/com/woong3e/mapping/section02/embedded/Price.java`**
+
+```java
+package com.woong3e.mapping.section02.embedded;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Embeddable;
+
+// 별도 테이블 없이 소유 엔티티의 컬럼에 포함되는 값 객체를 뜻한다.
+// 이 클래스의 필드들을 엔티티 내부에 포함해 매핑할 수 있다.
+@Embeddable
+public class Price {
+
+    @Column(name = "regular_price", nullable = false)
+    private int regularPrice;
+    @Column(name = "discount_rate", nullable = false)
+    private double discountRate;
+    @Column(name = "sell_price", nullable = false)
+    private int sellPrice;
+
+    protected Price() {}
+
+    public Price(int regularPrice, double discountRate) {
+        validatePrice(regularPrice);
+        validateDiscountRate(discountRate);
+        this.regularPrice = regularPrice;
+        this.discountRate = discountRate;
+        this.sellPrice = calculateSellPrice(regularPrice, discountRate);
+    }
+
+    private void validatePrice(int regularPrice) {
+        if (regularPrice < 0) {
+            throw new IllegalArgumentException("가격은 음수일 수 없습니다.");
+        }
+    }
+
+    private void validateDiscountRate(double discountRate) {
+        if (discountRate < 0 || discountRate > 1) {
+            throw new IllegalArgumentException("할인율은 0 이상 1 이하여야 합니다.");
+        }
+    }
+
+    private int calculateSellPrice(int regularPrice, double discountRate) {
+        return (int) (regularPrice - (regularPrice * discountRate));
+    }
+
+    public int getRegularPrice() {
+        return regularPrice;
+    }
+
+    public double getDiscountRate() {
+        return discountRate;
+    }
+
+    public int getSellPrice() {
+        return sellPrice;
+    }
+}
+```
+
+**`src/main/java/com/woong3e/mapping/section02/embedded/Book.java`**
+
+```java
+package com.woong3e.mapping.section02.embedded;
+
+import jakarta.persistence.*;
+
+import java.time.LocalDate;
+
+@Entity
+@Table(name = "tbl_book")
+public class Book {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "book_no", nullable = false, length = 100)
+    private int bookNo;
+    @Column(name = "book_title")
+    private String bookTitle;
+    @Column(name = "author")
+    private String author;
+    @Column(name = "publisher")
+    private String publisher;
+    @Column(name = "published_date")
+    private LocalDate publishedDate;
+
+    @Embedded   // Price의 값들을 Book 테이블의 컬럼으로 함께 저장한다.
+    private Price price;
+
+    protected Book() {}
+
+    public Book(
+            String bookTitle, String author, String publisher,
+            LocalDate publishedDate, Price price
+    ) {
+        this.bookTitle = bookTitle;
+        this.author = author;
+        this.publisher = publisher;
+        this.publishedDate = publishedDate;
+        this.price = price;
+    }
+
+    public int getBookNo() {
+        return bookNo;
+    }
+
+    public String getBookTitle() {
+        return bookTitle;
+    }
+
+    public Price getPrice() {
+        return price;
+    }
+}
+```
+
+저장 흐름은 회원과 같다. 서비스가 요청값으로 `Price`를 만들어 `Book`에 넣고, 리포지토리가 `persist`한다.
+
+**`src/main/java/com/woong3e/mapping/section02/embedded/BookRepository.java`**
+
+```java
+package com.woong3e.mapping.section02.embedded;
+
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import org.springframework.stereotype.Repository;
+
+@Repository
+public class BookRepository {
+
+    @PersistenceContext
+    private EntityManager entityManager;
+
+    public Book save(Book book){
+        entityManager.persist(book);
+        return book;
+    }
+}
+```
+
+**`src/main/java/com/woong3e/mapping/section02/embedded/BookRegistDTO.java`**
+
+```java
+package com.woong3e.mapping.section02.embedded;
+
+import java.time.LocalDate;
+
+public class BookRegistDTO {
+
+    private String bookTitle;
+    private String author;
+    private String publisher;
+    private LocalDate publishedDate;
+    private int regularPrice;
+    private double discountRate;
+
+    public BookRegistDTO() {}
+
+    public BookRegistDTO(
+            String bookTitle, String author, String publisher,
+            LocalDate publishedDate, int regularPrice, double discountRate
+    ) {
+        this.bookTitle = bookTitle;
+        this.author = author;
+        this.publisher = publisher;
+        this.publishedDate = publishedDate;
+        this.regularPrice = regularPrice;
+        this.discountRate = discountRate;
+    }
+
+    public String getBookTitle() {
+        return bookTitle;
+    }
+
+    public String getAuthor() {
+        return author;
+    }
+
+    public String getPublisher() {
+        return publisher;
+    }
+
+    public LocalDate getPublishedDate() {
+        return publishedDate;
+    }
+
+    public int getRegularPrice() {
+        return regularPrice;
+    }
+
+    public double getDiscountRate() {
+        return discountRate;
+    }
+}
+```
+
+**`src/main/java/com/woong3e/mapping/section02/embedded/BookRegistService.java`**
+
+```java
+package com.woong3e.mapping.section02.embedded;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+public class BookRegistService {
+
+    private final BookRepository bookRepository;
+
+    public BookRegistService(BookRepository bookRepository) {
+        this.bookRepository = bookRepository;
+    }
+
+    @Transactional
+    public Book registBook(BookRegistDTO newBook){
+        Book book = new Book(
+                newBook.getBookTitle(),
+                newBook.getAuthor(),
+                newBook.getPublisher(),
+                newBook.getPublishedDate(),
+                new Price(newBook.getRegularPrice(),
+                        newBook.getDiscountRate())
+        );
+        return bookRepository.save(book);
+    }
+}
+```
+
+테스트는 정가 43,000원과 할인율 0.1로 도서를 저장했을 때 판매가가 38,700원인지, 할인율이 1을 넘는 `Price`를 만들면 `IllegalArgumentException`이 발생하는지를 확인한다.
+
+**`src/test/java/com/woong3e/mapping/section02/embedded/BookRegistServiceTests.java`**
+
+```java
+package com.woong3e.mapping.section02.embedded;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDate;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+@SpringBootTest
+@Transactional
+public class BookRegistServiceTests {
+
+    @Autowired
+    private BookRegistService bookRegistService;
+
+    @Test
+    @DisplayName("임베디드 가격을 포함한 도서 저장 확인")
+    void testRegistBookWithEmbeddedPrice() {
+        // given
+        BookRegistDTO newBook = new BookRegistDTO(
+                "자바 ORM 표준 JPA 프로그래밍",
+                "김영한",
+                "에이콘",
+                LocalDate.now(),
+                43000,
+                0.1
+        );
+
+        // when
+        Book savedBook = bookRegistService.registBook(newBook);
+
+        // then
+        assertTrue(savedBook.getBookNo() > 0);
+        assertEquals("자바 ORM 표준 JPA 프로그래밍", savedBook.getBookTitle());
+        assertEquals(38700, savedBook.getPrice().getSellPrice());
+    }
+
+    @Test
+    @DisplayName("할인율은 0 이상 1 이하만 허용")
+    void testInvalidDiscountRate() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new Price(43000, 1.1)
+        );
+    }
+}
+```
+
+**판매가 계산의 주의점**
+
+`calculateSellPrice`는 `(int) (regularPrice - (regularPrice * discountRate))`로 `double`을 계산한 뒤 `(int)`로 소수점을 버린다. 43,000원과 0.1에서는 테스트가 기대하는 38,700이 나온다. 하지만 `double`은 0.55 같은 값을 정확히 표현하지 못해서 다른 입력에서는 결과가 1원 어긋날 수 있다. 아래 설명용 예제는 `Price`의 계산과 같은 방식과, `BigDecimal`로 고친 방식을 비교한다. 예제를 실제로 실행해 확인한 결과다.
+
+**`PriceCalculation.java`**
+
+```java
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+
+public class PriceCalculation {
+
+    // chap02의 Price.calculateSellPrice와 같은 계산: double로 계산한 뒤 (int)로 소수점을 버린다.
+    static int sellPriceWithDouble(int regularPrice, double discountRate) {
+        return (int) (regularPrice - (regularPrice * discountRate));
+    }
+
+    // 설명을 위해 추가한 수정안: 할인율을 문자열로 받아 BigDecimal로 정확히 계산한다.
+    static int sellPriceWithBigDecimal(int regularPrice, String discountRate) {
+        return BigDecimal.valueOf(regularPrice)
+                .multiply(BigDecimal.ONE.subtract(new BigDecimal(discountRate)))
+                .setScale(0, RoundingMode.DOWN)
+                .intValueExact();
+    }
+
+    public static void main(String[] args) {
+        System.out.println("43000 * 0.1 = " + (43000 * 0.1));
+        System.out.println("double (43000, 0.1) = " + sellPriceWithDouble(43000, 0.1));
+        System.out.println("100 * 0.55 = " + (100 * 0.55));
+        System.out.println("double (100, 0.55) = " + sellPriceWithDouble(100, 0.55));
+        System.out.println("BigDecimal (100, 0.55) = " + sellPriceWithBigDecimal(100, "0.55"));
+    }
+}
+```
+
+```text
+43000 * 0.1 = 4300.0
+double (43000, 0.1) = 38700
+100 * 0.55 = 55.00000000000001
+double (100, 0.55) = 44
+BigDecimal (100, 0.55) = 45
+```
+
+정가 100원에 할인율 0.55면 판매가는 45원이어야 하는데 `100 * 0.55`가 `55.00000000000001`이 되어 `(int)` 변환이 44를 만든다. 정가를 100원 단위로 100원부터 100,000원까지, 할인율을 0.01부터 0.99까지 바꾸어 비교하면 99,000개 조합 중 2,370개에서 `BigDecimal`로 정확히 계산한 값과 달랐다. 금액 계산에는 `double`을 쓰지 않고 `BigDecimal`이나 정수 연산을 쓰는 것이 안전하다. 다만 `BigDecimal`로 고칠 때는 판매가를 버림으로 할지 반올림으로 할지 먼저 정해야 한다. 위 예제는 기존 코드와 같은 버림(`RoundingMode.DOWN`)을 사용했다.
+
+## ☘️ 연관관계 매핑
+
+**객체 참조와 외래 키**
+
+데이터베이스에서 메뉴가 카테고리에 속한다는 사실은 `tbl_menu.category_code`라는 외래 키(FK)로 표현한다. 객체에서는 `Menu`가 `Category`를 필드로 가진다. 이 둘을 연결하는 것이 연관관계 매핑이다. 메뉴 여러 개가 카테고리 하나를 참조하므로 `Menu` 입장에서는 다대일(N:1)이고, `@ManyToOne`과 외래 키 컬럼을 지정하는 `@JoinColumn`을 쓴다.
+
+학습 코드에서는 세 가지 방식을 차례로 실습했다.
+
+- **N:1 단방향**: `Menu`에서 `Category`를 참조한다. 메뉴를 저장할 때 기존 카테고리를 먼저 조회해 `Menu`에 넣으면 그 카테고리의 코드가 외래 키로 저장된다.
+- **1:N 단방향**: `Category`에서 `Menu` 목록을 참조한다. `@OneToMany(fetch = FetchType.EAGER)`와 `@JoinColumn(name = "category_code", insertable = false, updatable = false)`을 써서 목록을 읽기만 하도록 했다.
+- **양방향**: `Menu`와 `Category`가 서로를 참조한다.
+
+세 가지 방식 중 가장 일반적인 양방향 코드를 기준으로 설명한다. 이 챕터의 학습 코드 테스트 6개는 로컬 MySQL의 `menudb`에서 실행해 모두 통과했다. 이 챕터는 `ddl-auto: none`으로 이미 있는 테이블을 사용한다. 아래 설정은 테이블 이름과 컬럼 이름의 변환 규칙(`CamelCaseToUnderscoresNamingStrategy`)을 함께 지정한다.
+
+**`src/main/resources/application.yml`**
+
+```yaml
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/menudb
+    username: ohgiraffers
+    password: <DB 비밀번호>
+  jpa:
+    show-sql: true
+    database: mysql
+    hibernate:
+      ddl-auto: none
+      naming:
+        physical-strategy: org.hibernate.boot.model.naming.CamelCaseToUnderscoresNamingStrategy
+    properties:
+      hibernate:
+        format_sql: true
+```
+
+**양방향 연관관계와 연관관계의 주인**
+
+양방향이면 객체는 서로를 참조하지만 테이블의 외래 키는 한쪽에만 있다. 그래서 두 참조 중 어느 쪽이 외래 키를 관리할지를 정해야 하고, 이를 **연관관계의 주인**이라고 한다. 외래 키가 있는 쪽, 즉 `Menu.category`가 주인이다. 주인이 아닌 `Category.menuList`에는 `mappedBy`로 "주인 쪽의 필드 이름"을 적는다. 이 값은 데이터베이스 컬럼 이름이 아니라 `Menu`의 필드 이름인 `category`다. 주인이 아닌 쪽은 읽기 전용이어서 `menuList`에 메뉴를 추가하기만 해서는 외래 키가 저장되지 않는다.
+
+그래서 `Category.addMenu`처럼 양쪽을 함께 설정하는 연관관계 편의 메서드를 둔다. 목록에 추가하고(`menuList.add`), 메뉴에도 카테고리를 설정(`menu.setCategory(this)`)해서 메모리의 객체 그래프가 항상 일치하게 한다.
+
+가져오는 시점을 정하는 `FetchType`은 두 가지다. `LAZY`는 연관 객체를 실제로 사용할 때 조회하고, `EAGER`는 엔티티를 조회할 때 함께 조회한다. 학습 코드의 주석처럼 `@OneToMany`는 기본이 `LAZY`이고 `@ManyToOne`은 기본이 `EAGER`다. 이 예제는 `@ManyToOne`도 `LAZY`로 지정해서 필요할 때만 `Category`를 조회한다.
+
+**`src/main/java/com/woong3e/associationmapping/section03/bidirection/Menu.java`**
+
+```java
+package com.woong3e.associationmapping.section03.bidirection;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+
+@Entity(name = "Section03Menu")
+@Table(name = "tbl_menu")
+public class Menu {
+
+    @Id
+    @Column(name = "menu_code")
+    private int menuCode;
+
+    @Column(name = "menu_name")
+    private String menuName;
+
+    @Column(name = "menu_price")
+    private int menuPrice;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "category_code", nullable = false)
+    private Category category;
+
+    @Column(name = "orderable_status")
+    private String orderableStatus;
+
+    public Menu() {
+    }
+
+    public Menu(int menuCode, String menuName, int menuPrice, Category category, String orderableStatus) {
+        this.menuCode = menuCode;
+        this.menuName = menuName;
+        this.menuPrice = menuPrice;
+        this.category = category;
+        this.orderableStatus = orderableStatus;
+    }
+
+    public int getMenuCode() {
+        return menuCode;
+    }
+
+    public void setMenuCode(int menuCode) {
+        this.menuCode = menuCode;
+    }
+
+    public String getMenuName() {
+        return menuName;
+    }
+
+    public void setMenuName(String menuName) {
+        this.menuName = menuName;
+    }
+
+    public int getMenuPrice() {
+        return menuPrice;
+    }
+
+    public void setMenuPrice(int menuPrice) {
+        this.menuPrice = menuPrice;
+    }
+
+    public Category getCategory() {
+        return category;
+    }
+
+    public void setCategory(Category category) {
+        this.category = category;
+    }
+
+    public String getOrderableStatus() {
+        return orderableStatus;
+    }
+
+    public void setOrderableStatus(String orderableStatus) {
+        this.orderableStatus = orderableStatus;
+    }
+
+    @Override
+    public String toString() {
+        return "Menu{" +
+                "menuCode=" + menuCode +
+                ", menuName='" + menuName + '\'' +
+                ", menuPrice=" + menuPrice +
+                ", category=" + category +
+                ", orderableStatus='" + orderableStatus + '\'' +
+                '}';
+    }
+}
+```
+
+**`src/main/java/com/woong3e/associationmapping/section03/bidirection/Category.java`**
+
+```java
+package com.woong3e.associationmapping.section03.bidirection;
+
+import jakarta.persistence.*;
+
+import java.util.ArrayList;
+import java.util.List;
+
+@Entity(name = "Section03Category")
+@Table(name = "tbl_category")
+public class Category {
+
+    @Id
+    @Column(name = "category_code")
+    private int categoryCode;
+
+    @Column(name = "category_name")
+    private String categoryName;
+
+    @Column(name = "ref_category_code")
+    private Integer refCategoryCode;
+
+    // mappedBy에는 DB 컬럼명이 아니라 반대편 Menu의 연관관계 필드명 category를 적는다.
+    @OneToMany(mappedBy = "category")
+    private List<Menu> menuList = new ArrayList<>();
+
+    public Category() {
+    }
+
+    public Category(int categoryCode, String categoryName, Integer refCategoryCode) {
+        this.categoryCode = categoryCode;
+        this.categoryName = categoryName;
+        this.refCategoryCode = refCategoryCode;
+    }
+
+    // 연관관계 편의 메서드
+    public void addMenu(Menu menu) {
+        menuList.add(menu); // 현재 카테고리의 메뉴 목록에 전달받은 메뉴 추가
+        menu.setCategory(this); // 전달받은 메뉴에도 현재 카테고리를 설정
+    }
+
+    public int getCategoryCode() {
+        return categoryCode;
+    }
+
+    public void setCategoryCode(int categoryCode) {
+        this.categoryCode = categoryCode;
+    }
+
+    public String getCategoryName() {
+        return categoryName;
+    }
+
+    public void setCategoryName(String categoryName) {
+        this.categoryName = categoryName;
+    }
+
+    public Integer getRefCategoryCode() {
+        return refCategoryCode;
+    }
+
+    public void setRefCategoryCode(Integer refCategoryCode) {
+        this.refCategoryCode = refCategoryCode;
+    }
+
+    public List<Menu> getMenuList() {
+        return menuList;
+    }
+
+    public void setMenuList(List<Menu> menuList) {
+        this.menuList = menuList;
+    }
+
+    @Override
+    public String toString() {
+        return "Category{" +
+                "categoryCode=" + categoryCode +
+                ", categoryName='" + categoryName + '\'' +
+                ", refCategoryCode=" + refCategoryCode +
+                '}';
+    }
+
+
+
+}
+```
+
+`Category.toString`은 `menuList`를 출력하지 않는다. `Menu.toString`이 `category`를 출력하므로 양쪽이 서로의 `toString`을 호출하면 끝없이 반복되기 때문이다. 양방향 연관관계에서는 한쪽의 `toString`에서 참조를 빼 순환을 끊어야 한다.
+
+**조회와 지연 로딩**
+
+서비스 메서드는 `@Transactional(readOnly = true)`로 읽기 전용 트랜잭션을 연다. `LAZY`로 지정한 연관 객체는 영속성 컨텍스트가 열려 있는 동안에만 조회할 수 있으므로, 트랜잭션 범위 안에서 `getCategory()`나 `getMenuList()`를 사용해야 한다. 트랜잭션이 끝난 뒤에 아직 읽지 않은 지연 로딩 객체에 접근하면 `LazyInitializationException`이 발생한다. 테스트 클래스에 `@Transactional`을 붙인 것도 같은 이유다.
+
+**`src/main/java/com/woong3e/associationmapping/section03/bidirection/BiDirectionRepository.java`**
+
+```java
+package com.woong3e.associationmapping.section03.bidirection;
+
+import jakarta.persistence.Entity;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import org.springframework.stereotype.Repository;
+
+@Repository
+public class BiDirectionRepository {
+
+    @PersistenceContext
+    private EntityManager entityManager;
+
+    public Menu findMenu(int menuCode) {
+        return entityManager.find(Menu.class, menuCode);
+    }
+
+    public Category findCategory(int categoryCode) {
+        return entityManager.find(Category.class, categoryCode);
+    }
+}
+```
+
+**`src/main/java/com/woong3e/associationmapping/section03/bidirection/BiDirectionService.java`**
+
+```java
+package com.woong3e.associationmapping.section03.bidirection;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+public class BiDirectionService {
+
+    private final BiDirectionRepository biDirectionRepository;
+
+    public BiDirectionService(BiDirectionRepository biDirectionRepository) {
+        this.biDirectionRepository = biDirectionRepository;
+    }
+
+    @Transactional(readOnly = true)
+    public Menu findMenu(int menuCode) {
+        return biDirectionRepository.findMenu(menuCode);
+    }
+
+    @Transactional(readOnly = true)
+    public Category findCategory(int categoryCode){
+        return biDirectionRepository.findCategory(categoryCode);
+    }
+
+}
+```
+
+테스트는 세 가지를 확인한다. 첫째, 주인인 `Menu`(메뉴 코드 10)에서 `Category`를 읽을 수 있다. 둘째, 주인이 아닌 `Category`(카테고리 코드 4)에서 `menuList`를 읽을 수 있고, 목록의 첫 메뉴가 참조하는 카테고리는 조회한 카테고리와 같은 객체(`assertSame`)다. 같은 영속성 컨텍스트 안에서는 같은 행이 같은 객체이기 때문이다. 셋째, 편의 메서드 `addMenu`를 호출하면 데이터베이스 없이도 양쪽 객체가 서로를 가리킨다. 처음 두 테스트는 `menudb`에 카테고리 코드 4와 메뉴 코드 10이 들어 있어야 통과한다.
+
+**`src/test/java/com/woong3e/associationmapping/section03/bidirection/BiDirectionServiceTests.java`**
+
+```java
+package com.woong3e.associationmapping.section03.bidirection;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.transaction.annotation.Transactional;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+@SpringBootTest
+@Transactional
+public class BiDirectionServiceTests {
+
+    @Autowired
+    private BiDirectionService biDirectionService;
+
+    @Test
+    @DisplayName("연관관계의 주인인 메뉴에서 카테고리 조회")
+    void biDirectionFindTest1() {
+        // given
+        int menuCode = 10;
+
+        // when
+        Menu foundMenu = biDirectionService.findMenu(menuCode);
+
+        // then
+        assertEquals(menuCode, foundMenu.getMenuCode());
+        assertNotNull(foundMenu.getCategory());
+    }
+
+    @Test
+    @DisplayName("주인이 아닌 카테고리에서 메뉴 목록 조회")
+    void biDirectionFindTest2() {
+        // given
+        int categoryCode = 4;
+
+        // when
+        Category foundCategory = biDirectionService.findCategory(categoryCode);
+        var menuList = foundCategory.getMenuList();
+
+        // then
+        assertEquals(categoryCode, foundCategory.getCategoryCode());
+        assertFalse(menuList.isEmpty());
+        assertSame(foundCategory, menuList.get(0).getCategory());
+    }
+
+    @Test
+    @DisplayName("연관관계 편의 메소드로 객체 양쪽을 함께 연결")
+    void addMenuTest() {
+        // given
+        Category category = new Category(9002, "퓨전", null);
+        Menu menu = new Menu(9002, "돈까스 스파게티", 15000, null, "Y");
+
+        // when
+        category.addMenu(menu);
+
+        // then
+        assertTrue(category.getMenuList().contains(menu));
+        assertSame(category, menu.getCategory());
+    }
+}
+```
+
+## ☘️ 헷갈리기 쉬운 지점
+
+- 외래 키를 바꾸려면 연관관계의 주인 쪽 참조를 바꿔야 한다. 주인이 아닌 쪽 컬렉션만 수정하면 데이터베이스에는 반영되지 않는다.
+- `mappedBy`에는 컬럼 이름이 아니라 반대편 엔티티의 필드 이름을 쓴다.
+- `ddl-auto: create`는 개발용 초기화 설정이다. 데이터가 있는 데이터베이스에서는 `none`이나 `validate`를 쓴다.
+- 금액이나 비율처럼 정확해야 하는 값에 `double` 계산을 쓰면 반올림 오차가 결과에 드러날 수 있다.
