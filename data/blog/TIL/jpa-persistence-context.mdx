@@ -1,0 +1,463 @@
+---
+title: jpa persistence context
+date: '2026-11-10'
+tags: ['jpa', 'hibernate']
+draft: false
+summary: 'JPA는 객체와 테이블 사이의 변환을 대신하고, 영속성 컨텍스트가 엔티티의 조회·변경·삭제를 추적한다.'
+---
+
+[소스코드: Update 10_jpa/chap00-intro lecture materials](https://github.com/woong3e/sesac_lecture/commit/84dd9f7a3d9f0f1a476bea6005195253b16a3563) · [소스코드: Update 10_jpa/chap01-persistance-context lecture materials](https://github.com/woong3e/sesac_lecture/commit/ffd3f69b4fbc6d0b1acd37ac3b8c6e551fe1fb48)
+
+JDBC로 SQL을 직접 쓰면 테이블 한 행을 Java 객체로 옮기는 코드를 매번 반복해서 작성해야 한다. JPA(Java Persistence API)는 이 변환을 대신하는 Java 표준 명세이고, Hibernate는 그 명세를 구현한 라이브러리다. 이 글은 직접 SQL의 한계가 JPA에서 어떻게 해소되는지, 그리고 JPA의 중심 개념인 영속성 컨텍스트가 엔티티를 어떻게 추적하는지를 실행 가능한 예제로 확인한다.
+
+## ☘️ JDBC로 직접 SQL을 다룰 때 생기는 문제
+
+JDBC(Java Database Connectivity)는 Java 프로그램이 데이터베이스에 SQL을 보내고 결과를 받는 표준 API다. 관계형 데이터베이스의 행과 Java 객체는 표현 방식이 달라서, JDBC만 사용하면 둘 사이의 변환을 개발자가 직접 작성해야 한다. 이런 변환을 자동화하는 기술을 ORM(Object-Relational Mapping)이라고 하며 JPA가 그 대표적인 명세다.
+
+아래 예제는 메뉴 테이블을 JDBC로 조회하는 코드다. 학습 코드의 `ProblemsOfUsingDirectSQLTests`에서 문제가 드러나는 부분만 한 파일로 줄여 다시 쓴 설명용 예제이며, 실제 학습 코드와 동작이 같은 것은 아니다.
+
+**`JdbcMenuExample.java`**
+
+```java
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
+
+public class JdbcMenuExample {
+
+    // 테이블 한 행을 담는 객체. 컬럼이 늘면 필드, 변환 코드, SQL을 모두 고쳐야 한다.
+    static class Menu {
+        int menuCode;
+        String menuName;
+        int menuPrice;
+        int categoryCode;
+        String orderableStatus;
+
+        @Override
+        public String toString() {
+            return "Menu{menuCode=" + menuCode + ", menuName='" + menuName + "', menuPrice=" + menuPrice + "}";
+        }
+    }
+
+    // 조회: SQL 작성 → 실행 → ResultSet을 한 컬럼씩 객체로 옮기는 코드가 매번 반복된다.
+    static List<Menu> findAll(Connection con) throws SQLException {
+        String sql = "SELECT MENU_CODE, MENU_NAME, MENU_PRICE, CATEGORY_CODE, ORDERABLE_STATUS FROM TBL_MENU";
+        List<Menu> menus = new ArrayList<>();
+
+        try (PreparedStatement pstmt = con.prepareStatement(sql);
+             ResultSet rset = pstmt.executeQuery()) {
+            while (rset.next()) {
+                Menu menu = new Menu();
+                menu.menuCode = rset.getInt("MENU_CODE");
+                menu.menuName = rset.getString("MENU_NAME");
+                menu.menuPrice = rset.getInt("MENU_PRICE");
+                menu.categoryCode = rset.getInt("CATEGORY_CODE");
+                menu.orderableStatus = rset.getString("ORDERABLE_STATUS");
+                menus.add(menu);
+            }
+        }
+        return menus;
+    }
+
+    // 같은 행을 두 번 조회하면 서로 다른 객체가 만들어진다. (동일성 보장 문제)
+    static Menu findOne(Connection con, int menuCode) throws SQLException {
+        String sql = "SELECT MENU_CODE, MENU_NAME FROM TBL_MENU WHERE MENU_CODE = ?";
+
+        try (PreparedStatement pstmt = con.prepareStatement(sql)) {
+            pstmt.setInt(1, menuCode);
+            try (ResultSet rset = pstmt.executeQuery()) {
+                if (!rset.next()) {
+                    return null;
+                }
+                Menu menu = new Menu();
+                menu.menuCode = rset.getInt("MENU_CODE");
+                menu.menuName = rset.getString("MENU_NAME");
+                return menu;
+            }
+        }
+    }
+
+    public static void main(String[] args) throws SQLException {
+        // 접속 정보는 환경에 맞게 바꾼다. 비밀번호는 코드에 쓰지 않고 환경 변수에서 읽는다.
+        String url = "jdbc:mysql://localhost:3306/menudb";
+        String user = "ohgiraffers";
+        String password = System.getenv("DB_PASSWORD");
+
+        try (Connection con = DriverManager.getConnection(url, user, password)) {
+            System.out.println("전체 메뉴 수 : " + findAll(con).size());
+
+            Menu first = findOne(con, 1);
+            Menu second = findOne(con, 1);
+            System.out.println("같은 행의 메뉴 이름 일치 : " + first.menuName.equals(second.menuName));
+            System.out.println("같은 객체인가 : " + (first == second));
+        }
+    }
+}
+```
+
+`findAll`은 SQL을 작성하고, 실행하고, `ResultSet`의 컬럼을 하나씩 꺼내 `Menu` 객체에 넣는다. 실행하면 다음과 같이 출력될 것으로 예상된다. 이 예제는 컴파일만 확인했고 실행 결과는 코드를 읽고 예상한 값이다. 전체 메뉴 수는 테이블에 들어 있는 행의 수에 따라 달라진다.
+
+```text
+전체 메뉴 수 : (tbl_menu의 행 수)
+같은 행의 메뉴 이름 일치 : true
+같은 객체인가 : false
+```
+
+이 코드에서 네 가지 문제가 드러난다.
+
+**1. 같은 형태의 코드가 반복된다**
+
+조회마다 SQL 작성, 실행, 컬럼별 값 추출이 따라온다. 컬럼이 하나 늘면 `SELECT` 문, 변환 코드, `INSERT` 문을 모두 고쳐야 하므로 개발 시간이 늘고 누락하기 쉽다.
+
+**2. 개발이 SQL에 의존한다**
+
+조회하는 컬럼을 바꾸면 그 SQL에서 값을 꺼내는 코드도 함께 바꿔야 한다. `SELECT`에서 컬럼 세 개만 가져오면 `Menu`의 나머지 필드는 채워지지 않은 채 남는다. SQL과 객체의 구조가 서로 묶여 있기 때문이다.
+
+**3. 객체와 테이블의 구조가 맞지 않는다 (패러다임 불일치)**
+
+객체는 상속과 객체 참조로 관계를 표현하고, 테이블은 외래 키(FK)로 관계를 표현한다. 예를 들어 메뉴가 카테고리 객체를 직접 가지는 모델을 쓰려면, `JOIN` 결과의 컬럼을 꺼내 `Category` 객체를 만들고 `Menu`에 끼워 넣는 코드를 직접 작성해야 한다. 상속도 마찬가지여서, 회원과 법인 회원을 슈퍼타입·서브타입 테이블로 나눠 두면 `INSERT`를 테이블마다 따로 실행해야 한다. JPA에서는 상속 구조를 매핑해 두면 `entityManager.persist(법인회원)` 한 번으로 저장할 수 있다.
+
+**4. 같은 행이 같은 객체라는 보장이 없다**
+
+위 예제의 `findOne(con, 1)`을 두 번 호출하면 값은 같아도 서로 다른 객체가 만들어진다. 따라서 `first == second`는 `false`다. JPA는 같은 영속성 컨텍스트 안에서 같은 행을 항상 같은 객체로 돌려준다. 이 내용은 아래에서 확인한다.
+
+## ☘️ 엔티티 매니저와 영속성 컨텍스트
+
+JPA에서 테이블과 매핑되는 클래스를 엔티티(Entity)라고 한다. 엔티티를 저장·조회·수정·삭제하는 창구는 `EntityManager`이고, `EntityManager`를 만드는 공장은 `EntityManagerFactory`다. 두 객체는 생성 비용과 사용 범위가 다르다.
+
+| 객체                   | 역할                                                    | 만드는 시점                               |
+| ---------------------- | ------------------------------------------------------- | ----------------------------------------- |
+| `EntityManagerFactory` | 설정을 읽어 `EntityManager`를 만든다. 생성 비용이 크다. | 애플리케이션에서 한 번만 만들어 공유한다. |
+| `EntityManager`        | 엔티티를 저장·조회·수정·삭제한다.                       | 작업 단위마다 새로 만든다.                |
+
+`EntityManager`는 내부에 **영속성 컨텍스트**(Persistence Context)를 하나씩 가진다. 영속성 컨텍스트는 `EntityManager`가 관리하는 엔티티를 보관하는 공간이다. 한 번 조회한 엔티티를 이 공간에 기억해 두기 때문에, 같은 `EntityManager`에서 같은 행을 다시 조회하면 SQL을 다시 보내지 않고 같은 객체를 돌려준다. `EntityManager`마다 영속성 컨텍스트가 따로 있으므로 서로 다른 `EntityManager`가 조회한 객체는 다른 객체다.
+
+학습 코드에서는 이 구분을 `EntityManagerFactoryGenerator`(팩토리를 정적 필드로 한 번만 생성)와 `EntityManagerGenerator`(호출할 때마다 `EntityManager` 생성)로 나누어 표현했다. 아래 예제는 같은 개념을 하나의 테스트 클래스로 합친 설명용 예제다. 학습 코드의 `EntityManagerCRUDTests`와 `EntityLifecycleTests`에서 확인하는 동작을 메뉴 엔티티 하나로 다시 구성했고, 로컬 MySQL의 `menudb`에 연결해 6개 테스트를 실행해 모두 통과하는 것을 확인했다.
+
+**실행 환경**
+
+예제는 Hibernate 7.2.25.Final, MySQL Connector/J 8.0.33, JUnit 5를 사용한다. 아래 `build.gradle`은 학습 코드의 설정이다.
+
+**`build.gradle`**
+
+```groovy
+plugins {
+    id 'java'
+}
+
+group = 'com.woong3e'
+version = '1.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'com.mysql:mysql-connector-j:8.0.33'
+    implementation 'org.hibernate.orm:hibernate-core:7.2.25.Final'
+    testImplementation platform('org.junit:junit-bom:5.10.0')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+test {
+    useJUnitPlatform()
+}
+```
+
+JPA 설정은 `META-INF/persistence.xml`에 둔다. `persistence-unit`의 이름으로 `EntityManagerFactory`를 구분하고, `class`에는 엔티티 클래스를 등록한다. 비밀번호는 환경에 맞게 `<DB 비밀번호>` 자리에 직접 채운다. `hibernate.show_sql`을 켜면 Hibernate가 실행한 SQL이 콘솔에 출력되어 영속성 컨텍스트가 SQL을 언제 보내는지 확인할 수 있다.
+
+**`src/main/resources/META-INF/persistence.xml`**
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<persistence xmlns="https://jakarta.ee/xml/ns/persistence"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="https://jakarta.ee/xml/ns/persistence https://jakarta.ee/xml/ns/persistence/persistence_3_1.xsd"
+             version="3.1">
+    <persistence-unit name="jpademo">
+        <class>demo.Menu</class>
+
+        <properties>
+            <property name="jakarta.persistence.jdbc.driver" value="com.mysql.cj.jdbc.Driver"/>
+            <property name="jakarta.persistence.jdbc.url" value="jdbc:mysql://localhost:3306/menudb"/>
+            <property name="jakarta.persistence.jdbc.user" value="ohgiraffers"/>
+            <property name="jakarta.persistence.jdbc.password" value="<DB 비밀번호>"/>
+            <property name="hibernate.show_sql" value="true"/>
+            <property name="hibernate.format_sql" value="true"/>
+        </properties>
+    </persistence-unit>
+</persistence>
+```
+
+**엔티티 클래스**
+
+`@Entity`는 클래스를 JPA가 관리하는 엔티티로, `@Table`은 매핑할 테이블을, `@Column`은 필드와 연결할 컬럼을 지정한다. `@Id`는 기본 키이고 `GenerationType.IDENTITY`는 기본 키 값을 데이터베이스(MySQL의 `AUTO_INCREMENT`)가 만들도록 맡긴다. 파라미터가 없는 기본 생성자는 JPA가 조회 결과로 엔티티를 만들 때 필요하므로 `protected`로 둔다.
+
+**`src/main/java/demo/Menu.java`**
+
+```java
+package demo;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+
+@Entity
+@Table(name = "tbl_menu")
+public class Menu {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "menu_code")
+    private int menuCode;
+
+    @Column(name = "menu_name")
+    private String menuName;
+
+    @Column(name = "menu_price")
+    private int menuPrice;
+
+    @Column(name = "category_code")
+    private int categoryCode;
+
+    @Column(name = "orderable_status")
+    private String orderableStatus;
+
+    // JPA가 조회 결과로 엔티티를 만들 때 사용하는 기본 생성자
+    protected Menu() {
+    }
+
+    public Menu(String menuName, int menuPrice, int categoryCode, String orderableStatus) {
+        this.menuName = menuName;
+        this.menuPrice = menuPrice;
+        this.categoryCode = categoryCode;
+        this.orderableStatus = orderableStatus;
+    }
+
+    public int getMenuCode() {
+        return menuCode;
+    }
+
+    public String getMenuName() {
+        return menuName;
+    }
+
+    public void setMenuName(String menuName) {
+        this.menuName = menuName;
+    }
+
+    public int getMenuPrice() {
+        return menuPrice;
+    }
+
+    public void setMenuPrice(int menuPrice) {
+        this.menuPrice = menuPrice;
+    }
+}
+```
+
+**동작을 확인하는 테스트**
+
+각 테스트는 트랜잭션을 시작한 뒤 마지막에 롤백하므로 데이터베이스의 데이터를 바꾸지 않는다. 다만 `IDENTITY` 방식으로 `INSERT`한 행은 롤백되어도 `AUTO_INCREMENT` 번호는 건너뛸 수 있다.
+
+**`src/test/java/demo/PersistenceContextTests.java`**
+
+```java
+package demo;
+
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.EntityManagerFactory;
+import jakarta.persistence.Persistence;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+class PersistenceContextTests {
+
+    // EntityManagerFactory는 애플리케이션에서 한 번만 만들고 공유한다.
+    private static EntityManagerFactory factory;
+
+    // EntityManager는 작업 단위마다 새로 만든다. 영속성 컨텍스트는 EntityManager마다 따로 존재한다.
+    private EntityManager em;
+
+    @BeforeAll
+    static void createFactory() {
+        factory = Persistence.createEntityManagerFactory("jpademo");
+    }
+
+    @AfterAll
+    static void closeFactory() {
+        factory.close();
+    }
+
+    @BeforeEach
+    void begin() {
+        em = factory.createEntityManager();
+        em.getTransaction().begin();
+    }
+
+    @AfterEach
+    void rollbackAndClose() {
+        // 테스트가 DB 데이터를 바꾸지 않도록 항상 롤백한다.
+        if (em.getTransaction().isActive()) {
+            em.getTransaction().rollback();
+        }
+        em.close();
+    }
+
+    @Test
+    void sameEntityManagerReturnsSameInstance() {
+        Menu first = em.find(Menu.class, 3);   // SELECT 실행
+        Menu second = em.find(Menu.class, 3);  // 영속성 컨텍스트에서 반환, SELECT 없음
+
+        assertSame(first, second);
+    }
+
+    @Test
+    void differentEntityManagersReturnDifferentInstances() {
+        EntityManager other = factory.createEntityManager();
+        try {
+            Menu first = em.find(Menu.class, 3);
+            Menu second = other.find(Menu.class, 3);
+
+            assertNotSame(first, second);
+        } finally {
+            other.close();
+        }
+    }
+
+    @Test
+    void persistThenDirtyChecking() {
+        Menu menu = new Menu("신메뉴", 35_000, 4, "Y");
+
+        em.persist(menu);                       // IDENTITY 전략은 persist 시점에 INSERT가 실행된다.
+        assertTrue(menu.getMenuCode() > 0);     // INSERT 후 DB가 만든 PK가 채워진다.
+        assertTrue(em.contains(menu));          // 영속 상태
+
+        menu.setMenuName("변경된 이름");        // update 호출 없이 필드만 바꾼다.
+        em.flush();                             // 변경 감지 → UPDATE 실행
+        em.clear();                             // 영속성 컨텍스트를 비워 DB에서 다시 읽게 한다.
+
+        Menu reloaded = em.find(Menu.class, menu.getMenuCode());
+        assertEquals("변경된 이름", reloaded.getMenuName());
+    }
+
+    @Test
+    void detachedEntityIsNotDirtyChecked() {
+        Menu menu = em.find(Menu.class, 10);
+        int originalPrice = menu.getMenuPrice();
+
+        em.detach(menu);                        // 준영속 상태로 전환
+        menu.setMenuPrice(originalPrice + 1_000);
+        em.flush();                             // 관리 대상이 아니므로 UPDATE가 없다.
+
+        Menu reloaded = em.find(Menu.class, 10);
+        assertEquals(originalPrice, reloaded.getMenuPrice());
+        assertFalse(em.contains(menu));
+    }
+
+    @Test
+    void mergeReturnsNewManagedInstance() {
+        Menu detached = em.find(Menu.class, 10);
+        em.detach(detached);
+        detached.setMenuName("병합된 이름");
+
+        Menu merged = em.merge(detached);       // 상태를 복사한 새 영속 객체를 반환한다.
+
+        assertFalse(em.contains(detached));
+        assertTrue(em.contains(merged));
+        assertNotSame(detached, merged);
+        assertEquals("병합된 이름", merged.getMenuName());
+    }
+
+    @Test
+    void removeDeletesRow() {
+        Menu menu = em.find(Menu.class, 6);
+
+        em.remove(menu);                        // 삭제 상태로 전환
+        em.flush();                             // DELETE 실행
+        em.clear();
+
+        assertNull(em.find(Menu.class, 6));
+    }
+}
+```
+
+## ☘️ 엔티티의 상태와 변경 감지
+
+엔티티는 영속성 컨텍스트와의 관계에 따라 네 가지 상태를 가진다.
+
+| 상태   | 의미                                     | 만드는 방법                         |
+| ------ | ---------------------------------------- | ----------------------------------- |
+| 비영속 | 객체를 만들었지만 JPA가 관리하지 않는다. | `new Menu(...)`                     |
+| 영속   | 영속성 컨텍스트가 관리한다.              | `persist`, `find`, `merge`의 반환값 |
+| 준영속 | 한때 관리되었지만 지금은 분리되었다.     | `detach`, `clear`, `close`          |
+| 삭제   | 삭제 대상으로 지정되었다.                | `remove`                            |
+
+위 테스트가 각각 어떤 동작을 확인하는지 정리하면 다음과 같다.
+
+**조회와 동일성** (`sameEntityManagerReturnsSameInstance`, `differentEntityManagersReturnDifferentInstances`)
+
+같은 `EntityManager`로 `find(Menu.class, 3)`를 두 번 호출하면 첫 호출에서만 `SELECT`가 실행되고, 두 번째는 영속성 컨텍스트에 있는 객체를 그대로 돌려준다. 그래서 `assertSame`이 성립한다. 다른 `EntityManager`로 조회한 객체는 `assertNotSame`이다. 앞에서 본 JDBC의 동일성 문제가 영속성 컨텍스트 안에서는 해소된다.
+
+**저장과 변경 감지** (`persistThenDirtyChecking`)
+
+`persist`는 비영속 객체를 영속 상태로 만든다. 기본 키 생성을 `IDENTITY`에 맡기면 기본 키를 알려면 `INSERT`를 실행해야 하므로 `persist` 시점에 `INSERT`가 바로 실행되고, 그 직후 `getMenuCode()`가 0보다 큰 값을 돌려준다. 이어서 `setMenuName`으로 필드만 바꾸고 `update` 같은 메서드는 호출하지 않았다. 영속 상태의 엔티티는 처음 조회한 시점의 상태를 영속성 컨텍스트가 기억하고 있다가, `flush` 시점에 현재 값과 비교해 달라진 엔티티의 `UPDATE`를 만든다. 이를 변경 감지(dirty checking)라고 한다.
+
+이 테스트를 실행했을 때 Hibernate가 출력한 SQL은 다음과 같다. `UPDATE`가 변경한 필드만이 아니라 모든 컬럼을 갱신하는 것도 확인된다.
+
+```sql
+insert
+into
+    tbl_menu
+    (category_code, menu_name, menu_price, orderable_status)
+values
+    (?, ?, ?, ?)
+
+update
+    tbl_menu
+set
+    category_code=?,
+    menu_name=?,
+    menu_price=?,
+    orderable_status=?
+where
+    menu_code=?
+```
+
+**준영속과 병합** (`detachedEntityIsNotDirtyChecked`, `mergeReturnsNewManagedInstance`)
+
+`detach`한 엔티티는 더 이상 관리되지 않으므로 값을 바꿔도 `flush`에서 `UPDATE`가 나가지 않는다. 6개 테스트 전체에서 실행된 `INSERT`, `UPDATE`, `DELETE`가 각각 한 번씩이었고, 그 `UPDATE`는 `persistThenDirtyChecking`의 것이다. `detachedEntityIsNotDirtyChecked`에서는 `UPDATE`가 나가지 않았다는 뜻이다.
+
+`merge`는 준영속 객체의 값을 영속성 컨텍스트로 옮긴다. 전달한 객체가 다시 영속 상태가 되는 것이 아니라 값을 복사한 **새 영속 객체를 반환**한다. 그래서 테스트에서도 `detached`는 `contains`가 `false`이고 `merged`가 `true`다. 이후 변경은 반환된 객체로 해야 한다.
+
+**삭제** (`removeDeletesRow`)
+
+`remove`는 엔티티를 삭제 상태로 바꾸고, 실제 `DELETE`는 `flush` 시점에 실행된다. `flush` 뒤 `clear`로 영속성 컨텍스트를 비우고 다시 `find`를 호출하면 `null`이 반환되어 행이 삭제되었음을 확인할 수 있다.
+
+## ☘️ 헷갈리기 쉬운 지점
+
+- `flush`는 영속성 컨텍스트의 변경을 SQL로 데이터베이스에 보내는 동작이고, 커밋과는 다르다. 트랜잭션이 롤백되면 `flush`로 보낸 SQL의 결과도 취소된다. 위 테스트가 데이터를 남기지 않는 이유다.
+- `flush`한 직후 같은 `EntityManager`로 `find`를 호출하면 데이터베이스가 아니라 영속성 컨텍스트의 객체가 반환될 수 있다. 데이터베이스에 저장된 값을 확인하려면 `clear`로 컨텍스트를 비운 뒤 조회해야 한다. 테스트에서 `flush`, `clear`, `find`를 이 순서로 쓴 이유다.
+- `merge`의 반환값을 버리고 원래 객체를 계속 수정하면 그 변경은 관리되지 않는다.
+- `IDENTITY` 전략에서는 `persist` 시점에 `INSERT`가 실행되므로, 트랜잭션 끝까지 SQL을 모아 두었다가 한꺼번에 보내는 동작과는 시점이 다르다.
