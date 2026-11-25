@@ -24,7 +24,7 @@ import { createServer } from 'node:http'
 import { createReadStream, existsSync, mkdirSync, readFileSync, statSync } from 'node:fs'
 import { extname, join, resolve } from 'node:path'
 
-const PLAYWRIGHT = 'playwright@1.56.1'
+const PLAYWRIGHT = 'playwright@1.64.1'
 
 const args = process.argv.slice(2)
 const flag = (name) => args.includes(name)

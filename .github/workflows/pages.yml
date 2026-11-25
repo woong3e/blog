@@ -85,18 +85,22 @@ jobs:
           path: .pdf-cache
           key: project-pdf-${{ hashFiles('data/projects/**', 'layouts/ProjectLayout.tsx', 'components/MDXComponents.tsx', 'app/layout.tsx', 'css/**', 'public/fonts/**', 'scripts/project-pdfs.mjs') }}
 
+      # PDF가 실패해도 사이트 배포는 계속한다. 실패하면 .pdf-cache 를 지워서
+      # 잘못된 결과가 캐시되지 않게 하고, 다음 배포에서 다시 시도한다.
       - name: Generate project PDFs
         if: steps.pdf-cache.outputs.cache-hit != 'true'
+        continue-on-error: true
         env:
           BASE_PATH: ${{ steps.configurepages.outputs.base_path }}
         run: |
-          node scripts/project-pdfs.mjs --install --with-deps
-          node scripts/project-pdfs.mjs --out .pdf-cache
+          node scripts/project-pdfs.mjs --install --with-deps \
+            && node scripts/project-pdfs.mjs --out .pdf-cache \
+            || { rm -rf .pdf-cache; exit 1; }
 
       - name: Add project PDFs to site
         run: |
           mkdir -p out/static/pdf/projects
-          cp -R .pdf-cache/. out/static/pdf/projects/
+          if [ -d .pdf-cache ]; then cp -R .pdf-cache/. out/static/pdf/projects/; fi
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
