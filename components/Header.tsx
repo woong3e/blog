@@ -11,7 +11,8 @@ import { usePathname } from 'next/navigation'
 import TrueFocus from './TrueFocus'
 
 const Header = () => {
-  let headerClass = 'flex w-full items-center justify-between gap-6 bg-white py-10 dark:bg-gray-950'
+  let headerClass =
+    'flex w-full items-center justify-between gap-6 bg-white py-10 dark:bg-gray-950 print:hidden'
   if (siteMetadata.stickyNav) {
     headerClass += ' sticky top-0 z-50'
   }

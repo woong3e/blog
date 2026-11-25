@@ -77,6 +77,27 @@ jobs:
           NEXT_PUBLIC_GISCUS_CATEGORY: ${{ secrets.NEXT_PUBLIC_GISCUS_CATEGORY }}
           NEXT_PUBLIC_GISCUS_CATEGORY_ID: ${{ secrets.NEXT_PUBLIC_GISCUS_CATEGORY_ID }}
 
+      # 프로젝트 PDF: 아래 파일이 바뀌었을 때만 다시 만들고, 아니면 캐시된 PDF를 재사용
+      - name: Restore project PDFs
+        id: pdf-cache
+        uses: actions/cache@v4
+        with:
+          path: .pdf-cache
+          key: project-pdf-${{ hashFiles('data/projects/**', 'layouts/ProjectLayout.tsx', 'components/MDXComponents.tsx', 'app/layout.tsx', 'css/**', 'public/fonts/**', 'scripts/project-pdfs.mjs') }}
+
+      - name: Generate project PDFs
+        if: steps.pdf-cache.outputs.cache-hit != 'true'
+        env:
+          BASE_PATH: ${{ steps.configurepages.outputs.base_path }}
+        run: |
+          node scripts/project-pdfs.mjs --install --with-deps
+          node scripts/project-pdfs.mjs --out .pdf-cache
+
+      - name: Add project PDFs to site
+        run: |
+          mkdir -p out/static/pdf/projects
+          cp -R .pdf-cache/. out/static/pdf/projects/
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
