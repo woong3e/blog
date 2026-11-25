@@ -1,0 +1,26 @@
+{
+  "version": 2,
+  "skills": {
+    "portfolio-case-study-writer": {
+      "source": "Paramchoudhary/ResumeSkills",
+      "commit": "74ae19e7c62b0516d1c298328e5544976c12da5d",
+      "sourceType": "github",
+      "skillPath": "skills/portfolio-case-study-writer/SKILL.md",
+      "computedHash": "fc7185ce58d0a03cc753e341836fc3d4f7c71cff6fa316c893a42bf7448f9494"
+    },
+    "resume-bullet-writer": {
+      "source": "Paramchoudhary/ResumeSkills",
+      "commit": "74ae19e7c62b0516d1c298328e5544976c12da5d",
+      "sourceType": "github",
+      "skillPath": "skills/resume-bullet-writer/SKILL.md",
+      "computedHash": "51e277dea0f69a04de6a66b89797f3c84cf62c8d62370c2d144692e3f86c7d3b"
+    },
+    "resume-quantifier": {
+      "source": "Paramchoudhary/ResumeSkills",
+      "commit": "74ae19e7c62b0516d1c298328e5544976c12da5d",
+      "sourceType": "github",
+      "skillPath": "skills/resume-quantifier/SKILL.md",
+      "computedHash": "8ddbbc5cb2acd0bdda68e616a8c89a00a4ad74d9e492c807844d6ea23975f9fa"
+    }
+  }
+}
