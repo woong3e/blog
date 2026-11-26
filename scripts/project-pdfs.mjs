@@ -19,7 +19,7 @@
  *
  * 환경 변수 BASE_PATH 는 next.config.js 와 같은 의미 (GitHub Pages 하위 경로)
  */
-import { spawnSync } from 'node:child_process'
+import { spawn } from 'node:child_process'
 import { createServer } from 'node:http'
 import { createReadStream, existsSync, mkdirSync, readFileSync, statSync } from 'node:fs'
 import { extname, join, resolve } from 'node:path'
@@ -33,12 +33,21 @@ const option = (name, fallback) => {
   return i >= 0 ? args[i + 1] : fallback
 }
 
-const npx = (playwrightArgs) =>
-  spawnSync('npx', ['-y', PLAYWRIGHT, ...playwrightArgs], { stdio: 'inherit' }).status
+// spawnSync 를 쓰면 이벤트 루프가 막혀 아래 정적 서버가 응답하지 못하고 Playwright가 무한 대기한다.
+// 그래서 비동기 spawn 을 쓰고, 혹시 멈춰도 timeout 으로 끊는다.
+const npx = (playwrightArgs, timeout = 0) =>
+  new Promise((ok) => {
+    const child = spawn('npx', ['-y', PLAYWRIGHT, ...playwrightArgs], {
+      stdio: 'inherit',
+      timeout,
+    })
+    child.on('error', () => ok(1))
+    child.on('close', (code) => ok(code ?? 1))
+  })
 
 if (flag('--install')) {
   const extra = flag('--with-deps') ? ['--with-deps'] : []
-  process.exit(npx(['install', ...extra, 'chromium']))
+  process.exit(await npx(['install', ...extra, 'chromium']))
 }
 
 const basePath = process.env.BASE_PATH || ''
@@ -114,20 +123,23 @@ for (const project of projects) {
   const url = `${origin}/${project.path}`
   const file = join(outDir, `${project.slug}.pdf`)
   console.log(`[project-pdfs] ${url} → ${file}`)
-  const status = npx([
-    'pdf',
-    '--paper-format',
-    'A4',
-    '--color-scheme',
-    'light',
-    '--wait-for-selector',
-    'article',
-    // 웹폰트·이미지 로딩 대기
-    '--wait-for-timeout',
-    '1500',
-    url,
-    file,
-  ])
+  const status = await npx(
+    [
+      'pdf',
+      '--paper-format',
+      'A4',
+      '--color-scheme',
+      'light',
+      '--wait-for-selector',
+      'article',
+      // 웹폰트·이미지 로딩 대기
+      '--wait-for-timeout',
+      '1500',
+      url,
+      file,
+    ],
+    3 * 60 * 1000
+  )
   if (status !== 0) failed++
 }
 
