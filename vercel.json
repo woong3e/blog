@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/static/pdf/projects/:file",
+      "destination": "https://woong3e.github.io/blog/static/pdf/projects/:file"
+    }
+  ]
+}
